@@ -1,9 +1,0 @@
-
-
-
-
-.\Build.ps1 -BumpVersion
-
-PS C:\Users\nicola.vigano\OneDrive - LUTECH SPA\Desktop\ProjectPS\DashHtml> 
-
-Publish-Module -path .\dist\DashHtml -NuGetApiKey 'oy2ifbvdhqs5pmvybvwqpw246m2zocyefazybmof3uvi3a' -Repository 'PSGallery' -Verbose
