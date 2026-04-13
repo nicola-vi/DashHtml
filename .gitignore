@@ -1,5 +1,5 @@
 # Build output
-dist/
+dist_out/
 
 # Generated demo / sample HTML files
 *.html

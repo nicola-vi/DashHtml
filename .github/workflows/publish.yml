@@ -1,0 +1,25 @@
+name: Publish to PSGallery
+
+on:
+  push:
+    tags:
+      - 'v*'   # triggers on v1.0.0, v1.0.1, etc.
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: pwsh
+        run: .\Build.ps1
+
+      - name: Publish to PSGallery
+        shell: pwsh
+        run: |
+          Publish-Module -Path .\dist\DashHtml `
+                         -NuGetApiKey '${{ secrets.PSGALLERY_API_KEY }}' `
+                         -Repository PSGallery `
+                         -Verbose
