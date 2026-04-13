@@ -662,6 +662,7 @@ function Get-DhJsContent {
     this.currentPage = 1;
     this.render();
     this._refreshLinkedBarCharts();
+    this._renderCharts();
   };
 
   /* Re-render any bar charts that reference this table */
@@ -705,11 +706,11 @@ function Get-DhJsContent {
     inp.addEventListener('input',function(){
       self.filterText=inp.value;self.currentPage=1;
       clr.style.display=inp.value?'flex':'none';
-      self.render();self._refreshLinkedBarCharts();URLState.save();
+      self.render();self._refreshLinkedBarCharts();self._renderCharts();URLState.save();
     });
     clr.addEventListener('click',function(){
       inp.value='';self.filterText='';clr.style.display='none';
-      self.currentPage=1;self.render();self._refreshLinkedBarCharts();URLState.save();
+      self.currentPage=1;self.render();self._refreshLinkedBarCharts();self._renderCharts();URLState.save();
     });
     /* Restore from URL */
     var saved=URLState.load();
@@ -1233,7 +1234,7 @@ function Get-DhJsContent {
 
   TableEngine.prototype._buildPieChart=function(chart){
     var self=this,palette=this._chartPalette(),counts={};
-    this.allData.forEach(function(row){var v=(row[chart.field]!=null)?String(row[chart.field]):'(empty)';counts[v]=(counts[v]||0)+1;});
+    this._getFiltered().forEach(function(row){var v=(row[chart.field]!=null)?String(row[chart.field]):'(empty)';counts[v]=(counts[v]||0)+1;});
     var entries=Object.keys(counts).map(function(k,i){return{label:k,count:counts[k],color:palette[i%palette.length]};}).sort(function(a,b){return b.count-a.count;});
     var total=entries.reduce(function(s,e){return s+e.count;},0);if(!total)return document.createElement('div');
     var size=130,cx=65,cy=65,r=56,inner=30;
