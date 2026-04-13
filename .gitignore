@@ -1,0 +1,24 @@
+# Build output
+dist/
+
+# Generated demo / sample HTML files
+*.html
+
+# Migration / internal docs not intended for the public repo
+how-to-update-*.md
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# PowerShell test results
+TestResults*.xml
+*.nupkg
+
+# Editor
+.vscode/
+.idea/
+*.user
+
+# Claude Code session data
+.claude/
