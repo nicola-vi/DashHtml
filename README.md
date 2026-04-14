@@ -42,7 +42,7 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 
 Copy the `DashHtml/` folder to a directory in `$env:PSModulePath`, under a versioned subfolder:
 ```
-<modules-root>\DashHtml\1.0.0\
+<modules-root>\DashHtml\1.1.0\
 ```
 
 ---
@@ -241,10 +241,15 @@ Set-DhTableLink -Report $report -MasterTableId 'groups' -DetailTableId 'items' `
 
 ## Two-tier navigation
 
-Use `-NavGroup` on any cmdlet to create a grouped navigation with a primary tab bar and a sub-nav strip:
+Use `-NavGroup` on **any** cmdlet (`Add-DhTable`, `Add-DhFilterCard`, `Add-DhBarChart`, `Add-DhHtmlBlock`, `Add-DhCollapsible`) to create a grouped navigation with a primary tab bar and a sub-nav strip:
 
 ```powershell
 $report = New-DhDashboard -Title 'Operations Dashboard'
+
+# Filter card and bar chart placed at the top of the Identity group
+Add-DhFilterCard -Report $report -Id 'status-fc' -NavGroup 'Identity' `
+    -Title 'Filter by Status' -TargetTableId 'users' -FilterField 'Status' `
+    -Cards @( @{Label='Active'; Value='Active'}, @{Label='Disabled'; Value='Disabled'} )
 
 Add-DhTable -Report $report -TableId 'users'   -Title 'Users'   -Data $users   -NavGroup 'Identity'
 Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups'  -Data $groups  -NavGroup 'Identity'
@@ -254,7 +259,7 @@ Add-DhTable -Report $report -TableId 'disks'   -Title 'Disks'   -Data $disks   -
 Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
 ```
 
-Result: primary nav shows **Identity** and **Infrastructure** group tabs. Clicking a group tab shows the subnav for that group.
+Result: primary nav shows **Identity** and **Infrastructure** group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching `-NavGroup` appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.
 
 ---
 

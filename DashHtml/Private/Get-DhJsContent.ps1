@@ -479,7 +479,8 @@ function Get-DhJsContent {
     if (!links.length) return;
 
     function showPanel(id) {
-      document.querySelectorAll('.table-section, .block-section').forEach(function (sec) {
+      /* Leave ungrouped blocks (no data-navgroup) untouched — they are always visible */
+      document.querySelectorAll('.table-section, .block-section[data-navgroup]').forEach(function (sec) {
         sec.classList.remove('panel-active');
       });
       links.forEach(function (l) { l.classList.remove('nav-active'); });
@@ -550,6 +551,12 @@ function Get-DhJsContent {
       document.querySelectorAll('.block-section[data-navgroup="'+groupName+'"]').forEach(function (s) {
         s.classList.add('panel-active');
       });
+      /* Show/hide subnav strip — hide it when this group has no table sub-links */
+      var subnavEl = document.getElementById('nav-subnav');
+      if (subnavEl) {
+        var hasGroupLinks = !!document.querySelector('#nav-subnav .nav-link[data-group="'+groupName+'"]');
+        subnavEl.style.display = hasGroupLinks ? '' : 'none';
+      }
       currentGroup = groupName;
       /* Activate first subnav link */
       var firstLink = document.querySelector('#nav-subnav .nav-link[data-group="'+groupName+'"]');

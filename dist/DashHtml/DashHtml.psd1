@@ -1,7 +1,7 @@
 @{
     # Module identity
     RootModule        = 'DashHtml.psm1'
-    ModuleVersion     = '1.0.0'
+    ModuleVersion     = '1.1.0'
     GUID              = '3f8e9a2c-1d4b-47f5-8c6e-0a5d2b9f3e71'
     Author            = 'DashHtml Contributors'
     CompanyName       = 'DashHtml Contributors'
@@ -32,7 +32,7 @@
             Tags         = @('HTML','Dashboard','Table','Export','CSV','Excel','PDF','Report','Infrastructure')
             LicenseUri   = 'https://github.com/nicola-vi/DashHtml/blob/main/LICENSE'
             ProjectUri   = 'https://github.com/nicola-vi/DashHtml'
-            ReleaseNotes = '1.0.0 — Initial release. Sortable/filterable/pageable tables, KPI tiles, bar charts, clickable filter cards, collapsible sections, master-detail table linking, two-tier navigation, pie charts, progress bars, badge cells, threshold colouring, row highlighting, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, client-side CSV/XLSX/PDF export, five theme families (Default/Azure/VMware/Grey/Company) each with embedded light+dark variants and a runtime toggle.'
+            ReleaseNotes = '1.1.0 — Navigation and UI fixes: block-only NavGroups now generate a visible group tab; ungrouped blocks stay visible in flat-nav panel switching; subnav strip hidden for groups with no table sub-links. Filter cards redesigned as compact chips.'
         }
     }
 }

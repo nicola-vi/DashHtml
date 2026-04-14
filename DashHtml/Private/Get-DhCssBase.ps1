@@ -1460,59 +1460,59 @@ body.theme-forced-dark {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
   box-shadow: var(--shadow-md);
   margin-bottom: var(--space-md);
 }
 
 .filter-card-title {
-  font-size: var(--size-md);
+  font-size: var(--size-sm);
   font-weight: var(--weight-bold);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .filter-card-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: 5px;
 }
 
 .filter-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 1px;
   background: var(--bg-table);
-  border: 2px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
   cursor: pointer;
   transition: all var(--trans-fast);
   position: relative;
-  min-width: 110px;
+  min-width: 80px;
 }
 .filter-card:hover { border-color: var(--accent-primary); background: var(--bg-row-hover); }
-.filter-card.active { border-color: var(--accent-primary); background: var(--bg-row-sel); }
+.filter-card.active { border-color: var(--accent-primary); background: var(--bg-row-sel); box-shadow: 0 0 0 2px var(--accent-primary); }
 
-.filter-card-icon { font-size: 1.2em; }
-.filter-card-name { font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--text-primary); }
-.filter-card-sub  { font-size: var(--size-xs); color: var(--text-muted); }
+.filter-card-icon { font-size: 1em; }
+.filter-card-name { font-size: var(--size-xs); font-weight: var(--weight-bold); color: var(--text-primary); }
+.filter-card-sub  { font-size: 0.7rem; color: var(--text-muted); }
 
 .filter-card-count {
   position: absolute;
-  top: 4px;
-  right: 6px;
+  top: 3px;
+  right: 5px;
   background: var(--accent-primary);
   color: var(--text-invert);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: var(--weight-bold);
   border-radius: 99px;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 4px;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1605,7 +1605,7 @@ body.theme-forced-dark {
 @media (max-width: 900px) {
   .info-fields-grid { gap: var(--space-sm); }
   .coll-card { min-width: 150px; }
-  .filter-card { min-width: 90px; }
+  .filter-card { min-width: 65px; }
   .collapsible-card-grid { gap: var(--space-sm); }
 }
 

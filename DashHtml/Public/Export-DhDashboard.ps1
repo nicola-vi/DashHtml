@@ -257,11 +257,19 @@ function Export-DhDashboard {
                   ($Report.Contains('Blocks') -and ($Report.Blocks | Where-Object { $_.NavGroup }))
 
     if ($hasTwoTier) {
-        # Collect ordered unique groups from tables (blocks with NavGroup are shown/hidden but have no nav link)
+        # Collect ordered unique groups — tables first (preserve order), then any block-only groups
         $groupOrder = [System.Collections.Generic.List[string]]::new()
         foreach ($t in $Report.Tables) {
             if ($t.NavGroup -and -not $groupOrder.Contains($t.NavGroup)) {
                 $groupOrder.Add($t.NavGroup)
+            }
+        }
+        # Blocks may introduce groups that have no matching table (e.g. a filter-card-only group)
+        if ($Report.Contains('Blocks')) {
+            foreach ($b in $Report.Blocks) {
+                if ($b.NavGroup -and -not $groupOrder.Contains($b.NavGroup)) {
+                    $groupOrder.Add($b.NavGroup)
+                }
             }
         }
 

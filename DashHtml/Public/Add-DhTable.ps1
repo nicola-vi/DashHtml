@@ -83,6 +83,44 @@ function Add-DhTable {
     .PARAMETER Pageable     Show pagination (default $true).
     .PARAMETER MultiSelect  Checkbox multi-select (default $false).
     .PARAMETER Description  Paragraph below the table title.
+
+    .EXAMPLE
+        # Basic table — columns auto-detected from object properties
+        $servers = @(
+            [PSCustomObject]@{ Name='srv-001'; OS='Windows Server 2022'; CPU=42; Status='OK'   }
+            [PSCustomObject]@{ Name='srv-002'; OS='Windows Server 2019'; CPU=78; Status='Warn' }
+        )
+        Add-DhTable -Report $report -TableId 'servers' -Title 'Server Inventory' -Data $servers
+
+    .EXAMPLE
+        # Custom columns with formatting, thresholds and row highlighting
+        $cols = @(
+            @{ Field='Name';   Label='Server';  Width='160px'; PinFirst=$true }
+            @{ Field='CPU';    Label='CPU %';   Align='right'; Format='number'; Decimals=0
+               Thresholds=@(
+                   @{ Max=70;          Class='cell-ok'     }
+                   @{ Min=70; Max=85;  Class='cell-warn'   }
+                   @{                  Class='cell-danger' }
+               )
+               RowHighlight=$true
+            }
+            @{ Field='Status'; Label='Status'
+               Thresholds=@(
+                   @{ Value='OK';   Class='cell-ok'     }
+                   @{ Value='Warn'; Class='cell-warn'   }
+                   @{ Value='Crit'; Class='cell-danger' }
+               )
+            }
+            @{ Field='Cost'; Label='Monthly Cost'; Format='currency'; Locale='en-US'; Currency='USD'; Decimals=2 }
+        )
+        Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers `
+            -Columns $cols -PageSize 25 -Description 'Live CPU and cost data.'
+
+    .EXAMPLE
+        # Table in a two-tier navigation group with a pie chart
+        Add-DhTable -Report $report -TableId 'vms' -Title 'Virtual Machines' -Data $vms `
+            -NavGroup 'Azure' `
+            -Charts @( @{ Title='VMs by Status'; Field='Status'; Type='pie' } )
     #>
     [CmdletBinding()]
     param(
