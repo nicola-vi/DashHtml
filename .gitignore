@@ -1,9 +1,6 @@
 # Build output
 dist/
 
-# Generated demo / sample HTML files
-*.html
-
 # Migration / internal docs not intended for the public repo
 how-to-update-*.md
 

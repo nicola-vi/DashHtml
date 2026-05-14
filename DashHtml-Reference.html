@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Build-DhReference.ps1">
+<title>DashHtml v1.3.1 — PowerShell Module Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #0d1117;
+  --bg2:         #161b22;
+  --bg3:         #21262d;
+  --bg4:         #30363d;
+  --border:      #30363d;
+  --border2:     #484f58;
+  --text:        #e6edf3;
+  --text2:       #8b949e;
+  --text3:       #6e7681;
+  --accent:      #58a6ff;
+  --accent2:     #1f6feb;
+  --accent-dim:  #1c3458;
+  --green:       #3fb950;
+  --green-dim:   #0f2d18;
+  --orange:      #d29922;
+  --orange-dim:  #2d1f00;
+  --red:         #f85149;
+  --red-dim:     #2d0f0f;
+  --purple:      #bc8cff;
+  --purple-dim:  #1e1230;
+  --nav-w:       260px;
+  --radius:      8px;
+  --radius-lg:   12px;
+  --font-ui:     'Sora', system-ui, sans-serif;
+  --font-mono:   'JetBrains Mono', 'Cascadia Code', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.7;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+aside {
+  width: var(--nav-w);
+  flex-shrink: 0;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 100;
+}
+.sidebar-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.logo-badge {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent2), var(--purple));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+}
+.sidebar-title { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+.sidebar-version {
+  font-size: 11px; color: var(--text3); font-family: var(--font-mono);
+  background: var(--bg3); padding: 2px 8px; border-radius: 4px;
+  display: inline-block; margin-top: 4px;
+}
+.nav-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text3); padding: 16px 20px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 7px 20px;
+  font-size: 13px; color: var(--text2); cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.15s; text-decoration: none;
+}
+.nav-item:hover { color: var(--text); background: var(--bg3); border-left-color: var(--border2); }
+.nav-item.active { color: var(--accent); background: var(--accent-dim); border-left-color: var(--accent); }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg4); flex-shrink: 0; }
+.nav-item:hover .nav-dot { background: var(--text2); }
+.nav-item.active .nav-dot { background: var(--accent); }
+.nav-tag {
+  margin-left: auto; font-size: 10px; font-family: var(--font-mono);
+  background: var(--bg3); color: var(--text3); padding: 1px 6px; border-radius: 3px;
+}
+
+/* ── Main ── */
+main { margin-left: var(--nav-w); flex: 1; max-width: 920px; padding: 48px 48px 80px; }
+
+/* ── Page header ── */
+.page-header { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+.header-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 10px; font-family: var(--font-mono);
+}
+.page-title { font-size: 36px; font-weight: 700; color: var(--text); letter-spacing: -0.8px; line-height: 1.2; margin-bottom: 12px; }
+.page-desc { font-size: 16px; color: var(--text2); line-height: 1.65; max-width: 620px; }
+.module-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.badge { font-size: 11px; font-family: var(--font-mono); padding: 4px 10px; border-radius: 20px; border: 1px solid; }
+.badge-blue   { background: var(--accent-dim);  color: var(--accent);  border-color: var(--accent2); }
+.badge-green  { background: var(--green-dim);   color: var(--green);   border-color: #1a4d22; }
+.badge-purple { background: var(--purple-dim);  color: var(--purple);  border-color: #4a2580; }
+.badge-orange { background: var(--orange-dim);  color: var(--orange);  border-color: #5a3a00; }
+
+/* ── Quick reference grid ── */
+.qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; margin-bottom: 48px; }
+.qr-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; cursor: pointer; transition: all 0.15s; text-decoration: none; display: block;
+}
+.qr-card:hover { border-color: var(--accent2); background: var(--accent-dim); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.qr-cmd-name { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+.qr-cmd-desc { font-size: 12px; color: var(--text2); line-height: 1.45; }
+
+/* ── Workflow strip ── */
+.workflow {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 48px;
+}
+.wf-step { display: flex; align-items: center; gap: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text2); }
+.wf-step code {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--accent);
+  padding: 3px 8px; border-radius: 5px; font-size: 12px;
+}
+.wf-arrow { color: var(--text3); margin: 0 6px; font-size: 14px; }
+
+/* ── Command sections ── */
+.cmd-section { margin-bottom: 64px; scroll-margin-top: 24px; }
+.cmd-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.cmd-icon {
+  width: 38px; height: 38px; border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cmd-name { font-size: 22px; font-weight: 700; font-family: var(--font-mono); letter-spacing: -0.3px; }
+.cmd-synopsis { font-size: 14px; color: var(--text2); margin-top: 2px; }
+.cmd-tag { font-size: 10px; font-family: var(--font-mono); padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
+
+/* ── Description block ── */
+.desc-block {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 20px; font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 20px;
+}
+.desc-block p { margin-bottom: 8px; }
+.desc-block p:last-child { margin-bottom: 0; }
+.desc-code {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
+  overflow-x: auto; margin: 8px 0; white-space: pre; color: var(--text2);
+}
+
+/* ── Syntax block ── */
+.syntax-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 6px; margin-top: 20px;
+}
+.syntax-block {
+  background: #010409; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 20px; font-family: var(--font-mono); font-size: 13px; line-height: 1.8;
+  overflow-x: auto; margin-bottom: 20px; white-space: pre;
+}
+
+/* ── Parameters table ── */
+.params-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+.params-table thead th {
+  background: var(--bg3); color: var(--text3); font-size: 10px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; padding: 8px 12px; text-align: left;
+  border: 1px solid var(--border);
+}
+.params-table tbody tr { border: 1px solid var(--border); transition: background 0.1s; }
+.params-table tbody tr:hover { background: var(--bg2); }
+.params-table td { padding: 10px 12px; vertical-align: top; border: 1px solid var(--border); }
+.param-name   { font-family: var(--font-mono); color: var(--purple); white-space: nowrap; font-size: 12.5px; }
+.param-type   { font-family: var(--font-mono); color: var(--green);  font-size: 11.5px; white-space: nowrap; }
+.param-req    { display: inline-block; font-size: 10px; font-family: var(--font-mono); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.req-yes      { background: #2d0f0f; color: var(--red);   border: 1px solid #5a1f1f; }
+.req-no       { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.param-desc   { color: var(--text2); line-height: 1.6; font-size: 13px; }
+.param-desc p { margin-bottom: 4px; }
+.param-desc p:last-child { margin-bottom: 0; }
+.param-default { font-family: var(--font-mono); color: var(--orange); font-size: 11px; display: block; margin-top: 4px; }
+
+/* ── Examples ── */
+.example-block { background: #010409; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
+.example-header {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; display: flex; align-items: center; justify-content: space-between;
+}
+.example-label { font-size: 11px; font-weight: 600; color: var(--text3); font-family: var(--font-mono); letter-spacing: 0.5px; }
+.example-title { font-size: 12px; color: var(--text2); font-family: var(--font-mono); }
+.example-code  { padding: 16px 20px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.8; white-space: pre; overflow-x: auto; color: var(--text2); }
+
+/* ── PS Syntax highlighting ── */
+.hl-cmd     { color: #79c0ff; }
+.hl-param   { color: #d2a8ff; }
+.hl-type    { color: #3fb950; }
+.hl-var     { color: #ffa657; }
+.hl-string  { color: #a5d6ff; }
+.hl-comment { color: #6e7681; font-style: italic; }
+.hl-kw      { color: #ff7b72; }
+.hl-num     { color: #79c0ff; }
+.hl-pipe    { color: #e3b341; }
+.hl-opt     { opacity: 0.75; }
+
+/* ── Copy button ── */
+.copy-btn {
+  background: var(--bg4); border: 1px solid var(--border2); color: var(--text3);
+  font-size: 10px; font-family: var(--font-mono); padding: 2px 8px; border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.copy-btn:hover { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+/* ── Markdown body (README section) ── */
+.md-body { font-size: 14px; color: var(--text2); line-height: 1.75; }
+.md-body h1 { font-size: 24px; font-weight: 700; color: var(--text); margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.md-body h2 { font-size: 18px; font-weight: 700; color: var(--text); margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.md-body h3 { font-size: 15px; font-weight: 600; color: var(--accent); margin: 20px 0 8px; }
+.md-body p  { margin-bottom: 12px; }
+.md-body ul, .md-body ol { margin: 8px 0 12px 24px; }
+.md-body li { margin-bottom: 4px; }
+.md-body a  { color: var(--accent); text-decoration: none; }
+.md-body a:hover { text-decoration: underline; }
+.md-body strong { color: var(--text); font-weight: 600; }
+.md-body code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); color: var(--accent); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+.md-body table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 20px; }
+.md-body thead th { background: var(--bg3); color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 8px 12px; text-align: left; border: 1px solid var(--border); }
+.md-body tbody tr { border: 1px solid var(--border); }
+.md-body tbody tr:hover { background: var(--bg2); }
+.md-body td { padding: 8px 12px; border: 1px solid var(--border); }
+.md-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+.md-code-block { background: #010409; border: 1px solid var(--border); border-radius: var(--radius); margin: 12px 0 20px; overflow: hidden; }
+.md-code-header { background: var(--bg3); border-bottom: 1px solid var(--border); padding: 7px 16px; display: flex; align-items: center; justify-content: space-between; }
+.md-code-lang { font-size: 11px; font-family: var(--font-mono); color: var(--text3); }
+
+/* ── Misc ── */
+.section-rule { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); color: var(--accent); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+.page-footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text3); font-family: var(--font-mono); }
+:target { scroll-margin-top: 24px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ SIDEBAR ══════════════════════════════ -->
+<aside>
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <div class="logo-badge">D</div>
+      <span class="sidebar-title">DashHtml</span>
+    </div>
+    <span class="sidebar-version">v1.3.1 · PS 7.0+</span>
+  </div>
+  <div class="nav-section-label">Overview</div>
+  <a class="nav-item" href="#overview"><span class="nav-dot"></span>Getting started</a>
+  <div class="nav-section-label">Foundation</div>
+  <a class="nav-item" href="#New-DhDashboard"><span class="nav-dot" style="background:#79c0ff"></span>New-DhDashboard <span class="nav-tag">INIT</span></a>
+  <a class="nav-item" href="#Export-DhDashboard"><span class="nav-dot" style="background:#ffa657"></span>Export-DhDashboard <span class="nav-tag">OUT</span></a>
+  <a class="nav-item" href="#Get-DhTheme"><span class="nav-dot" style="background:#ffa657"></span>Get-DhTheme <span class="nav-tag">UTIL</span></a>
+  <div class="nav-section-label">Content Blocks</div>
+  <a class="nav-item" href="#Add-DhTable"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhTable <span class="nav-tag">TABLE</span></a>
+  <a class="nav-item" href="#Add-DhSummary"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhSummary <span class="nav-tag">KPI</span></a>
+  <a class="nav-item" href="#Add-DhBarChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBarChart <span class="nav-tag">CHART</span></a>
+  <a class="nav-item" href="#Add-DhFilterCard"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhFilterCard <span class="nav-tag">FILTER</span></a>
+  <a class="nav-item" href="#Add-DhHtmlBlock"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhHtmlBlock <span class="nav-tag">HTML</span></a>
+  <a class="nav-item" href="#Add-DhCollapsible"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhCollapsible <span class="nav-tag">COLL</span></a>
+  <div class="nav-section-label">Linking</div>
+  <a class="nav-item" href="#Set-DhTableLink"><span class="nav-dot" style="background:#3fb950"></span>Set-DhTableLink <span class="nav-tag">LINK</span></a>
+  <div class="nav-section-label">Reference</div>
+  <a class="nav-item" href="#ref-formats"><span class="nav-dot"></span>Format values</a>
+  <a class="nav-item" href="#ref-thresholds"><span class="nav-dot"></span>Threshold classes</a>
+  <a class="nav-item" href="#ref-themes"><span class="nav-dot"></span>Theme families</a>
+  <div class="nav-section-label">Guide</div>
+  <a class="nav-item" href="#guide-readme"><span class="nav-dot"></span>README</a>
+
+</aside>
+
+<!-- ═══════════════════════════════ MAIN ═════════════════════════════════ -->
+<main>
+
+  <div class="page-header" id="overview">
+    <div class="header-eyebrow">PowerShell Module Reference</div>
+    <h1 class="page-title">DashHtml</h1>
+    <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles, bar charts, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Five theme families, embedded light/dark variants, no external dependencies at viewing time.</p>
+    <div class="module-badges">
+      <span class="badge badge-blue">PowerShell 7.0+</span>
+      <span class="badge badge-green">10 exported functions</span>
+      <span class="badge badge-purple">5 theme families</span>
+      <span class="badge badge-orange">MIT License</span>
+    </div>
+  </div>
+
+  <!-- Quick reference grid -->
+  <div class="qr-grid">
+    <a class="qr-card" href="#New-DhDashboard">
+      <div class="qr-cmd-name" style="color:#79c0ff">New-DhDashboard</div>
+      <div class="qr-cmd-desc">Create a new DashHtml dashboard definition object.</div>
+    </a>    <a class="qr-card" href="#Export-DhDashboard">
+      <div class="qr-cmd-name" style="color:#ffa657">Export-DhDashboard</div>
+      <div class="qr-cmd-desc">Write the self-contained HTML dashboard to disk.</div>
+    </a>    <a class="qr-card" href="#Get-DhTheme">
+      <div class="qr-cmd-name" style="color:#ffa657">Get-DhTheme</div>
+      <div class="qr-cmd-desc">List available DashHtml theme families or retrieve a family&#39;s CSS.</div>
+    </a>    <a class="qr-card" href="#Add-DhTable">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhTable</div>
+      <div class="qr-cmd-desc">Add a sortable, filterable, pageable data table to a dashboard definition.</div>
+    </a>    <a class="qr-card" href="#Add-DhSummary">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhSummary</div>
+      <div class="qr-cmd-desc">Add a row of KPI metric tiles at the top of the dashboard body.</div>
+    </a>    <a class="qr-card" href="#Add-DhBarChart">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhBarChart</div>
+      <div class="qr-cmd-desc">Add a horizontal bar chart aggregating values from a table field.</div>
+    </a>    <a class="qr-card" href="#Add-DhFilterCard">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhFilterCard</div>
+      <div class="qr-cmd-desc">Add a clickable card grid that filters a target table.</div>
+    </a>    <a class="qr-card" href="#Add-DhHtmlBlock">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhHtmlBlock</div>
+      <div class="qr-cmd-desc">Add a free-form HTML block to the dashboard.</div>
+    </a>    <a class="qr-card" href="#Add-DhCollapsible">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhCollapsible</div>
+      <div class="qr-cmd-desc">Add a collapsible section containing metadata cards or free-form content.</div>
+    </a>    <a class="qr-card" href="#Set-DhTableLink">
+      <div class="qr-cmd-name" style="color:#3fb950">Set-DhTableLink</div>
+      <div class="qr-cmd-desc">Link a master table to a detail table so that row selection auto-filters
+the detail table.</div>
+    </a>
+  </div>
+
+  <!-- Workflow strip -->
+  <div id="workflow" style="scroll-margin-top:24px; margin-bottom:48px">
+    <div class="syntax-label">Typical workflow</div>
+    <div class="workflow">
+      <div class="wf-step"><code>New-DhDashboard</code></div>
+      <span class="wf-arrow">→</span>
+      <div class="wf-step"><code>Add-DhSummary</code></div>
+      <span class="wf-arrow">→</span>
+      <div class="wf-step"><code>Add-DhTable</code></div>
+      <span class="wf-arrow">→</span>
+      <div class="wf-step"><code>Add-Dh*</code> <span style="color:var(--text3);font-size:11px">(blocks)</span></div>
+      <span class="wf-arrow">→</span>
+      <div class="wf-step"><code>Set-DhTableLink</code></div>
+      <span class="wf-arrow">→</span>
+      <div class="wf-step"><code>Export-DhDashboard</code></div>
+    </div>
+  </div>
+
+  <hr class="section-rule">
+
+  <!-- ═══ New-DhDashboard ═══ -->
+  <section class="cmd-section" id="New-DhDashboard">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#79c0ff 15%,var(--bg3))">
+        <span style="color:#79c0ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">INIT</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#79c0ff">New-DhDashboard</div>
+        <div class="cmd-synopsis">Create a new DashHtml dashboard definition object.</div>
+      </div>
+      <span class="cmd-tag badge-blue">INIT</span>
+    </div>
+
+    <div class='desc-block'><p>Returns an ordered dictionary that acts as the root object for all
+subsequent Add-DhTable, Set-DhTableLink and Export-DhDashboard calls.</p><p>Both the light and dark variants of the chosen theme are always embedded
+directly in the HTML output — no external CSS file is ever written. A
+toggle button in the nav bar lets viewers switch between light and dark
+at runtime without any server round-trip.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>New-DhDashboard</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Subtitle</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-LogoPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Theme</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavTitle</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-InfoFields</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GeneratedBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Main heading shown in the sticky report header.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Subtitle</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional sub-heading / description line beneath the title.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-LogoPath</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Path to an image file. The image is Base64-encoded and embedded directly
+in the HTML so the report is portable with no external image references.
+Accepted formats: .jpg .jpeg .png .gif .webp</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Theme</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Theme family for the dashboard. The light variant is shown on load; the dark
+variant is the runtime-toggle alternate. Both are always embedded.
+Valid values (default: Default):
+  Default  - System UI fonts.  Light: light grey + blue.   Dark: near-black + cyan.
+  Azure    - Segoe UI (system). Light: warm grey + Azure blue.  Dark: Office dark + Azure.
+  VMware   - Inter (Google).   Light: white/navy + VMware green. Dark: navy + VMware green.
+  Grey     - System UI fonts.  Light: warm grey + steel.  Dark: dark neutral + muted grey.
+  Company  - Montserrat (Google). Light: white + Crimson. Dark: near-black + Crimson.
+Use  Get-DhTheme  to list families and inspect their CSS.</p><span class='param-default'>default: &#39;Default&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavTitle</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Text shown in the sticky nav bar alongside the navigation links.
+Defaults to the dashboard Title.
+Set to an empty string to suppress the label entirely (logo + links only).
+  -NavTitle &#39;&#39;             # hide entirely
+  -NavTitle &#39;My Dashboard&#39; # short form</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-InfoFields</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional array of @{ Label=&#39;X&#39;; Value=&#39;Y&#39; } hashtables rendered as a
+key-value grid in the report header alongside the title and logo.
+Example: -InfoFields @(@{Label=&#39;Environment&#39;;Value=&#39;Production&#39;},@{Label=&#39;Region&#39;;Value=&#39;West&#39;})</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GeneratedBy</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional script/tool name shown in the report footer.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$report = New-DhDashboard -Title &#39;Infrastructure Dashboard&#39; -Theme Azure</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Example 2</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$report = New-DhDashboard -Title &#39;My Dashboard&#39; `
+                          -Subtitle &#39;Environment: Production&#39; `
+                          -LogoPath &#39;C:\img\logo.png&#39; `
+                          -Theme Company `
+                          -NavTitle &#39;Infra&#39;</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Export-DhDashboard ═══ -->
+  <section class="cmd-section" id="Export-DhDashboard">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#ffa657 15%,var(--bg3))">
+        <span style="color:#ffa657;font-size:11px;font-weight:700;font-family:var(--font-mono)">OUT</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#ffa657">Export-DhDashboard</div>
+        <div class="cmd-synopsis">Write the self-contained HTML dashboard to disk.</div>
+      </div>
+      <span class="cmd-tag badge-orange">OUT</span>
+    </div>
+
+    <div class='desc-block'><p>Generates a single self-contained HTML file. Both the light and dark CSS
+themes are embedded directly inside the HTML — no external CSS file is
+ever written. A toggle button in the nav bar lets viewers switch themes
+at runtime.</p><p>The HTML also embeds:
+  - All table data as JSON (no server round-trips)
+  - The full JavaScript table engine (sort / filter / page / link / export)
+  - The logo as a Base64 data URI (if supplied to New-DhDashboard)</p><p>External JS libraries referenced from cdnjs (internet required for export):
+  - SheetJS  xlsx  v0.18.5  - XLSX export
+  - jsPDF         v2.5.1   - PDF export
+  - jsPDF-AutoTable v3.8.2 - PDF table formatting</p><p>If the machine opening the report has no internet access, CSV export
+(pure JS, no CDN dependency) continues to work; XLSX and PDF buttons
+will show an alert.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Export-DhDashboard</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-OutputPath</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Force</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-OpenInBrowser</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object built with New-DhDashboard / Add-DhTable / Set-DhTableLink.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-OutputPath</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Full path for the HTML file (e.g. C:\Reports\dashboard.html).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Force</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Overwrite an existing file without prompting.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-OpenInBrowser</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Attempt to open the dashboard in the default browser after writing.</p></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Export-DhDashboard -Report $report -OutputPath &#39;C:\Reports\dashboard.html&#39; -Force
+Export-DhDashboard -Report $report -OutputPath &#39;.\report.html&#39; -Force -OpenInBrowser</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Get-DhTheme ═══ -->
+  <section class="cmd-section" id="Get-DhTheme">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#ffa657 15%,var(--bg3))">
+        <span style="color:#ffa657;font-size:11px;font-weight:700;font-family:var(--font-mono)">UTIL</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#ffa657">Get-DhTheme</div>
+        <div class="cmd-synopsis">List available DashHtml theme families or retrieve a family&#39;s CSS.</div>
+      </div>
+      <span class="cmd-tag badge-orange">UTIL</span>
+    </div>
+
+    <div class='desc-block'><p>Without parameters, returns a summary of all 5 built-in theme families.</p><p>With -Name, returns a PSCustomObject with LightCss and DarkCss properties
+containing the full CSS strings for both variants of the chosen family.</p><p>With -SaveTo (requires -Name), saves both CSS files to the specified
+directory as  &lt;Family&gt;-light.css  and  &lt;Family&gt;-dark.css.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Get-DhTheme</span>
+    <span class='hl-param'>-Name</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-SaveTo</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Name</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Theme family to retrieve.
+Valid values: Default | Azure | VMware | Grey | Company</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SaveTo</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Directory path where the two CSS files will be saved.
+Use with -Name. The directory is created if it does not exist.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">List all theme families</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Get-DhTheme</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Get the CSS for the Azure family</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$css = Get-DhTheme -Name Azure
+$css.LightCss   # CSS for the light variant
+$css.DarkCss    # CSS for the dark variant</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Save both CSS files for the Company family</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Get-DhTheme -Name Company -SaveTo &#39;C:\Reports&#39;</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhTable ═══ -->
+  <section class="cmd-section" id="Add-DhTable">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">TABLE</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhTable</div>
+        <div class="cmd-synopsis">Add a sortable, filterable, pageable data table to a dashboard definition.</div>
+      </div>
+      <span class="cmd-tag badge-purple">TABLE</span>
+    </div>
+
+    
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhTable</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-TableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Data</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Columns</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Charts</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-PageSize</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Sortable</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Filterable</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Pageable</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MultiSelect</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Description</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ExportFileName</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Data</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Columns</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Array of column definition hashtables. Auto-detected when omitted.
+Full column property reference:</p><p># Identity
+  Field       = &#39;PropertyName&#39;    # REQUIRED
+  Label       = &#39;Header Text&#39;     # REQUIRED
+  Width       = &#39;120px&#39;           # optional fixed width
+  Sortable    = $false            # default $true</p><p># Alignment
+  Align       = &#39;right&#39;           # &#39;left&#39;(default) | &#39;center&#39; | &#39;right&#39;</p><p># Cell type
+  CellType    = &#39;progressbar&#39;     # &#39;text&#39;(default) | &#39;progressbar&#39; | &#39;badge&#39;
+  ProgressMax = 100               # denominator for progressbar</p><p># Number / value formatting  (displayed in cell and exported)
+  Format      = &#39;number&#39;          # see Format values below
+  Locale      = &#39;en-US&#39;           # BCP-47 locale (default: browser locale)
+  Decimals    = 2                 # decimal places
+  Currency    = &#39;USD&#39;             # for Format=&#39;currency&#39;
+  DatePattern = &#39;MM/dd/yyyy&#39;      # for Format=&#39;datetime&#39;</p><p># Format values:
+  #   &#39;number&#39;   - locale number  e.g. 12342.2 + en-US -&gt; &quot;12,342.20&quot;
+  #   &#39;currency&#39; - locale currency e.g. 1234.5 + en-US + USD -&gt; &quot;$1,234.50&quot;
+  #   &#39;bytes&#39;    - auto KB/MB/GB/TB e.g. 1536000000 -&gt; &quot;1.43 GB&quot;
+  #   &#39;percent&#39;  - appends %  e.g. 0.856 -&gt; &quot;85.60 %&quot;
+  #   &#39;datetime&#39; - custom pattern e.g. &quot;2026-03-19T14:00&quot; -&gt; &quot;03/19/2026 14:00&quot;
+  #   &#39;duration&#39; - seconds -&gt; &quot;2h 14m 05s&quot;</p><p># Text formatting
+  Bold        = $true</p><p># --- PINNED FIRST COLUMN ---
+  PinFirst    = $true           # stick column during horizontal scroll</p><p># --- COLUMN FOOTER AGGREGATE ---
+  Aggregate   = &#39;sum&#39;           # &#39;sum&#39;|&#39;avg&#39;|&#39;min&#39;|&#39;max&#39;|&#39;count&#39; — adds footer row
+  Italic      = $true
+  Font        = &#39;mono&#39;            # &#39;mono&#39; | &#39;ui&#39; | &#39;display&#39;</p><p># Threshold colour rules - evaluated in order, first match wins
+  # Numeric match: use Min / Max
+  # String match:  use Value (exact, case-insensitive)
+  Thresholds  = @(</p><pre class="desc-code">@{ Max   = 70;             Class = &#39;cell-ok&#39;     }   # numeric: value &lt; 70
+@{ Min   = 70; Max = 85;   Class = &#39;cell-warn&#39;   }   # numeric: 70 &lt;= value &lt; 85
+@{                         Class = &#39;cell-danger&#39; }   # catch-all
+</pre><p># --- OR string matching ---</p><pre class="desc-code">@{ Value = &#39;Connected&#39;;    Class = &#39;cell-ok&#39;     }
+@{ Value = &#39;Maintenance&#39;;  Class = &#39;cell-warn&#39;   }
+@{ Value = &#39;NotResponding&#39;;Class = &#39;cell-danger&#39; }
+</pre><p>)</p><p># Row highlighting
+  # When $true, the matching threshold class is applied to the ENTIRE ROW
+  # (not just this cell). Useful for &quot;if status=critical, highlight whole row&quot;
+  RowHighlight = $true</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Charts</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Array of chart definitions: @{ Title=&#39;X&#39;; Field=&#39;Y&#39;; Type=&#39;pie&#39; }</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-PageSize</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 15</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Sortable</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Filterable</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Pageable</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MultiSelect</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Description</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ExportFileName</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Custom base filename for downloaded exports (without extension).
+Default is the TableId. E.g. -ExportFileName &#39;servers-2026-03&#39;
+produces servers-2026-03.csv, servers-2026-03.xlsx, servers-2026-03.pdf</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>custom filename for CSV/XLSX/PDF download</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>primary nav group label (enables two-tier nav)
+optional second-level group under NavGroup (enables three-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Basic table — columns auto-detected from object properties</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$servers = @(
+    [PSCustomObject]@{ Name=&#39;srv-001&#39;; OS=&#39;Windows Server 2022&#39;; CPU=42; Status=&#39;OK&#39;   }
+    [PSCustomObject]@{ Name=&#39;srv-002&#39;; OS=&#39;Windows Server 2019&#39;; CPU=78; Status=&#39;Warn&#39; }
+)
+Add-DhTable -Report $report -TableId &#39;servers&#39; -Title &#39;Server Inventory&#39; -Data $servers</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Custom columns with formatting, thresholds and row highlighting</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$cols = @(
+    @{ Field=&#39;Name&#39;;   Label=&#39;Server&#39;;  Width=&#39;160px&#39;; PinFirst=$true }
+    @{ Field=&#39;CPU&#39;;    Label=&#39;CPU %&#39;;   Align=&#39;right&#39;; Format=&#39;number&#39;; Decimals=0
+       Thresholds=@(
+           @{ Max=70;          Class=&#39;cell-ok&#39;     }
+           @{ Min=70; Max=85;  Class=&#39;cell-warn&#39;   }
+           @{                  Class=&#39;cell-danger&#39; }
+       )
+       RowHighlight=$true
+    }
+    @{ Field=&#39;Status&#39;; Label=&#39;Status&#39;
+       Thresholds=@(
+           @{ Value=&#39;OK&#39;;   Class=&#39;cell-ok&#39;     }
+           @{ Value=&#39;Warn&#39;; Class=&#39;cell-warn&#39;   }
+           @{ Value=&#39;Crit&#39;; Class=&#39;cell-danger&#39; }
+       )
+    }
+    @{ Field=&#39;Cost&#39;; Label=&#39;Monthly Cost&#39;; Format=&#39;currency&#39;; Locale=&#39;en-US&#39;; Currency=&#39;USD&#39;; Decimals=2 }
+)
+Add-DhTable -Report $report -TableId &#39;servers&#39; -Title &#39;Servers&#39; -Data $servers `
+    -Columns $cols -PageSize 25 -Description &#39;Live CPU and cost data.&#39;</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Table in a two-tier navigation group with a pie chart</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhTable -Report $report -TableId &#39;vms&#39; -Title &#39;Virtual Machines&#39; -Data $vms `
+    -NavGroup &#39;Azure&#39; `
+    -Charts @( @{ Title=&#39;VMs by Status&#39;; Field=&#39;Status&#39;; Type=&#39;pie&#39; } )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhSummary ═══ -->
+  <section class="cmd-section" id="Add-DhSummary">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">KPI</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhSummary</div>
+        <div class="cmd-synopsis">Add a row of KPI metric tiles at the top of the dashboard body.</div>
+      </div>
+      <span class="cmd-tag badge-purple">KPI</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a horizontal strip of summary cards. Each tile shows an optional
+icon, a formatted value, a label, and an optional sub-label. Tiles can
+be coloured with the same threshold classes used on table cells.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhSummary</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span></div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Items</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of tile definition hashtables:
+  @{</p><pre class="desc-code">Label    = &#39;Caption text&#39;    # REQUIRED
+Value    = 42               # REQUIRED — the main metric
+Icon     = &#39;X&#39;              # optional emoji / unicode
+SubLabel = &#39;of 100 total&#39;   # optional small text below label
+Class    = &#39;cell-danger&#39;    # optional: cell-ok | cell-warn | cell-danger
+Format   = &#39;number&#39;         # optional: same as column Format values
+Locale   = &#39;en-US&#39;          # optional BCP-47 locale
+Decimals = 0                # optional decimal places
+Currency = &#39;USD&#39;            # optional: for Format=&#39;currency&#39;
+</pre><p>}</p></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhSummary -Report $report -Items @(
+    @{ Label=&#39;Total Items&#39;;   Value=247;         Icon=&#39;X&#39; }
+    @{ Label=&#39;Active&#39;;        Value=231;         Icon=&#39;Y&#39;; Class=&#39;cell-ok&#39;     }
+    @{ Label=&#39;Warnings&#39;;      Value=12;          Icon=&#39;W&#39;; Class=&#39;cell-warn&#39;   }
+    @{ Label=&#39;Critical&#39;;      Value=4;           Icon=&#39;E&#39;; Class=&#39;cell-danger&#39; }
+    @{ Label=&#39;Monthly Cost&#39;;  Value=12450.75;
+       Format=&#39;currency&#39;; Locale=&#39;en-US&#39;; Currency=&#39;USD&#39;; Decimals=2 }
+    @{ Label=&#39;Total Storage&#39;; Value=1610612736;  Format=&#39;bytes&#39; }
+    @{ Label=&#39;Avg Uptime&#39;;    Value=99.87;
+       Format=&#39;percent&#39;; Locale=&#39;en-US&#39;; Decimals=2 }
+)</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhBarChart ═══ -->
+  <section class="cmd-section" id="Add-DhBarChart">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">CHART</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhBarChart</div>
+        <div class="cmd-synopsis">Add a horizontal bar chart aggregating values from a table field.</div>
+      </div>
+      <span class="cmd-tag badge-purple">CHART</span>
+    </div>
+
+    <div class='desc-block'><p>Counts occurrences of each distinct value in the specified field across
+all rows of the source table, then renders the top-N results as horizontal
+proportional bars, sorted highest to lowest.</p><p>The chart renders as a standalone block in the dashboard flow and is
+re-calculated at page load from the table&#39;s full dataset.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhBarChart</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-TableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Field</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-TopN</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowCount</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowPercent</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ClickFilters</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Field</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TopN</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 10</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowCount</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowPercent</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ClickFilters</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>primary nav group label (enables two-tier nav)
+optional second-level group under NavGroup (enables three-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Show distribution of a categorical field</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhBarChart -Report $report -Id &#39;type-chart&#39; `
+    -Title &#39;Top 10 Item Types&#39; `
+    -TableId &#39;inventory&#39; -Field &#39;Type&#39; -TopN 10 `
+    -ShowCount $true -ShowPercent $true</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Clicking a bar filters the source table</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhBarChart -Report $report -Id &#39;status-chart&#39; `
+    -Title &#39;Items by Status&#39; `
+    -TableId &#39;items&#39; -Field &#39;Status&#39; -TopN 5 `
+    -ClickFilters $true</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhFilterCard ═══ -->
+  <section class="cmd-section" id="Add-DhFilterCard">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">FILTER</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhFilterCard</div>
+        <div class="cmd-synopsis">Add a clickable card grid that filters a target table.</div>
+      </div>
+      <span class="cmd-tag badge-purple">FILTER</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a row of clickable cards — each card represents a distinct value
+from a field in the target table. Clicking a card instantly filters the
+table to show only matching rows. An active filter banner appears below
+the grid with a Clear Filter button.</p><p>The cards are independent of the table data: you supply them explicitly
+so they can include display labels, counts, icons, and sub-labels that
+differ from the raw field values.</p><p>Use -MultiFilter to allow more than one card to be active simultaneously.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhFilterCard</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-TargetTableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-FilterField</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Cards</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-MultiFilter</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowCount</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TargetTableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-FilterField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Cards</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of card hashtables:
+  @{</p><pre class="desc-code">Label    = &#39;Card display name&#39;   # REQUIRED
+Value    = &#39;match-value&#39;         # REQUIRED — matched against FilterField
+SubLabel = &#39;Secondary label&#39;     # optional
+Count    = 42                    # optional — badge top-right of card
+Icon     = &#39;X&#39;                   # optional
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MultiFilter</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowCount</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>primary nav group label (enables two-tier nav)
+optional second-level group under NavGroup (enables three-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Filter a table by a grouping field</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$locationCards = $servers | Group-Object Location | ForEach-Object {
+    @{ Label = $_.Name; Value = $_.Name; Count = $_.Count }
+}
+Add-DhFilterCard -Report $report -Id &#39;loc-filter&#39; `
+    -Title &#39;Filter by Location&#39; `
+    -TargetTableId &#39;servers&#39; -FilterField &#39;Location&#39; `
+    -Cards $locationCards</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Multi-select filter (multiple cards can be active at once)</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhFilterCard -Report $report -Id &#39;env-filter&#39; `
+    -Title &#39;Filter by Environment&#39; `
+    -TargetTableId &#39;resources&#39; -FilterField &#39;Environment&#39; `
+    -MultiFilter $true `
+    -Cards @(
+        @{ Label = &#39;Production&#39;;  Value = &#39;prod&#39;; Count = 45 }
+        @{ Label = &#39;Staging&#39;;     Value = &#39;stg&#39;;  Count = 12 }
+        @{ Label = &#39;Development&#39;; Value = &#39;dev&#39;;  Count = 30 }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhHtmlBlock ═══ -->
+  <section class="cmd-section" id="Add-DhHtmlBlock">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">HTML</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhHtmlBlock</div>
+        <div class="cmd-synopsis">Add a free-form HTML block to the dashboard.</div>
+      </div>
+      <span class="cmd-tag badge-purple">HTML</span>
+    </div>
+
+    <div class='desc-block'><p>Inserts a styled HTML panel into the dashboard flow. Content is rendered as
+raw HTML — use lists, bold text, links, or any valid HTML markup.
+Blocks appear in the order they are added, interleaved with tables and
+other block elements.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhHtmlBlock</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Content</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Icon</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Style</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Content</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Raw HTML string rendered inside the panel.
+SECURITY: Content is injected as-is via innerHTML. Never pass untrusted
+external data directly into this parameter without HTML-encoding it first
+with [System.Web.HttpUtility]::HtmlEncode().</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Icon</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Style</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;info&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>primary nav group label (enables two-tier nav)
+optional second-level group under NavGroup (enables three-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhHtmlBlock -Report $report -Id &#39;intro&#39; -Title &#39;Dashboard Structure&#39; `
+    -Icon &#39;X&#39; -Style &#39;info&#39; -Content @&quot;
+This dashboard covers all infrastructure components:
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Section A&lt;/strong&gt; — overview and statistics&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Section B&lt;/strong&gt; — detailed inventory&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Section C&lt;/strong&gt; — status and health&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Tip:&lt;/strong&gt; Use &lt;em&gt;Shift+Click&lt;/em&gt; on column headers for
+multi-column sort. Right-click any cell to copy its value.&lt;/p&gt;
+&quot;@</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Example 2</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhHtmlBlock -Report $report -Id &#39;stale-warn&#39; -Style &#39;warn&#39; -Content `
+    &#39;&lt;strong&gt;Note:&lt;/strong&gt; Data was collected 6 hours ago. Regenerate to refresh.&#39;</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Example 3</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhHtmlBlock -Report $report -Id &#39;ok-note&#39; -Style &#39;ok&#39; -Content `
+    &#39;All health checks passed at last collection run.&#39;</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhCollapsible ═══ -->
+  <section class="cmd-section" id="Add-DhCollapsible">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">COLL</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhCollapsible</div>
+        <div class="cmd-synopsis">Add a collapsible section containing metadata cards or free-form content.</div>
+      </div>
+      <span class="cmd-tag badge-purple">COLL</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a clickable header bar with a chevron toggle and an optional item
+count badge. The body expands or collapses when the header is clicked.</p><p>Two content modes:
+  -Cards    A responsive grid of key-value cards (accounts, environments,
+            locations, servers — any structured metadata)
+  -Content  Free-form HTML rendered inside the collapsible body</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhCollapsible</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Icon</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Cards</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Content</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-CardWidth</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Icon</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DefaultOpen</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Cards</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Array of card hashtables. Each card:
+  @{</p><pre class="desc-code">Title      = &#39;Card heading&#39;         # REQUIRED
+Fields     = @(                     # REQUIRED — key-value pairs
+    @{ Label = &#39;ID&#39;;     Value = &#39;abc-123&#39; }
+    @{ Label = &#39;Status&#39;; Value = &#39;Active&#39;; Class = &#39;cell-ok&#39; }
+</pre><p>)</p><pre class="desc-code">Badge      = &#39;Active&#39;               # optional badge text
+BadgeClass = &#39;cell-ok&#39;              # optional badge colour class
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Content</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Free-form HTML string (alternative to -Cards).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-CardWidth</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;normal&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>card grid sizing: small=150-220, normal=200-320 (default), large=280-480, xlarge=360-640, auto=grow to fit</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>primary nav group label (enables two-tier nav)
+optional second-level group under NavGroup (enables three-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Card grid — any structured metadata (accounts, locations, teams…)</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhCollapsible -Report $report -Id &#39;accounts&#39; `
+    -Title &#39;Accounts&#39; -Icon &#39;X&#39; -DefaultOpen $true `
+    -Cards @(
+        @{
+            Title      = &#39;Production Account&#39;
+            Badge      = &#39;Active&#39;
+            BadgeClass = &#39;cell-ok&#39;
+            Fields     = @(
+                @{ Label = &#39;Account ID&#39;; Value = &#39;acc-001-prod&#39; }
+                @{ Label = &#39;Region&#39;;     Value = &#39;us-east-1&#39; }
+                @{ Label = &#39;Resources&#39;;  Value = &#39;147&#39; }
+            )
+        }
+        @{
+            Title      = &#39;DR Account&#39;
+            Badge      = &#39;Standby&#39;
+            BadgeClass = &#39;cell-warn&#39;
+            Fields     = @(
+                @{ Label = &#39;Account ID&#39;; Value = &#39;acc-002-dr&#39; }
+                @{ Label = &#39;Region&#39;;     Value = &#39;us-west-2&#39; }
+                @{ Label = &#39;Resources&#39;;  Value = &#39;23&#39;; Class = &#39;cell-warn&#39; }
+            )
+        }
+    )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Free-form collapsible notes</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhCollapsible -Report $report -Id &#39;notes&#39; `
+    -Title &#39;Maintenance Notes&#39; -DefaultOpen $false `
+    -Content &#39;&lt;p&gt;Last maintenance window: 2026-03-01. Next: 2026-04-01.&lt;/p&gt;&#39;</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Set-DhTableLink ═══ -->
+  <section class="cmd-section" id="Set-DhTableLink">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#3fb950 15%,var(--bg3))">
+        <span style="color:#3fb950;font-size:11px;font-weight:700;font-family:var(--font-mono)">LINK</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#3fb950">Set-DhTableLink</div>
+        <div class="cmd-synopsis">Link a master table to a detail table so that row selection auto-filters
+the detail table.</div>
+      </div>
+      <span class="cmd-tag badge-green">LINK</span>
+    </div>
+
+    <div class='desc-block'><p>When the user clicks a row in the master table the detail table is
+immediately filtered to rows whose DetailField value matches the
+selected row&#39;s MasterField value.
+Clicking the same row again (or pressing &quot;Clear&quot;) removes the filter.</p><p>Links can be chained:  A -&gt; B -&gt; C
+(Set-DhTableLink A-&gt;B, then Set-DhTableLink B-&gt;C)</p><p>Multiple detail tables can be linked to the same master:
+(Set-DhTableLink A-&gt;B, then Set-DhTableLink A-&gt;C)</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Set-DhTableLink</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-MasterTableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-DetailTableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-MasterField</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-DetailField</span> <span class='hl-type'>&lt;String&gt;</span></div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object returned by New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MasterTableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>TableId of the driving (master / parent) table.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DetailTableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>TableId of the dependent (detail / child) table.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MasterField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Property name in the master table that carries the join key.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DetailField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Property name in the detail table to match against the master key.</p></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Two-level: selecting a parent row filters the child table</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Set-DhTableLink -Report $report -MasterTableId &#39;parents&#39; -DetailTableId &#39;children&#39; `
+                -MasterField &#39;ParentId&#39; -DetailField &#39;ParentId&#39;</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Example 2</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">B -&gt; C
+Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTableId &#39;groups&#39; `
+                -MasterField &#39;Category&#39; -DetailField &#39;Category&#39;</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+
+  <!-- ═══ Format values ═══ -->
+  <section class="cmd-section" id="ref-formats">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#58a6ff 15%,var(--bg3))">
+        <span style="color:#58a6ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">FMT</span>
+      </div>
+      <div>
+        <div class="cmd-name" style="color:#58a6ff">Format values</div>
+        <div class="cmd-synopsis">Column Format= values used with Add-DhTable -Columns</div>
+      </div>
+    </div>
+    <table class="params-table">
+      <thead><tr><th>Value</th><th>Description</th><th>Example output</th></tr></thead>
+      <tbody>
+        <tr><td><span class="param-name">text</span></td><td class="param-desc"><p>Default — raw string value</p></td><td><span class="param-type">Hello</span></td></tr>
+        <tr><td><span class="param-name">number</span></td><td class="param-desc"><p>Locale-aware integer / decimal. Use Decimals= and Locale=</p></td><td><span class="param-type">12,345.20</span></td></tr>
+        <tr><td><span class="param-name">currency</span></td><td class="param-desc"><p>Locale currency symbol. Use Currency= (default EUR) and Decimals=</p></td><td><span class="param-type">$1,234.50</span></td></tr>
+        <tr><td><span class="param-name">bytes</span></td><td class="param-desc"><p>Auto-scale B / KB / MB / GB / TB / PB</p></td><td><span class="param-type">1.43 GB</span></td></tr>
+        <tr><td><span class="param-name">percent</span></td><td class="param-desc"><p>Value &lt; 1 is multiplied × 100. Value &gt; 1 used as-is. Appends %</p></td><td><span class="param-type">85.60 %</span></td></tr>
+        <tr><td><span class="param-name">datetime</span></td><td class="param-desc"><p>Parses ISO string and formats. Use DatePattern= (e.g. <code>dd/MM/yyyy HH:mm</code>)</p></td><td><span class="param-type">19/03/2026 14:00</span></td></tr>
+        <tr><td><span class="param-name">duration</span></td><td class="param-desc"><p>Integer seconds → human-readable h m s</p></td><td><span class="param-type">2h 14m 05s</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+  <hr class="section-rule">
+
+  <!-- ═══ Threshold classes ═══ -->
+  <section class="cmd-section" id="ref-thresholds">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#f85149 15%,var(--bg3))">
+        <span style="color:#f85149;font-size:11px;font-weight:700;font-family:var(--font-mono)">THR</span>
+      </div>
+      <div>
+        <div class="cmd-name" style="color:#f85149">Threshold classes</div>
+        <div class="cmd-synopsis">Built-in CSS classes for cell and row colouring</div>
+      </div>
+    </div>
+    <table class="params-table">
+      <thead><tr><th>Class</th><th>Colour</th><th>Typical use</th></tr></thead>
+      <tbody>
+        <tr><td><span class="param-name">cell-ok</span></td><td><span style="color:#3fb950">■ Green</span></td><td class="param-desc"><p>Healthy, connected, active, passing</p></td></tr>
+        <tr><td><span class="param-name">cell-warn</span></td><td><span style="color:#d29922">■ Orange</span></td><td class="param-desc"><p>Warning, degraded, expiring soon</p></td></tr>
+        <tr><td><span class="param-name">cell-danger</span></td><td><span style="color:#f85149">■ Red</span></td><td class="param-desc"><p>Critical, failed, unreachable, expired</p></td></tr>
+      </tbody>
+    </table>
+    <div class="syntax-label">Usage in column definition</div>
+    <div class="syntax-block"><span class="hl-var">$col</span> = @{
+  <span class="hl-param">Field</span>      = <span class="hl-string">'Status'</span>
+  <span class="hl-param">Label</span>      = <span class="hl-string">'Status'</span>
+  <span class="hl-param">Thresholds</span> = @(
+    @{ <span class="hl-param">Value</span> = <span class="hl-string">'OK'</span>;       <span class="hl-param">Class</span> = <span class="hl-string">'cell-ok'</span>     }
+    @{ <span class="hl-param">Value</span> = <span class="hl-string">'Warning'</span>;  <span class="hl-param">Class</span> = <span class="hl-string">'cell-warn'</span>   }
+    @{ <span class="hl-param">Value</span> = <span class="hl-string">'Critical'</span>; <span class="hl-param">Class</span> = <span class="hl-string">'cell-danger'</span> }
+  )
+  <span class="hl-param">RowHighlight</span> = <span class="hl-var">$true</span>
+}</div>
+  </section>
+  <hr class="section-rule">
+
+  <!-- ═══ Theme families ═══ -->
+  <section class="cmd-section" id="ref-themes">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#bc8cff 15%,var(--bg3))">
+        <span style="color:#bc8cff;font-size:11px;font-weight:700;font-family:var(--font-mono)">CSS</span>
+      </div>
+      <div>
+        <div class="cmd-name" style="color:#bc8cff">Theme families</div>
+        <div class="cmd-synopsis">Five built-in theme families — each embeds light and dark variants</div>
+      </div>
+    </div>
+    <table class="params-table">
+      <thead><tr><th>Family</th><th>Light variant</th><th>Dark variant</th><th>Font</th></tr></thead>
+      <tbody>
+        <tr><td><span class="param-name">Default</span></td><td class="param-desc"><p>Light grey + blue</p></td><td class="param-desc"><p>Near-black + cyan</p></td><td><span class="param-type">System UI</span></td></tr>
+        <tr><td><span class="param-name">Azure</span></td><td class="param-desc"><p>Warm grey + Azure blue</p></td><td class="param-desc"><p>Office dark + Azure</p></td><td><span class="param-type">Segoe UI</span></td></tr>
+        <tr><td><span class="param-name">VMware</span></td><td class="param-desc"><p>White/navy + VMware green</p></td><td class="param-desc"><p>Navy + VMware green</p></td><td><span class="param-type">Inter (Google)</span></td></tr>
+        <tr><td><span class="param-name">Grey</span></td><td class="param-desc"><p>Warm grey + steel</p></td><td class="param-desc"><p>Dark neutral + muted grey</p></td><td><span class="param-type">System UI</span></td></tr>
+        <tr><td><span class="param-name">Company</span></td><td class="param-desc"><p>White + Crimson</p></td><td class="param-desc"><p>Near-black + Crimson</p></td><td><span class="param-type">Montserrat (Google)</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══ README ═══ -->
+  <section class="cmd-section" id="guide-readme">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#58a6ff 15%,var(--bg3))">
+        <span style="color:#58a6ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">MD</span>
+      </div>
+      <div>
+        <div class="cmd-name" style="color:#58a6ff">README</div>
+        <div class="cmd-synopsis">Full module guide — quick start, examples, and feature reference</div>
+      </div>
+    </div>
+    <div class="md-body">
+<h1 id="dashhtml">DashHtml</h1>
+<p>A PowerShell 7 module for generating <strong>interactive, self-contained HTML dashboards</strong> from any structured data — sortable/filterable tables, KPI tiles, bar charts, collapsible sections, and clickable filter cards. The output is a single HTML file with all data and styles embedded — no external dependencies at viewing time.</p>
+<hr />
+<h2 id="features">Features</h2>
+<ul>
+<li><strong>Self-contained output</strong> — one HTML file, no companion CSS or JS files</li>
+<li><strong>Sortable, filterable, pageable tables</strong> — multi-column sort (Shift+Click), text filter, configurable page size</li>
+<li><strong>KPI summary tiles</strong> — icons, formatted values, threshold colouring</li>
+<li><strong>Bar charts</strong> — horizontal proportional bars, click-to-filter support</li>
+<li><strong>Clickable filter cards</strong> — single or multi-select, instant table filtering</li>
+<li><strong>Collapsible sections</strong> — key-value card grids or free-form HTML</li>
+<li><strong>Master-detail table linking</strong> — clicking a row filters a child table</li>
+<li><strong>Two-tier navigation</strong> — flat nav or grouped primary-tabs + subnav strip</li>
+<li><strong>Client-side export</strong> — CSV (no CDN), XLSX and PDF (cdnjs, requires internet)</li>
+<li><strong>Light/dark theme toggle</strong> — both variants embedded, switchable at runtime</li>
+<li><strong>Five theme families</strong> — Default, Azure, VMware, Grey, Company</li>
+<li><strong>Column features</strong> — progress bars, badges, threshold colouring, row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting</li>
+</ul>
+<hr />
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>PowerShell 7.0 or later</li>
+</ul>
+<hr />
+<h2 id="installation">Installation</h2>
+<h3 id="from-source">From source</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Clone the repository, then:
+.\Install.ps1                    # CurrentUser scope (no admin required)
+.\Install.ps1 -Scope AllUsers    # AllUsers scope (requires admin)
+.\Install.ps1 -Force             # Overwrite an existing installation
+</div></div>
+<h3 id="manual">Manual</h3>
+<p>Copy the <code>DashHtml/</code> folder to a directory in <code>$env:PSModulePath</code>, under a versioned subfolder:</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>code</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>&lt;modules-root&gt;\DashHtml\1.3.1\
+</div></div>
+<hr />
+<h2 id="quick-start">Quick start</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Import-Module DashHtml
+
+# 1. Create the dashboard object
+$report = New-DhDashboard -Title 'Server Inventory' -Theme Default
+
+# 2. Add data
+$servers = @(
+    [PSCustomObject]@{ Name='srv-001'; OS='Windows Server 2022'; CPU=42; Status='OK'   }
+    [PSCustomObject]@{ Name='srv-002'; OS='Windows Server 2019'; CPU=78; Status='Warn' }
+    [PSCustomObject]@{ Name='srv-003'; OS='Ubuntu 22.04';        CPU=15; Status='OK'   }
+)
+Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers
+
+# 3. Export
+Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenInBrowser
+</div></div>
+<hr />
+<h2 id="cmdlet-reference">Cmdlet reference</h2>
+<table>
+<thead>
+<tr>
+<th>Cmdlet</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>New-DhDashboard</code></td>
+<td>Create the root dashboard object</td>
+</tr>
+<tr>
+<td><code>Add-DhTable</code></td>
+<td>Add a sortable/filterable data table</td>
+</tr>
+<tr>
+<td><code>Add-DhSummary</code></td>
+<td>Add KPI metric tiles</td>
+</tr>
+<tr>
+<td><code>Add-DhBarChart</code></td>
+<td>Add a horizontal bar chart</td>
+</tr>
+<tr>
+<td><code>Add-DhFilterCard</code></td>
+<td>Add a clickable card filter grid</td>
+</tr>
+<tr>
+<td><code>Add-DhHtmlBlock</code></td>
+<td>Add a free-form HTML block</td>
+</tr>
+<tr>
+<td><code>Add-DhCollapsible</code></td>
+<td>Add a collapsible card/content section</td>
+</tr>
+<tr>
+<td><code>Set-DhTableLink</code></td>
+<td>Link a master table to a detail table</td>
+</tr>
+<tr>
+<td><code>Export-DhDashboard</code></td>
+<td>Write the self-contained HTML file</td>
+</tr>
+<tr>
+<td><code>Get-DhTheme</code></td>
+<td>List or inspect built-in theme families</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>Get-Help &lt;cmdlet&gt; -Full</code> for complete parameter documentation.</p>
+<hr />
+<h2 id="themes">Themes</h2>
+<p>Five built-in families — each includes a light and a dark variant, both always embedded in the output HTML. The toggle button in the nav bar switches at runtime.</p>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Light</th>
+<th>Dark</th>
+<th>Font</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Default</code></td>
+<td>Light grey + blue</td>
+<td>Near-black + cyan</td>
+<td>System UI</td>
+</tr>
+<tr>
+<td><code>Azure</code></td>
+<td>Warm grey + Azure blue</td>
+<td>Office dark + Azure</td>
+<td>Segoe UI</td>
+</tr>
+<tr>
+<td><code>VMware</code></td>
+<td>White/navy + VMware green</td>
+<td>Navy + VMware green</td>
+<td>Inter</td>
+</tr>
+<tr>
+<td><code>Grey</code></td>
+<td>Warm grey + steel</td>
+<td>Dark neutral + muted grey</td>
+<td>System UI</td>
+</tr>
+<tr>
+<td><code>Company</code></td>
+<td>White + Crimson</td>
+<td>Near-black + Crimson</td>
+<td>Montserrat</td>
+</tr>
+</tbody>
+</table>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># List all families
+Get-DhTheme
+
+# Inspect CSS for a specific family
+$css = Get-DhTheme -Name Azure
+$css.LightCss
+$css.DarkCss
+
+# Save CSS files to disk
+Get-DhTheme -Name Company -SaveTo 'C:\Reports\css'
+</div></div>
+<hr />
+<h2 id="tables">Tables</h2>
+<h3 id="basic-table">Basic table</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$data = @(
+    [PSCustomObject]@{ Name='alpha'; Region='us-east';  Count=10; Status='Active'   }
+    [PSCustomObject]@{ Name='beta';  Region='eu-west';  Count=5;  Status='Inactive' }
+    [PSCustomObject]@{ Name='gamma'; Region='ap-south'; Count=22; Status='Active'   }
+)
+
+Add-DhTable -Report $report -TableId 'items' -Title 'Item List' -Data $data
+</div></div>
+<h3 id="custom-columns">Custom columns</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$cols = @(
+    @{ Field='Name';   Label='Item Name'; Width='180px'; PinFirst=$true }
+    @{ Field='Region'; Label='Region';    Width='120px' }
+    @{ Field='Count';  Label='Count';     Align='right'; Aggregate='sum' }
+    @{ Field='Status'; Label='Status';
+       Thresholds=@(
+           @{ Value='Active';   Class='cell-ok'     }
+           @{ Value='Inactive'; Class='cell-warn'   }
+           @{ Value='Error';    Class='cell-danger' }
+       )
+       RowHighlight=$true
+    }
+)
+
+Add-DhTable -Report $report -TableId 'items' -Title 'Items' -Data $data -Columns $cols -PageSize 25
+</div></div>
+<h3 id="column-formatting">Column formatting</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$cols = @(
+    @{ Field='Name';     Label='Name' }
+    @{ Field='Cost';     Label='Cost';    Format='currency'; Locale='en-US'; Currency='USD'; Decimals=2 }
+    @{ Field='Size';     Label='Size';    Format='bytes'   }
+    @{ Field='Uptime';   Label='Uptime';  Format='percent'; Decimals=1 }
+    @{ Field='Duration'; Label='Runtime'; Format='duration' }
+    @{ Field='Updated';  Label='Updated'; Format='datetime'; DatePattern='yyyy-MM-dd' }
+)
+</div></div>
+<hr />
+<h2 id="kpi-summary-tiles">KPI summary tiles</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
+    @{ Label='Total';    Value=247; Icon='X' }
+    @{ Label='Active';   Value=231; Icon='Y'; Class='cell-ok'   }
+    @{ Label='Warnings'; Value=12;  Icon='W'; Class='cell-warn' }
+    @{ Label='Critical'; Value=4;   Icon='E'; Class='cell-danger' }
+    @{ Label='Storage';  Value=1610612736; Format='bytes' }
+)
+</div></div>
+<hr />
+<h2 id="bar-charts">Bar charts</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Basic distribution chart
+Add-DhBarChart -Report $report -Id 'status-chart' `
+    -Title 'Items by Status' `
+    -TableId 'items' -Field 'Status' -TopN 10 `
+    -ShowCount $true -ShowPercent $true
+
+# Click a bar to filter the source table
+Add-DhBarChart -Report $report -Id 'region-chart' `
+    -Title 'Items by Region' `
+    -TableId 'items' -Field 'Region' -ClickFilters
+</div></div>
+<hr />
+<h2 id="filter-cards">Filter cards</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$regionCards = $data | Group-Object Region | ForEach-Object {
+    @{ Label=$_.Name; Value=$_.Name; Count=$_.Count }
+}
+
+Add-DhFilterCard -Report $report -Id 'region-filter' `
+    -Title 'Filter by Region' `
+    -TargetTableId 'items' -FilterField 'Region' `
+    -Cards $regionCards
+
+# Multi-select (multiple cards active at once)
+Add-DhFilterCard -Report $report -Id 'status-filter' `
+    -Title 'Filter by Status' `
+    -TargetTableId 'items' -FilterField 'Status' `
+    -MultiFilter $true `
+    -Cards @(
+        @{ Label='Active';   Value='Active';   Count=231 }
+        @{ Label='Inactive'; Value='Inactive'; Count=12  }
+        @{ Label='Error';    Value='Error';    Count=4   }
+    )
+</div></div>
+<hr />
+<h2 id="linking-tables">Linking tables</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Master → Detail: click a parent row to filter the child table
+Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups' -Data $groups
+Add-DhTable -Report $report -TableId 'members' -Title 'Members' -Data $members
+Set-DhTableLink -Report $report -MasterTableId 'groups' -DetailTableId 'members' `
+                -MasterField 'GroupId' -DetailField 'GroupId'
+
+# Three-level chain: A → B → C
+Set-DhTableLink -Report $report -MasterTableId 'categories' -DetailTableId 'groups' `
+                -MasterField 'Category' -DetailField 'Category'
+Set-DhTableLink -Report $report -MasterTableId 'groups' -DetailTableId 'items' `
+                -MasterField 'GroupId' -DetailField 'GroupId'
+</div></div>
+<hr />
+<h2 id="two-tier-navigation">Two-tier navigation</h2>
+<p>Use <code>-NavGroup</code> on <strong>any</strong> cmdlet (<code>Add-DhTable</code>, <code>Add-DhFilterCard</code>, <code>Add-DhBarChart</code>, <code>Add-DhHtmlBlock</code>, <code>Add-DhCollapsible</code>) to create a grouped navigation with a primary tab bar and a sub-nav strip:</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$report = New-DhDashboard -Title 'Operations Dashboard'
+
+# Filter card and bar chart placed at the top of the Identity group
+Add-DhFilterCard -Report $report -Id 'status-fc' -NavGroup 'Identity' `
+    -Title 'Filter by Status' -TargetTableId 'users' -FilterField 'Status' `
+    -Cards @( @{Label='Active'; Value='Active'}, @{Label='Disabled'; Value='Disabled'} )
+
+Add-DhTable -Report $report -TableId 'users'   -Title 'Users'   -Data $users   -NavGroup 'Identity'
+Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups'  -Data $groups  -NavGroup 'Identity'
+Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers -NavGroup 'Infrastructure'
+Add-DhTable -Report $report -TableId 'disks'   -Title 'Disks'   -Data $disks   -NavGroup 'Infrastructure'
+
+Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
+</div></div>
+<p>Result: primary nav shows <strong>Identity</strong> and <strong>Infrastructure</strong> group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching <code>-NavGroup</code> appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.</p>
+<h3 id="three-tier-navigation-optional">Three-tier navigation (optional)</h3>
+<p>Add an optional <code>-NavSubGroup</code> on top of <code>-NavGroup</code> to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. Clicking a pill narrows the group view to items tagged with that subgroup; clicking the active pill again clears the filter. Items in a group that have no <code>NavSubGroup</code> remain visible regardless of pill state.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhTable -Report $report -TableId 'users-prod' -Title 'Users (Prod)' -Data $prodUsers `
+    -NavGroup 'Identity' -NavSubGroup 'Production'
+Add-DhTable -Report $report -TableId 'users-dev'  -Title 'Users (Dev)'  -Data $devUsers  `
+    -NavGroup 'Identity' -NavSubGroup 'Development'
+Add-DhTable -Report $report -TableId 'users-all'  -Title 'All Users'    -Data $allUsers  `
+    -NavGroup 'Identity'   # no NavSubGroup → always visible in Identity
+</div></div>
+<p>The parameter is available on every block cmdlet (<code>Add-DhTable</code>, <code>Add-DhHtmlBlock</code>, <code>Add-DhCollapsible</code>, <code>Add-DhFilterCard</code>, <code>Add-DhBarChart</code>) and is fully backward compatible — existing scripts work unchanged.</p>
+<hr />
+<h2 id="collapsible-sections">Collapsible sections</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -DefaultOpen $true `
+    -Cards @(
+        @{
+            Title      = 'Production'
+            Badge      = 'Active'
+            BadgeClass = 'cell-ok'
+            Fields     = @(
+                @{ Label='Account ID'; Value='acc-001' }
+                @{ Label='Region';     Value='us-east-1' }
+            )
+        }
+    )
+</div></div>
+<p>Use <code>-CardWidth</code> to change the card grid sizing: <code>small</code> (150–220 px), <code>normal</code> (default, 200–320 px), <code>large</code> (280–480 px), <code>xlarge</code> (360–640 px), or <code>auto</code> (240 px min, no max — cards grow to fill the row).</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -CardWidth 'large' -Cards $cards
+</div></div>
+<hr />
+<h2 id="html-blocks">HTML blocks</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhHtmlBlock -Report $report -Id 'intro' -Title 'Overview' -Style 'info' -Content @&quot;
+&lt;p&gt;This dashboard is generated automatically. Data is refreshed daily.&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Section A&lt;/strong&gt; — identity and access&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Section B&lt;/strong&gt; — infrastructure inventory&lt;/li&gt;
+&lt;/ul&gt;
+&quot;@
+</div></div>
+<hr />
+<h2 id="logo-and-header-fields">Logo and header fields</h2>
+<p>The logo (<code>-LogoPath</code>) is displayed in the <strong>report header</strong> only — it does not appear in the nav bar.
+<code>-NavTitle</code> is optional; when omitted the nav bar shows only navigation links.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$report = New-DhDashboard -Title 'Infrastructure Dashboard' `
+    -Subtitle 'Environment: Production' `
+    -LogoPath 'C:\img\logo.png' `
+    -Theme Company `
+    -NavTitle 'Infra' `
+    -InfoFields @(
+        @{ Label='Environment'; Value='Production' }
+        @{ Label='Region';      Value='us-east-1'  }
+        @{ Label='Generated';   Value=(Get-Date -Format 'yyyy-MM-dd') }
+    )
+</div></div>
+<hr />
+<h2 id="building-and-testing">Building and testing</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Run tests
+Invoke-Pester .\Tests -Output Detailed
+
+# Build (validate + test + stage dist/ + zip)
+.\Build.ps1
+
+# Build and bump patch version
+.\Build.ps1 -BumpVersion
+
+# Build without running tests
+.\Build.ps1 -SkipTests
+</div></div>
+<hr />
+<h2 id="project-structure">Project structure</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>code</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>DashHtml/
+  DashHtml.psd1          Module manifest
+  DashHtml.psm1          Module loader
+  Public/
+    New-DhDashboard.ps1
+    Add-DhTable.ps1
+    Add-DhSummary.ps1
+    Add-DhBarChart.ps1
+    Add-DhFilterCard.ps1
+    Add-DhHtmlBlock.ps1
+    Add-DhCollapsible.ps1
+    Set-DhTableLink.ps1
+    Export-DhDashboard.ps1
+    Get-DhTheme.ps1
+  Private/
+    Get-DhJsContent.ps1
+    Get-DhCssBase.ps1
+    Get-DhThemeCss.ps1
+    Get-DhCssDefaultLight.ps1
+    Get-DhCssDefaultDark.ps1
+    Get-DhCssAzureLight.ps1
+    Get-DhCssAzureDark.ps1
+    Get-DhCssVMwareLight.ps1
+    Get-DhCssVMwareDark.ps1
+    Get-DhCssGreyLight.ps1
+    Get-DhCssGreyDark.ps1
+    Get-DhCssCompanyLight.ps1
+    Get-DhCssCompanyDark.ps1
+    Build-DhTableSections.ps1
+    ConvertTo-DhJsonString.ps1
+Tests/
+  DashHtml.Tests.ps1
+Build.ps1
+Install.ps1
+CHANGELOG.md
+README.md
+</div></div>
+<hr />
+<h2 id="license">License</h2>
+<p>MIT</p>
+
+    </div>
+  </section>
+
+  <div class="page-footer">
+    Generated by Build-DhReference.ps1 · DashHtml v1.3.1 · 2026-05-14 08:01
+  </div>
+
+</main>
+
+<script>
+/* =========================================================
+   PS TOKENIZER — safe one-pass highlighter.
+   Reads raw textContent (no HTML), tokenises, then writes innerHTML.
+   Never processes its own output so span attributes stay clean.
+   ========================================================= */
+(function () {
+  var KW = new Set(['if','else','elseif','foreach','for','while','do','return',
+    'switch','break','continue','throw','try','catch','finally',
+    'function','param','begin','process','end','in','where','select']);
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function span(cls, txt) { return '<span class="hl-'+cls+'">'+esc(txt)+'</span>'; }
+
+  function tokenise(src) {
+    var out = '', i = 0, n = src.length;
+    while (i < n) {
+      var ch = src[i];
+
+      /* Line comment */
+      if (ch === '#') {
+        var end = src.indexOf('\n', i);
+        if (end === -1) end = n;
+        out += span('comment', src.slice(i, end));
+        i = end; continue;
+      }
+
+      /* Single-quoted string */
+      if (ch === "'") {
+        var j = i + 1;
+        while (j < n && src[j] !== "'") j++;
+        out += span('string', src.slice(i, j + 1));
+        i = j + 1; continue;
+      }
+
+      /* Double-quoted string */
+      if (ch === '"') {
+        var j = i + 1;
+        while (j < n && src[j] !== '"') { if (src[j] === '') j++; j++; }
+        out += span('string', src.slice(i, j + 1));
+        i = j + 1; continue;
+      }
+
+      /* Variable */
+      if (ch === '$') {
+        var j = i + 1;
+        while (j < n && /[\w]/.test(src[j])) j++;
+        out += span('var', src.slice(i, j));
+        i = j; continue;
+      }
+
+      /* Parameter  -Name  (must be preceded by whitespace, backtick, ( or ,) */
+      if (ch === '-' && i > 0 && /[\s(,]/.test(src[i - 1]) && i + 1 < n && /[A-Za-z]/.test(src[i + 1])) {
+        var j = i + 1;
+        while (j < n && /[\w]/.test(src[j])) j++;
+        out += span('param', src.slice(i, j));
+        i = j; continue;
+      }
+
+      /* Word: cmdlet Verb-Noun, keyword, or plain identifier */
+      if (/[A-Za-z_]/.test(ch)) {
+        var j = i;
+        while (j < n && /[\w]/.test(src[j])) j++;
+        var word = src.slice(i, j);
+
+        /* Check Verb-Noun pattern for cmdlets */
+        if (/^[A-Z][a-z]+-[A-Z][a-zA-Z0-9]+$/.test(word)) {
+          out += span('cmd', word);
+        } else if (KW.has(word.toLowerCase())) {
+          out += span('kw', word);
+        } else {
+          out += esc(word);
+        }
+        i = j; continue;
+      }
+
+      /* Number */
+      if (/[0-9]/.test(ch) && (i === 0 || /[\s(,=+\-*\/]/.test(src[i-1]))) {
+        var j = i;
+        while (j < n && /[\d.]/.test(src[j])) j++;
+        out += span('num', src.slice(i, j));
+        i = j; continue;
+      }
+
+      /* Pipe */
+      if (ch === '|') { out += span('pipe', '|'); i++; continue; }
+
+      /* Everything else — HTML-encode and emit */
+      out += esc(ch);
+      i++;
+    }
+    return out;
+  }
+
+  function highlightAll() {
+    document.querySelectorAll('.example-code, .syntax-block').forEach(function (el) {
+      var raw = el.textContent || el.innerText || '';
+      if (raw.trim()) el.innerHTML = tokenise(raw);
+    });
+  }
+
+  /* ── Copy buttons ── */
+  function initCopyButtons() {
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        /* Find the nearest .example-code sibling */
+        var block = btn.closest('.example-block, .md-code-block');
+        var codeEl = block ? block.querySelector('.example-code') : null;
+        if (!codeEl) return;
+        var text = codeEl.textContent || codeEl.innerText || '';
+        navigator.clipboard.writeText(text.trim()).then(function () {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+        }).catch(function () {
+          btn.textContent = 'Error';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+        });
+      });
+    });
+  }
+
+  /* ── Active nav highlight on scroll ── */
+  function initScrollSpy() {
+    var items    = document.querySelectorAll('.nav-item[href^="#"]');
+    var sections = [];
+    items.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) sections.push({ el: el, a: a });
+    });
+    function onScroll() {
+      var top    = window.scrollY + 80;
+      var active = null;
+      for (var i = sections.length - 1; i >= 0; i--) {
+        if (sections[i].el.offsetTop <= top) { active = sections[i]; break; }
+      }
+      items.forEach(function (a) { a.classList.remove('active'); });
+      if (active) active.a.classList.add('active');
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    highlightAll();
+    initCopyButtons();
+    initScrollSpy();
+  });
+})();
+</script>
+
+</body>
+</html>
