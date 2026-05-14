@@ -49,7 +49,8 @@ function Add-DhBarChart {
         [bool]   $ShowCount    = $true,
         [switch] $ShowPercent,
         [switch] $ClickFilters,
-        [string] $NavGroup       = ''    # primary nav group label (enables two-tier nav)
+        [string] $NavGroup       = '',   # primary nav group label (enables two-tier nav)
+        [string] $NavSubGroup    = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if ($Report.Tables -and -not ($Report.Tables | Where-Object { $_.Id -eq $TableId })) {
@@ -71,6 +72,7 @@ function Add-DhBarChart {
         ShowPercent  = $ShowPercent
         ClickFilters = $ClickFilters
         NavGroup     = $NavGroup
+        NavSubGroup  = $NavSubGroup
     })
     Write-Verbose "Add-DhBarChart: '$Id' from table '$TableId' field '$Field' (top $TopN)."
 }

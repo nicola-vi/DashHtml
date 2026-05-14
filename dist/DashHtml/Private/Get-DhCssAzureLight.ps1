@@ -13,7 +13,7 @@ function Get-DhCssAzureLight {
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #FAF9F8;
-  --bg-row-hover:     #EFF6FC;
+  --bg-row-hover:     #CFE6F7;
   --bg-row-sel:       #DEECF9;
   --bg-thead:         #F3F2F1;
 

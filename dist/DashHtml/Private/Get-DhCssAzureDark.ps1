@@ -13,7 +13,7 @@ function Get-DhCssAzureDark {
   --bg-surface:       #252423;
   --bg-table:         #201F1E;
   --bg-row-alt:       #2D2C2B;
-  --bg-row-hover:     #3B3A39;
+  --bg-row-hover:     #525151;
   --bg-row-sel:       #004578;
   --bg-thead:         #2D2C2B;
 

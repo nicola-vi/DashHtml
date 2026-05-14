@@ -15,7 +15,7 @@ function Get-DhCssCompanyDark {
   --bg-surface:       #1A0E12;
   --bg-table:         #160C10;
   --bg-row-alt:       #1E1015;
-  --bg-row-hover:     #2A141A;
+  --bg-row-hover:     #4A2330;
   --bg-row-sel:       #3D0017;
   --bg-thead:         #220E14;
 

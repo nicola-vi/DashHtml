@@ -104,9 +104,9 @@ Describe 'New-DhDashboard' {
         }
     }
 
-    It 'NavTitle defaults to report Title when not set' {
+    It 'NavTitle defaults to empty string when not set' {
         $r = New-DhDashboard -Title 'My Report'
-        $r.NavTitle | Should -Be 'My Report'
+        $r.NavTitle | Should -Be ''
     }
 
     It 'NavTitle stores custom short label' {

@@ -52,7 +52,8 @@ function Add-DhHtmlBlock {
         [Parameter(Mandatory)] [string] $Content,
         [ValidateSet('info','warn','danger','ok','neutral')]
         [string] $Style   = 'info',
-        [string] $NavGroup = ''    # primary nav group label (enables two-tier nav)
+        [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
+        [string] $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if (-not $Report.Contains('Blocks')) {
@@ -66,7 +67,8 @@ function Add-DhHtmlBlock {
         Icon      = $Icon
         Content   = $Content
         Style     = $Style
-        NavGroup  = $NavGroup
+        NavGroup    = $NavGroup
+        NavSubGroup = $NavSubGroup
     })
     Write-Verbose "Add-DhHtmlBlock: Added HTML block '$Id' (style: $Style)."
 }

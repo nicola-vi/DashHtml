@@ -67,7 +67,8 @@ function Add-DhFilterCard {
         [Parameter(Mandatory)] [object[]]  $Cards,
         [switch]   $MultiFilter,
         [bool]     $ShowCount   = $true,
-        [string]   $NavGroup    = ''    # primary nav group label (enables two-tier nav)
+        [string]   $NavGroup    = '',   # primary nav group label (enables two-tier nav)
+        [string]   $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if (-not $Report.Contains('Blocks')) {
@@ -96,6 +97,7 @@ function Add-DhFilterCard {
         MultiFilter   = $MultiFilter
         ShowCount     = $ShowCount
         NavGroup      = $NavGroup
+        NavSubGroup   = $NavSubGroup
     })
     Write-Verbose "Add-DhFilterCard: '$Id' -> table '$TargetTableId' on field '$FilterField' ($(@($normCards).Count) cards)."
 }

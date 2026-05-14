@@ -11,7 +11,7 @@ function Get-DhCssDefaultLight {
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F7FAFE;
-  --bg-row-hover:     #E8F4FF;
+  --bg-row-hover:     #C7E4FF;
   --bg-row-sel:       #D0E8FF;
   --bg-thead:         #EEF2F7;
 

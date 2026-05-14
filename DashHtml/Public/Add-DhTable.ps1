@@ -139,7 +139,8 @@ function Add-DhTable {
         [switch]    $MultiSelect,
         [string]    $Description    = '',
         [string]    $ExportFileName = '',   # custom filename for CSV/XLSX/PDF download
-        [string]    $NavGroup       = ''    # primary nav group label (enables two-tier nav)
+        [string]    $NavGroup       = '',   # primary nav group label (enables two-tier nav)
+        [string]    $NavSubGroup    = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if ($Report.Tables | Where-Object { $_.Id -eq $TableId }) {
@@ -215,6 +216,7 @@ function Add-DhTable {
         MultiSelect    = $MultiSelect
         ExportFileName = $ExportFileName
         NavGroup       = $NavGroup
+        NavSubGroup    = $NavSubGroup
     })
 
     Write-Verbose "Add-DhTable: '$TableId' — $(@($normData).Count) rows, $(@($normCols).Count) cols, $(@($normCharts).Count) charts."

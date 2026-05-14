@@ -14,6 +14,7 @@ function Build-DhTableSections {
         $id       = $t.Id
         $titleEsc = [System.Web.HttpUtility]::HtmlEncode($t.Title)
         $ngAttr   = if ($t.NavGroup) { " data-navgroup=`"$([System.Web.HttpUtility]::HtmlEncode($t.NavGroup))`"" } else { '' }
+        $sgAttr   = if ($t.Contains('NavSubGroup') -and $t.NavSubGroup) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($t.NavSubGroup))`"" } else { '' }
         $descHtml = if ($t.Description) {
             "        <p class=`"table-description`">$([System.Web.HttpUtility]::HtmlEncode($t.Description))</p>"
         } else { '' }
@@ -23,7 +24,7 @@ function Build-DhTableSections {
         } else { '' }
 
         [void]$sb.AppendLine(@"
-    <section class="table-section" id="section-$id"$ngAttr>
+    <section class="table-section" id="section-$id"$ngAttr$sgAttr>
       <div class="table-section-header">
         <h2 class="table-title">$titleEsc</h2>
 $descHtml

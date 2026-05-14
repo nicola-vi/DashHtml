@@ -22,7 +22,8 @@ function Get-DhJsContent {
   var cardFilters   = {};        /* filterId -> { field, values[] } */
   var currentTheme  = 'default'; /* 'default' or 'light' */
   var tableDensity  = 'normal';  /* 'compact' | 'normal' | 'comfortable' */
-  var currentGroup  = '';        /* active nav group in two-tier mode */
+  var currentGroup    = '';      /* active nav group in two-tier mode */
+  var currentSubGroup = '';      /* active nav sub-group in three-tier mode */
 
   /* esc() — HTML-encode a value before inserting into innerHTML.
      Prevents XSS when data originates from external sources (Azure tags, resource names, etc.) */
@@ -327,7 +328,9 @@ function Get-DhJsContent {
     var inner = container.querySelector('#cinner-'+block.id);
     if (block.cards && block.cards.length) {
       var grid = document.createElement('div');
-      grid.className = 'collapsible-card-grid';
+      var widthClass = block.cardWidth && block.cardWidth !== 'normal'
+        ? ' coll-width-' + esc(block.cardWidth) : '';
+      grid.className = 'collapsible-card-grid' + widthClass;
       block.cards.forEach(function (card) {
         var el = document.createElement('div');
         el.className = 'coll-card';
@@ -463,6 +466,13 @@ function Get-DhJsContent {
        flat     — single nav bar, one panel visible at a time (legacy)
        two-tier — primary group tabs + secondary subnav links
      ========================================================================= */
+  /* ── Sync nav sticky top to actual header height ────────────────── */
+  function syncNavTop() {
+    var hdr = document.querySelector('.report-header');
+    var nav = document.getElementById('report-nav');
+    if (hdr && nav) { nav.style.top = hdr.offsetHeight + 'px'; }
+  }
+
   function initNav() {
     var groupTabsEl = document.getElementById('nav-group-tabs');
 
@@ -557,6 +567,28 @@ function Get-DhJsContent {
         var hasGroupLinks = !!document.querySelector('#nav-subnav .nav-link[data-group="'+groupName+'"]');
         subnavEl.style.display = hasGroupLinks ? '' : 'none';
       }
+      /* Three-tier: show subgroup pill strip if this group has any subgroups */
+      var sgEl = document.getElementById('nav-subgroup');
+      if (sgEl) {
+        var pills = sgEl.querySelectorAll('.subgroup-pill');
+        var anyForGroup = false;
+        pills.forEach(function (p) {
+          var match = (p.dataset.group === groupName);
+          p.style.display = match ? '' : 'none';
+          p.classList.remove('subgroup-active');
+          if (match) anyForGroup = true;
+        });
+        sgEl.style.display = anyForGroup ? '' : 'none';
+        /* Reset subgroup filter — show all items in group */
+        currentSubGroup = '';
+        document.querySelectorAll('[data-navgroup="'+groupName+'"][data-navsubgroup]').forEach(function (s) {
+          s.style.removeProperty('display');
+        });
+        document.querySelectorAll('#nav-subnav .nav-link[data-group="'+groupName+'"]').forEach(function (l) {
+          l.style.removeProperty('display');
+        });
+        syncNavTop();
+      }
       currentGroup = groupName;
       /* Activate first subnav link */
       var firstLink = document.querySelector('#nav-subnav .nav-link[data-group="'+groupName+'"]');
@@ -580,6 +612,58 @@ function Get-DhJsContent {
       if (link) link.classList.add('nav-active');
       URLState.save();
     }
+
+    /* Three-tier: subgroup pill handling */
+    var pills = document.querySelectorAll('.subgroup-pill');
+
+    function showSubGroup(groupName, subGroupName) {
+      /* Toggle pill active state */
+      pills.forEach(function (p) {
+        if (p.dataset.group !== groupName) return;
+        p.classList.toggle('subgroup-active',
+          subGroupName !== '' && p.dataset.subgroup === subGroupName);
+      });
+      currentSubGroup = subGroupName;
+
+      /* Filter sections in this group by subgroup.
+         Sections WITHOUT data-navsubgroup remain visible regardless. */
+      document.querySelectorAll('[data-navgroup="'+groupName+'"][data-navsubgroup]').forEach(function (s) {
+        var match = (subGroupName === '' || s.dataset.navsubgroup === subGroupName);
+        if (match) { s.style.removeProperty('display'); }
+        else       { s.style.display = 'none'; s.classList.remove('panel-active'); }
+      });
+
+      /* Filter subnav links in this group by subgroup too */
+      var firstVisibleLink = null;
+      document.querySelectorAll('#nav-subnav .nav-link[data-group="'+groupName+'"]').forEach(function (l) {
+        var lsg   = l.dataset.subgroup || '';
+        var match = (subGroupName === '' || lsg === '' || lsg === subGroupName);
+        if (match) {
+          l.style.removeProperty('display');
+          if (!firstVisibleLink) firstVisibleLink = l;
+        } else {
+          l.style.display = 'none';
+          l.classList.remove('nav-active');
+        }
+      });
+
+      /* If the currently active table is now hidden, switch to first visible */
+      var activeSub = document.querySelector('#nav-subnav .nav-link.nav-active[data-group="'+groupName+'"]');
+      if ((!activeSub || activeSub.style.display === 'none') && firstVisibleLink) {
+        showSubPanel(firstVisibleLink.dataset.table || firstVisibleLink.dataset.panel, groupName);
+      }
+
+      URLState.save();
+    }
+
+    /* Wire subgroup pill clicks — toggle off when clicking the active pill */
+    pills.forEach(function (pill) {
+      pill.addEventListener('click', function (e) {
+        e.preventDefault();
+        var isActive = pill.classList.contains('subgroup-active');
+        showSubGroup(pill.dataset.group, isActive ? '' : pill.dataset.subgroup);
+      });
+    });
 
     /* Wire group tab clicks */
     tabs.forEach(function (tab) {
@@ -611,8 +695,9 @@ function Get-DhJsContent {
       _showFlatPanel(flatLinks[0].dataset.table || flatLinks[0].dataset.panel);
     }
 
-    window._showPanel   = showSubPanel;
-    window._showGroup   = showGroup;
+    window._showPanel    = showSubPanel;
+    window._showGroup    = showGroup;
+    window._showSubGroup = showSubGroup;
   }
 
   /* Update row-count badges in nav after tables render */
@@ -1338,6 +1423,8 @@ function Get-DhJsContent {
     });
 
     initNav();
+    syncNavTop();
+    window.addEventListener('resize', syncNavTop);
     initThemeToggle();
     initDensityToggle();
 

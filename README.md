@@ -42,7 +42,7 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 
 Copy the `DashHtml/` folder to a directory in `$env:PSModulePath`, under a versioned subfolder:
 ```
-<modules-root>\DashHtml\1.1.0\
+<modules-root>\DashHtml\1.3.1\
 ```
 
 ---
@@ -261,6 +261,21 @@ Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
 
 Result: primary nav shows **Identity** and **Infrastructure** group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching `-NavGroup` appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.
 
+### Three-tier navigation (optional)
+
+Add an optional `-NavSubGroup` on top of `-NavGroup` to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. Clicking a pill narrows the group view to items tagged with that subgroup; clicking the active pill again clears the filter. Items in a group that have no `NavSubGroup` remain visible regardless of pill state.
+
+```powershell
+Add-DhTable -Report $report -TableId 'users-prod' -Title 'Users (Prod)' -Data $prodUsers `
+    -NavGroup 'Identity' -NavSubGroup 'Production'
+Add-DhTable -Report $report -TableId 'users-dev'  -Title 'Users (Dev)'  -Data $devUsers  `
+    -NavGroup 'Identity' -NavSubGroup 'Development'
+Add-DhTable -Report $report -TableId 'users-all'  -Title 'All Users'    -Data $allUsers  `
+    -NavGroup 'Identity'   # no NavSubGroup → always visible in Identity
+```
+
+The parameter is available on every block cmdlet (`Add-DhTable`, `Add-DhHtmlBlock`, `Add-DhCollapsible`, `Add-DhFilterCard`, `Add-DhBarChart`) and is fully backward compatible — existing scripts work unchanged.
+
 ---
 
 ## Collapsible sections
@@ -280,6 +295,12 @@ Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -DefaultOpen 
     )
 ```
 
+Use `-CardWidth` to change the card grid sizing: `small` (150–220 px), `normal` (default, 200–320 px), `large` (280–480 px), `xlarge` (360–640 px), or `auto` (240 px min, no max — cards grow to fill the row).
+
+```powershell
+Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -CardWidth 'large' -Cards $cards
+```
+
 ---
 
 ## HTML blocks
@@ -297,6 +318,9 @@ Add-DhHtmlBlock -Report $report -Id 'intro' -Title 'Overview' -Style 'info' -Con
 ---
 
 ## Logo and header fields
+
+The logo (`-LogoPath`) is displayed in the **report header** only — it does not appear in the nav bar.
+`-NavTitle` is optional; when omitted the nav bar shows only navigation links.
 
 ```powershell
 $report = New-DhDashboard -Title 'Infrastructure Dashboard' `

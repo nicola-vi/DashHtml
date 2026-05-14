@@ -141,7 +141,7 @@ function New-DhDashboard {
         Tables         = [System.Collections.Generic.List[hashtable]]::new()
         Links          = [System.Collections.Generic.List[hashtable]]::new()
         GeneratedAt    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')
-        NavTitle       = if ($null -eq $NavTitle) { $Title } else { $NavTitle }
+        NavTitle       = if ($null -eq $NavTitle) { '' } else { $NavTitle }
         GeneratedBy    = $GeneratedBy
     }
 }

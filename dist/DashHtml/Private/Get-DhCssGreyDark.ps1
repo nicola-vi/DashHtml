@@ -13,7 +13,7 @@ function Get-DhCssGreyDark {
   --bg-surface:       #242424;
   --bg-table:         #1E1E1E;
   --bg-row-alt:       #2A2A2A;
-  --bg-row-hover:     #333333;
+  --bg-row-hover:     #4A4A4A;
   --bg-row-sel:       #1E3040;
   --bg-thead:         #2D2D2D;
 

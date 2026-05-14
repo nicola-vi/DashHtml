@@ -77,7 +77,10 @@ function Add-DhCollapsible {
         [bool]     $DefaultOpen = $true,
         [object[]] $Cards       = @(),
         [string]   $Content     = '',
-        [string]   $NavGroup    = ''    # primary nav group label (enables two-tier nav)
+        [ValidateSet('small','normal','large','xlarge','auto')]
+        [string]   $CardWidth   = 'normal',  # card grid sizing: small=150-220, normal=200-320 (default), large=280-480, xlarge=360-640, auto=grow to fit
+        [string]   $NavGroup    = '',   # primary nav group label (enables two-tier nav)
+        [string]   $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if (-not $Report.Contains('Blocks')) {
@@ -120,7 +123,9 @@ function Add-DhCollapsible {
         Cards       = @($normCards)
         Content     = $Content
         Badge       = @($normCards).Count
+        CardWidth   = $CardWidth
         NavGroup    = $NavGroup
+        NavSubGroup = $NavSubGroup
     })
     Write-Verbose "Add-DhCollapsible: Added '$Id' ($(@($normCards).Count) cards)."
 }

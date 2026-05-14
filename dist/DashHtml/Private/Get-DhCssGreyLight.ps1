@@ -13,7 +13,7 @@ function Get-DhCssGreyLight {
   --bg-surface:       #F5F5F5;
   --bg-table:         #FAFAFA;
   --bg-row-alt:       #F0F0F0;
-  --bg-row-hover:     #E3E9ED;
+  --bg-row-hover:     #C9D4DB;
   --bg-row-sel:       #CFD8DC;
   --bg-thead:         #E0E0E0;
 

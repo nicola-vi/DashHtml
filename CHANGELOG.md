@@ -6,6 +6,38 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-04-29
+
+### Changed
+- **Table row hover — visibility**: The `--bg-row-hover` colour token was bumped to a noticeably more saturated shade in every built-in theme (Default, Azure, VMware, Grey, Company — light + dark variants) and in the inline `theme-forced-*` fallbacks in `Get-DhCssBase.ps1`. Previously the hover background sat very close to `--bg-table` / `--bg-row-alt`, making the highlight barely perceptible.
+- **Table row hover — accent edge**: `.data-table tbody tr:hover` now also draws a 3 px inset box-shadow on the left edge using `--accent-primary`, mirroring the visual affordance of `.row-selected` and giving the hovered row a clear focal cue regardless of the chosen theme.
+
+## [1.3.0] — 2026-04-22
+
+### Added
+- **Three-tier navigation — `-NavSubGroup` parameter**: New optional `-NavSubGroup` parameter on `Add-DhTable`, `Add-DhHtmlBlock`, `Add-DhCollapsible`, `Add-DhFilterCard`, and `Add-DhBarChart`. When used together with `-NavGroup`, a third pill-shaped nav strip appears below the subnav bar and filters items within the active group by subgroup. Clicking a pill narrows the group view to items tagged with that subgroup; clicking the active pill again clears the filter. Items inside a group that have no `NavSubGroup` remain visible regardless of pill state. Fully backward compatible — existing scripts work unchanged.
+- **Collapsible card width — `-CardWidth` parameter**: `Add-DhCollapsible` accepts `small` | `normal` (default) | `large` | `xlarge` | `auto`. Controls the `min-width`/`max-width` of each card in the grid (`small` 150–220 px, `normal` 200–320 px, `large` 280–480 px, `xlarge` 360–640 px, `auto` 240 px min and no upper bound).
+
+## [1.2.2] — 2026-04-15
+
+### Changed
+- **Layout — horizontal padding tuned**: Horizontal padding on `.report-body`, `.nav-inner`, and `.subnav-inner` increased from `8px` (`--space-sm`) to `16px` (`--space-md`) for better visual balance after the widescreen layout change in 1.2.1.
+
+## [1.2.1] — 2026-04-15
+
+### Changed
+- **Layout — widescreen padding**: `max-width` on `.report-body`, `.nav-inner`, and `.subnav-inner` increased from `1600px` to `2400px`; horizontal padding reduced from `24px` (`--space-lg`) to `8px` (`--space-sm`) on all three containers. On a typical 1920px display this reduces the empty side margin from ~184px to ~8px per side.
+
+## [1.2.0] — 2026-04-15
+
+### Changed
+- **Nav bar — logo removed**: The logo image is no longer rendered inside the sticky nav bar. The header logo is unaffected.
+- **Nav bar — `NavTitle` default**: `New-DhDashboard` now defaults `NavTitle` to `''` (empty string) instead of the report title, resulting in a cleaner nav bar showing only navigation links by default. Pass `-NavTitle 'My Label'` explicitly to restore a label.
+- **Filter/chart section spacing**: Reduced `margin-bottom` on `.filter-card-section` and `.bar-chart-section` from `16px` to `4px`, top padding on `.filter-card-section` from `8px` to `6px`, top/bottom padding on `.bar-chart-section` from `16px` to `8px`, and title `margin-bottom` from `8–16px` to `4px` for a tighter layout.
+
+### Fixed
+- **Two-tier nav — group tabs hidden behind tall header on scroll**: The sticky nav `top` offset was hardcoded to `calc(var(--header-height) + 8px)` (84 px), but the actual rendered header is taller when InfoFields are present. `syncNavTop()` now measures `header.offsetHeight` at runtime and sets `nav.style.top` dynamically (also wired to `window resize`), so the full nav bar (group tabs + subnav strip) is always visible below the header when scrolling.
+
 ## [1.1.0] — 2026-04-14
 
 ### Fixed

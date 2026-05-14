@@ -11,7 +11,7 @@ function Get-DhCssDefaultDark {
   --bg-surface:       #111720;
   --bg-table:         #0f141b;
   --bg-row-alt:       #131922;
-  --bg-row-hover:     #1a2332;
+  --bg-row-hover:     #2A3A56;
   --bg-row-sel:       #0a2540;
   --bg-thead:         #161e2b;
 

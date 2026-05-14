@@ -203,7 +203,8 @@ function Export-DhDashboard {
                         "{`"title`":$(ConvertTo-DhJsonString $card.Title),`"badge`":$(ConvertTo-DhJsonString $card.Badge),`"badgeClass`":$(ConvertTo-DhJsonString $card.BadgeClass),`"fields`":[$fieldsJson]}"
                     }) -join ','
                     $openStr = $b.DefaultOpen.ToString().ToLower()
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"icon`":$(ConvertTo-DhJsonString $b.Icon),`"defaultOpen`":$openStr,`"badge`":$($b.Badge),`"cards`":[$cardsJson],`"content`":$(ConvertTo-DhJsonString $b.Content)}"
+                    $cwStr   = if ($b.Contains('CardWidth') -and $b.CardWidth) { ConvertTo-DhJsonString $b.CardWidth } else { '"normal"' }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"icon`":$(ConvertTo-DhJsonString $b.Icon),`"defaultOpen`":$openStr,`"badge`":$($b.Badge),`"cards`":[$cardsJson],`"content`":$(ConvertTo-DhJsonString $b.Content),`"cardWidth`":$cwStr}"
                 }
                 'filtercardgrid' {
                     $fcJson = ($b.Cards | ForEach-Object {
@@ -247,10 +248,8 @@ function Export-DhDashboard {
         '<div class="report-logo-placeholder" title="No logo supplied"></div>'
     }
 
-    # Nav logo (smaller thumbnail) and nav links
-    $navLogoHtml = if ($Report.LogoBase64) {
-        "<img src=`"data:$logoMime;base64,$($Report.LogoBase64)`" class=`"nav-logo`" alt=`"Logo`">"
-    } else { '' }
+    # Nav logo suppressed by design
+    $navLogoHtml = ''
 
     # ---- Detect two-tier nav (any table or block has a NavGroup) --
     $hasTwoTier = ($Report.Tables | Where-Object { $_.NavGroup }) -or
@@ -286,13 +285,50 @@ function Export-DhDashboard {
             "<a class=`"nav-group-tab`" href=`"#`" data-group=`"$g`">$g</a>"
         }) -join "`n        "
 
-        # All grouped table links go in subnav
+        # All grouped table links go in subnav (include data-subgroup when defined)
         $subnavLinks = ($Report.Tables | Where-Object { $_.NavGroup } | ForEach-Object {
             $tid = $_.Id
             $tn  = [System.Web.HttpUtility]::HtmlEncode($_.Title)
             $g   = [System.Web.HttpUtility]::HtmlEncode($_.NavGroup)
-            "<a class=`"nav-link`" href=`"#`" data-table=`"$tid`" data-group=`"$g`">$tn<span class=`"nav-badge`" data-table=`"$tid`"></span></a>"
+            $sg  = if ($_.Contains('NavSubGroup') -and $_.NavSubGroup) { $_.NavSubGroup } else { '' }
+            $sgAttr = if ($sg) { " data-subgroup=`"$([System.Web.HttpUtility]::HtmlEncode($sg))`"" } else { '' }
+            "<a class=`"nav-link`" href=`"#`" data-table=`"$tid`" data-group=`"$g`"$sgAttr>$tn<span class=`"nav-badge`" data-table=`"$tid`"></span></a>"
         }) -join "`n        "
+
+        # ---- Three-tier nav: build subgroup pills ----
+        # Collect (group, subgroup) pairs from tables first, then block-only subgroups
+        $subGroupPairs = [System.Collections.Generic.List[object]]::new()
+        $seenPairs = @{}
+        foreach ($t in $Report.Tables) {
+            if ($t.NavGroup -and $t.Contains('NavSubGroup') -and $t.NavSubGroup) {
+                $key = "$($t.NavGroup)`0$($t.NavSubGroup)"
+                if (-not $seenPairs.ContainsKey($key)) {
+                    $seenPairs[$key] = $true
+                    $subGroupPairs.Add(@{ Group = $t.NavGroup; SubGroup = $t.NavSubGroup })
+                }
+            }
+        }
+        if ($Report.Contains('Blocks')) {
+            foreach ($b in $Report.Blocks) {
+                if ($b.NavGroup -and $b.Contains('NavSubGroup') -and $b.NavSubGroup) {
+                    $key = "$($b.NavGroup)`0$($b.NavSubGroup)"
+                    if (-not $seenPairs.ContainsKey($key)) {
+                        $seenPairs[$key] = $true
+                        $subGroupPairs.Add(@{ Group = $b.NavGroup; SubGroup = $b.NavSubGroup })
+                    }
+                }
+            }
+        }
+
+        $subgroupHtml = ''
+        if ($subGroupPairs.Count -gt 0) {
+            $subgroupPillsHtml = ($subGroupPairs | ForEach-Object {
+                $g  = [System.Web.HttpUtility]::HtmlEncode($_.Group)
+                $sg = [System.Web.HttpUtility]::HtmlEncode($_.SubGroup)
+                "<a class=`"subgroup-pill`" href=`"#`" data-group=`"$g`" data-subgroup=`"$sg`">$sg</a>"
+            }) -join "`n        "
+            $subgroupHtml = "<div class=`"nav-subgroup`" id=`"nav-subgroup`" style=`"display:none`"><div class=`"subgroup-inner`">$subgroupPillsHtml</div></div>"
+        }
 
         $navLinksHtml  = $flatLinks
         $groupTabsHtml = if ($groupTabsHtml) { "<div class=`"nav-group-tabs`" id=`"nav-group-tabs`">$groupTabsHtml</div>" } else { '' }
@@ -305,6 +341,7 @@ function Export-DhDashboard {
         }) -join "`n        "
         $groupTabsHtml = ''
         $subnavHtml    = ''
+        $subgroupHtml  = ''
     }
 
     $subtitleHtml = if ($Report.Subtitle) {
@@ -322,7 +359,9 @@ function Export-DhDashboard {
     }
 
     # ---- Table section shells ---------------------------------------------------
-    $tableSections = Build-DhTableSections -Tables $Report.Tables
+    $tableSections = if ($Report.Tables.Count -gt 0) {
+        Build-DhTableSections -Tables $Report.Tables
+    } else { '' }
 
     # Build block section HTML shells
     $blockSectionsHtml = ''
@@ -331,8 +370,10 @@ function Export-DhDashboard {
             $b          = $_
             $bNg        = if ($b.NavGroup) { $b.NavGroup } else { '' }
             $bNgAttr    = if ($bNg) { " data-navgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bNg))`"" } else { '' }
+            $bSg        = if ($b.Contains('NavSubGroup') -and $b.NavSubGroup) { $b.NavSubGroup } else { '' }
+            $bSgAttr    = if ($bSg) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bSg))`"" } else { '' }
             $bActive    = if (-not $bNg) { ' panel-active' } else { '' }
-            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr><div id=`"block-$($b.Id)`"></div></div>"
+            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr$bSgAttr><div id=`"block-$($b.Id)`"></div></div>"
         }) -join "`n"
     }
 
@@ -382,6 +423,7 @@ $themeStyleTag
       <button class="nav-utility-btn" id="btn-density-toggle" title="Toggle table row density">&#8862; Normal</button>
       <button class="nav-utility-btn" id="btn-theme-toggle" data-primary="$theme" data-alternate="$alternateTheme" title="Toggle theme">&#9790; Dark</button>
     </div>
+    $subgroupHtml
     $subnavHtml
   </nav>
 

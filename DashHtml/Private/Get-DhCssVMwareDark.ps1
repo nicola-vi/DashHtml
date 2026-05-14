@@ -19,7 +19,7 @@ function Get-DhCssVMwareDark {
   --bg-surface:       #243047;
   --bg-table:         #1E2940;
   --bg-row-alt:       #26344C;
-  --bg-row-hover:     #2F3F5C;
+  --bg-row-hover:     #44608E;
   --bg-row-sel:       #0B3D2E;
   --bg-thead:         #2A3750;
 

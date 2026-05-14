@@ -21,7 +21,7 @@ function Get-DhCssVMwareLight {
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F5FCFA;
-  --bg-row-hover:     #E4F7F1;
+  --bg-row-hover:     #C5EBDD;
   --bg-row-sel:       #C8EEE6;
   --bg-thead:         #F0F0F0;
 

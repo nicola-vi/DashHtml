@@ -15,7 +15,7 @@ function Get-DhCssCompanyLight {
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #FAFBFC;
-  --bg-row-hover:     #FFF0F3;
+  --bg-row-hover:     #FFD4DD;
   --bg-row-sel:       #FFE0E6;
   --bg-thead:         #F5F5F5;
 
