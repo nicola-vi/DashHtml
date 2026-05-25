@@ -14,7 +14,7 @@ function Get-DhTheme {
 
     .PARAMETER Name
         Theme family to retrieve.
-        Valid values: Default | Azure | VMware | Grey | Company
+        Valid values: Default | Azure | VMware | Grey | Company | Rag
 
     .PARAMETER SaveTo
         Directory path where the two CSS files will be saved.
@@ -41,7 +41,7 @@ function Get-DhTheme {
     [CmdletBinding(DefaultParameterSetName='List')]
     param(
         [Parameter(ParameterSetName='Get', Mandatory)]
-        [ValidateSet('Default','Azure','VMware','Grey','Company')]
+        [ValidateSet('Default','Azure','VMware','Grey','Company','Rag')]
         [string] $Name,
 
         [Parameter(ParameterSetName='Get')]
@@ -55,11 +55,12 @@ function Get-DhTheme {
         'VMware'  = @{ Light = 'VMwareLight';  Dark = 'VMwareDark';   LightDesc = 'White/navy header, VMware green';        DarkDesc = 'Navy (#1D2437), VMware green accent';  Font = 'Inter (Google Fonts)'  }
         'Grey'    = @{ Light = 'GreyLight';    Dark = 'GreyDark';     LightDesc = 'Warm grey (#EEEEEE), steel accent';      DarkDesc = 'Dark neutral (#1A1A1A), grey accent';  Font = 'System UI / Segoe UI'  }
         'Company' = @{ Light = 'CompanyLight'; Dark = 'CompanyDark';  LightDesc = 'White, Crimson Glory (#BE0036)';         DarkDesc = 'Near-black (#0E0709), Crimson accent'; Font = 'Montserrat (Google Fonts)' }
+        'Rag'     = @{ Light = 'RagLight';     Dark = 'RagDark';      LightDesc = 'White, spec-exact Office/Excel RAG palette (#375623 / #7F4B00 / #9C0006)'; DarkDesc = 'Near-black (#0E0E0E), Office dark-mode RAG companions'; Font = 'System UI / Segoe UI' }
     }
 
     if ($PSCmdlet.ParameterSetName -eq 'List') {
         return @(
-            foreach ($family in @('Default','Azure','VMware','Grey','Company')) {
+            foreach ($family in @('Default','Azure','VMware','Grey','Company','Rag')) {
                 $m = $themeMap[$family]
                 [PSCustomObject]@{
                     Family      = $family

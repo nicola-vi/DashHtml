@@ -75,6 +75,7 @@ function Get-DhCssAzureDark {
   --cell-ok-fg:      #6CCB5F;  --cell-ok-bg:      rgba(108,203,95,0.10);
   --cell-warn-fg:    #FCE100;  --cell-warn-bg:    rgba(252,225,0,0.09);
   --cell-danger-fg:  #FC5F5F;  --cell-danger-bg:  rgba(252,95,95,0.10);
+  --cell-nodata-fg:  #A19F9D;  --cell-nodata-bg:  rgba(161,159,157,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.08);
 

@@ -72,16 +72,25 @@ Write-Host "  Module imported" -ForegroundColor DarkGray
 
 # ── Cmdlet ordering and metadata ──────────────────────────────────────────────
 $cmdMeta = [ordered]@{
-    'New-DhDashboard'    = @{ Tag = 'INIT';   Color = '#79c0ff'; Group = 'Foundation'     }
-    'Export-DhDashboard' = @{ Tag = 'OUT';    Color = '#ffa657'; Group = 'Foundation'     }
-    'Get-DhTheme'        = @{ Tag = 'UTIL';   Color = '#ffa657'; Group = 'Foundation'     }
-    'Add-DhTable'        = @{ Tag = 'TABLE';  Color = '#d2a8ff'; Group = 'Content Blocks' }
-    'Add-DhSummary'      = @{ Tag = 'KPI';    Color = '#d2a8ff'; Group = 'Content Blocks' }
-    'Add-DhBarChart'     = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Content Blocks' }
-    'Add-DhFilterCard'   = @{ Tag = 'FILTER'; Color = '#d2a8ff'; Group = 'Content Blocks' }
-    'Add-DhHtmlBlock'    = @{ Tag = 'HTML';   Color = '#d2a8ff'; Group = 'Content Blocks' }
-    'Add-DhCollapsible'  = @{ Tag = 'COLL';   Color = '#d2a8ff'; Group = 'Content Blocks' }
-    'Set-DhTableLink'    = @{ Tag = 'LINK';   Color = '#3fb950'; Group = 'Linking'        }
+    'New-DhDashboard'    = @{ Tag = 'INIT';   Color = '#79c0ff'; Group = 'Foundation'      }
+    'Export-DhDashboard' = @{ Tag = 'OUT';    Color = '#ffa657'; Group = 'Foundation'      }
+    'Get-DhTheme'        = @{ Tag = 'UTIL';   Color = '#ffa657'; Group = 'Foundation'      }
+    'Add-DhTable'        = @{ Tag = 'TABLE';  Color = '#d2a8ff'; Group = 'Content Blocks'  }
+    'Add-DhSummary'      = @{ Tag = 'KPI';    Color = '#d2a8ff'; Group = 'Content Blocks'  }
+    'Add-DhAlertBanner'  = @{ Tag = 'ALERT';  Color = '#ff7b72'; Group = 'Content Blocks'  }   # v1.4
+    'Add-DhBarChart'     = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Charts'          }
+    'Add-DhPieChart'     = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
+    'Add-DhLineChart'    = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
+    'Add-DhBullet'       = @{ Tag = 'BULLET'; Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
+    'Add-DhStatusGrid'   = @{ Tag = 'GRID';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.4
+    'Add-DhHeatmap'      = @{ Tag = 'HEAT';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5
+    'Add-DhTopologyMap'  = @{ Tag = 'TOPO';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5
+    'Add-DhEventFeed'    = @{ Tag = 'FEED';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.4
+    'Add-DhTabs'         = @{ Tag = 'TABS';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5
+    'Add-DhFilterCard'   = @{ Tag = 'FILTER'; Color = '#d2a8ff'; Group = 'Content Blocks'  }
+    'Add-DhHtmlBlock'    = @{ Tag = 'HTML';   Color = '#d2a8ff'; Group = 'Content Blocks'  }
+    'Add-DhCollapsible'  = @{ Tag = 'COLL';   Color = '#d2a8ff'; Group = 'Content Blocks'  }
+    'Set-DhTableLink'    = @{ Tag = 'LINK';   Color = '#3fb950'; Group = 'Linking'         }
 }
 
 # Common parameters that PowerShell injects — skip them in the docs
@@ -500,7 +509,7 @@ $refSections = @'
       </div>
       <div>
         <div class="cmd-name" style="color:#bc8cff">Theme families</div>
-        <div class="cmd-synopsis">Five built-in theme families — each embeds light and dark variants</div>
+        <div class="cmd-synopsis">Six built-in theme families — each embeds light and dark variants</div>
       </div>
     </div>
     <table class="params-table">
@@ -854,7 +863,7 @@ $($sidebarNavHtml.ToString())
   <div class="page-header" id="overview">
     <div class="header-eyebrow">PowerShell Module Reference</div>
     <h1 class="page-title">DashHtml</h1>
-    <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles, bar charts, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Five theme families, embedded light/dark variants, no external dependencies at viewing time.</p>
+    <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles (with sparklines, deltas, big-number and gauge styles), line / area / pie / bullet / stacked-bar charts, RAG status matrix, event feeds, alert banners, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Six theme families (including the v1.4 `Rag` family with the Office/Excel palette), embedded light/dark variants, no external dependencies at viewing time.</p>
     <div class="module-badges">
       <span class="badge badge-blue">PowerShell 7.0+</span>
       <span class="badge badge-green">$($cmdMeta.Count) exported functions</span>

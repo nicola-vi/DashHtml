@@ -77,6 +77,7 @@ function Get-DhCssCompanyLight {
   --cell-ok-fg:      #1B7A2E;  --cell-ok-bg:      rgba(27,122,46,0.08);
   --cell-warn-fg:    #B84800;  --cell-warn-bg:    rgba(184,72,0,0.08);
   --cell-danger-fg:  #BE0036;  --cell-danger-bg:  rgba(190,0,54,0.08);
+  --cell-nodata-fg:  #7A7A7A;  --cell-nodata-bg:  rgba(122,122,122,0.08);
 
   --progress-track-bg: rgba(0,0,0,0.07);
 

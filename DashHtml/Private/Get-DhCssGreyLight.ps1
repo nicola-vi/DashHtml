@@ -75,6 +75,7 @@ function Get-DhCssGreyLight {
   --cell-ok-fg:      #2E7D32;  --cell-ok-bg:      rgba(46,125,50,0.08);
   --cell-warn-fg:    #BF360C;  --cell-warn-bg:    rgba(191,54,12,0.08);
   --cell-danger-fg:  #B71C1C;  --cell-danger-bg:  rgba(183,28,28,0.08);
+  --cell-nodata-fg:  #6E7C84;  --cell-nodata-bg:  rgba(110,124,132,0.08);
 
   --progress-track-bg: rgba(0,0,0,0.08);
 

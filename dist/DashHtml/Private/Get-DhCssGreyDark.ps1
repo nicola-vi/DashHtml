@@ -75,6 +75,7 @@ function Get-DhCssGreyDark {
   --cell-ok-fg:      #81C784;  --cell-ok-bg:      rgba(129,199,132,0.10);
   --cell-warn-fg:    #FFB74D;  --cell-warn-bg:    rgba(255,183,77,0.10);
   --cell-danger-fg:  #E57373;  --cell-danger-bg:  rgba(229,115,115,0.10);
+  --cell-nodata-fg:  #9E9E9E;  --cell-nodata-bg:  rgba(158,158,158,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.07);
 

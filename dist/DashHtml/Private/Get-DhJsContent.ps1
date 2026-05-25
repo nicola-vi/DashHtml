@@ -14,16 +14,18 @@ function Get-DhJsContent {
   var TABLES_CONFIG  = /*%%TABLES_CONFIG%%*/[];
   var SUMMARY_CONFIG = /*%%SUMMARY_CONFIG%%*/[];
   var BLOCKS_CONFIG  = /*%%BLOCKS_CONFIG%%*/[];
+  var ALERTS_CONFIG  = /*%%ALERTS_CONFIG%%*/[];
 
   /* =========================================================================
      GLOBAL STATE
      ========================================================================= */
-  var engines       = {};        /* tableId -> TableEngine */
-  var cardFilters   = {};        /* filterId -> { field, values[] } */
-  var currentTheme  = 'default'; /* 'default' or 'light' */
-  var tableDensity  = 'normal';  /* 'compact' | 'normal' | 'comfortable' */
-  var currentGroup    = '';      /* active nav group in two-tier mode */
-  var currentSubGroup = '';      /* active nav sub-group in three-tier mode */
+  var engines         = {};        /* tableId -> TableEngine */
+  var cardFilters     = {};        /* filterId -> { field, values[] } */
+  var currentTheme    = 'default'; /* 'default' or 'light' */
+  var tableDensity    = 'normal';  /* 'compact' | 'normal' | 'comfortable' */
+  var currentGroup    = '';        /* active nav group in two-tier mode */
+  var currentSubGroup = '';        /* active nav sub-group in three-tier mode */
+  var dismissedAlerts = {};        /* alertId -> true; persisted in URL hash */
 
   /* esc() — HTML-encode a value before inserting into innerHTML.
      Prevents XSS when data originates from external sources (Azure tags, resource names, etc.) */
@@ -60,6 +62,9 @@ function Get-DhJsContent {
         if (Object.keys(cardFilters).length) state.cardFilters = cardFilters;
         /* density */
         if (tableDensity !== 'normal') state.density = tableDensity;
+        /* dismissed alert banners — array of ids */
+        var dismissed = Object.keys(dismissedAlerts);
+        if (dismissed.length) state.alerts = dismissed;
         history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify(state)));
       } catch(e) {}
     },
@@ -140,6 +145,11 @@ function Get-DhJsContent {
      THRESHOLD ENGINE — numeric (Min/Max) + string (Value)
      ========================================================================= */
   function getThresholdClass(col, rawVal) {
+    var isMissing = (rawVal===null||rawVal===undefined||rawVal==='');
+    /* v1.4 F13 — when the column was declared with -Rag NoData=$true, paint
+       missing/null cells with cell-nodata. Wins over any numeric thresholds
+       that would otherwise return ''. */
+    if (isMissing && col.ragNoData) return 'cell-nodata';
     if (!col.thresholds||!col.thresholds.length) return '';
     var str=(rawVal!==null&&rawVal!==undefined)?String(rawVal):'';
     var numVal=parseFloat(str);
@@ -248,41 +258,1527 @@ function Get-DhJsContent {
   }
 
   /* =========================================================================
-     SUMMARY TILES
+     SPARK — pure-SVG mini-chart helper.
+     Used by Add-DhSummary (tile sparkline, F2) and the v1.4 sparkline table
+     cell type (F8). No external library; renders a single inline SVG string.
+
+     SPARK.build(series, opts) -> '<svg>...</svg>' string (use innerHTML).
+       series    numeric array (non-numeric items should already be filtered out)
+       opts.style    'line' (default) | 'area' | 'bars'
+       opts.width    default 80
+       opts.height   default 24
+       opts.min      explicit Y-min (else series min)
+       opts.max      explicit Y-max (else series max)
+       opts.color    explicit colour (else var(--chart-1) fallback)
+     Returns '' for empty series so callers can do a truthy check.
+     ========================================================================= */
+  /* v1.4 F8 — reduce an array of values to a comparable scalar for sort.
+     SortBy: 'last' (default) | 'avg' | 'max' | 'min' | 'sum'. Non-array
+     values pass through unchanged so legacy data still sorts correctly. */
+  function sparkReduce(arr, mode) {
+    if (!Array.isArray(arr)) return arr;
+    var nums = [];
+    for (var i = 0; i < arr.length; i++) {
+      var n = Number(arr[i]);
+      if (isFinite(n)) nums.push(n);
+    }
+    if (!nums.length) return 0;
+    switch ((mode || 'last').toLowerCase()) {
+      case 'avg': return nums.reduce(function(s,v){return s+v;}, 0) / nums.length;
+      case 'max': return Math.max.apply(null, nums);
+      case 'min': return Math.min.apply(null, nums);
+      case 'sum': return nums.reduce(function(s,v){return s+v;}, 0);
+      case 'last':
+      default:    return nums[nums.length - 1];
+    }
+  }
+
+  var SPARK = {
+    build: function (series, opts) {
+      opts = opts || {};
+      if (!series || !series.length) return '';
+      var n = series.length;
+      var nums = [];
+      for (var i = 0; i < n; i++) {
+        var v = Number(series[i]);
+        nums.push(isFinite(v) ? v : 0);
+      }
+      var W = opts.width  || 80;
+      var H = opts.height || 24;
+      var style = (opts.style || 'line').toLowerCase();
+      var color = opts.color || cssVar('--chart-1', '#00c8ff');
+      var min = (opts.min != null) ? Number(opts.min) : Math.min.apply(null, nums);
+      var max = (opts.max != null) ? Number(opts.max) : Math.max.apply(null, nums);
+      if (min === max) { min -= 0.5; max += 0.5; }  /* flat series: still draw at mid */
+      var pad = 1;
+      var xAt = function (i) {
+        if (n === 1) return W / 2;
+        return pad + (i / (n - 1)) * (W - 2 * pad);
+      };
+      var yAt = function (v) {
+        return (H - pad) - ((v - min) / (max - min)) * (H - 2 * pad);
+      };
+      var inner = '';
+      if (style === 'bars') {
+        var bw = Math.max(1, (W / n) - 1);
+        var baseline = H - pad;
+        for (var i = 0; i < n; i++) {
+          var x = (i / n) * W + 0.5;
+          var y = yAt(nums[i]);
+          var h = baseline - y;
+          if (h < 0.5) h = 0.5;  /* visible "zero" bar */
+          inner += '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) +
+                   '" width="' + bw.toFixed(2) + '" height="' + h.toFixed(2) +
+                   '" fill="' + color + '"/>';
+        }
+      } else {
+        var pts = [];
+        for (var i = 0; i < n; i++) pts.push(xAt(i).toFixed(2) + ',' + yAt(nums[i]).toFixed(2));
+        var ptsStr = pts.join(' ');
+        if (style === 'area') {
+          var firstX = xAt(0).toFixed(2);
+          var lastX  = xAt(n - 1).toFixed(2);
+          var areaPts = pts.map(function (p) { return 'L' + p; }).join(' ');
+          var areaPath = 'M' + firstX + ',' + (H - pad) + ' ' + areaPts + ' L' + lastX + ',' + (H - pad) + ' Z';
+          inner = '<path d="' + areaPath + '" fill="' + color + '" fill-opacity="0.22" stroke="none"/>' +
+                  '<polyline points="' + ptsStr + '" fill="none" stroke="' + color +
+                  '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+        } else {
+          /* default: line */
+          inner = '<polyline points="' + ptsStr + '" fill="none" stroke="' + color +
+                  '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+        }
+      }
+      return '<svg class="spark-svg" width="' + W + '" height="' + H +
+             '" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">' + inner + '</svg>';
+    }
+  };
+
+  /* =========================================================================
+     DELTA — trend & delta indicator helper (Add-DhSummary tile F1)
+     Returns either '' (no indicator wanted) or an object
+       { dir: 'up'|'down'|'flat', className: 'delta-good'|'delta-bad'|'delta-flat', html: '<arrow> +12 (+5.5%)' }
+     Caller wraps the html in <div class="summary-delta delta-<dir> <className>">
+     ========================================================================= */
+  var DELTA = {
+    build: function (item) {
+      var curr = Number(item.value);
+      var prev = (item.previous != null) ? Number(item.previous) : null;
+      var hasPrev = (prev !== null) && isFinite(prev) && isFinite(curr);
+
+      /* Direction: explicit Trend wins; otherwise derive from Previous vs Value */
+      var dir = (item.trend && item.trend !== 'auto') ? item.trend : null;
+      if (!dir) {
+        if (!hasPrev) return '';   /* no signal at all */
+        var d0 = curr - prev;
+        dir = (d0 > 0) ? 'up' : (d0 < 0 ? 'down' : 'flat');
+      }
+
+      /* Compute delta numbers when Previous is supplied */
+      var deltaAbs = hasPrev ? (curr - prev) : null;
+      var deltaPct = (hasPrev && prev !== 0) ? (deltaAbs / Math.abs(prev)) * 100 : null;
+
+      /* Colour: explicit TrendIsGood overrides; otherwise semantic (up=good, down=bad, flat=neutral) */
+      var className;
+      if (item.trendIsGood === true)  className = 'delta-good';
+      else if (item.trendIsGood === false) className = 'delta-bad';
+      else {
+        className = (dir === 'up') ? 'delta-good' : (dir === 'down' ? 'delta-bad' : 'delta-flat');
+      }
+
+      /* Arrow glyph */
+      var arrow = (dir === 'up') ? '▲' : (dir === 'down' ? '▼' : '▶');
+
+      /* Format the textual portion per item.deltaFormat */
+      var fmt = item.deltaFormat || 'both';
+      function fmtAbs(n) {
+        if (n === 0) return '±0';                 /* ±0 */
+        var sign = n > 0 ? '+' : '';                    /* '-' is part of the number itself */
+        /* Preserve original precision: integer in / integer out; floats use toFixed(decimals||2) */
+        var dec = (item.decimals != null && item.decimals >= 0) ? item.decimals : null;
+        var body = (dec !== null) ? n.toFixed(dec) : String(n);
+        return sign + body;
+      }
+      function fmtPct(p) {
+        var sign = p > 0 ? '+' : '';
+        return sign + p.toFixed(1) + '%';
+      }
+
+      var parts = [];
+      if (deltaAbs !== null && (fmt === 'absolute' || fmt === 'both')) {
+        parts.push(fmtAbs(deltaAbs));
+      }
+      if (deltaPct !== null && (fmt === 'percent' || fmt === 'both')) {
+        parts.push(fmt === 'both' ? '(' + fmtPct(deltaPct) + ')' : fmtPct(deltaPct));
+      }
+      var labelTxt = parts.join(' ');
+
+      return {
+        dir: dir,
+        className: className,
+        html: '<span class="delta-arrow">' + arrow + '</span>' +
+              (labelTxt ? ' <span class="delta-text">' + esc(labelTxt) + '</span>' : '')
+      };
+    }
+  };
+
+  /* =========================================================================
+     ALERT BANNERS — top-of-page strips above the summary
+     ========================================================================= */
+  function renderAlerts() {
+    if (!ALERTS_CONFIG || !ALERTS_CONFIG.length) return;
+    var container = document.getElementById('report-alerts');
+    if (!container) return;
+    container.innerHTML = '';
+
+    /* Restore dismissed-state from URL hash so reloads keep banners hidden */
+    var saved = URLState.load();
+    if (saved.alerts && saved.alerts.length) {
+      saved.alerts.forEach(function (id) { dismissedAlerts[id] = true; });
+    }
+
+    ALERTS_CONFIG.forEach(function (alert) {
+      if (dismissedAlerts[alert.id]) return;  /* user dismissed earlier, keep hidden */
+
+      var severityClass = 'alert-' + (alert.severity || 'info');
+      var banner = document.createElement('div');
+      banner.className = 'alert-banner ' + severityClass;
+      banner.setAttribute('data-alert-id', alert.id);
+      banner.setAttribute('role', 'alert');
+      /* v1.4.2+ — NavGroup binding. The general nav-routing show/hide pass
+         picks up [data-navgroup] elements anywhere in the body. */
+      if (alert.navGroup)    banner.setAttribute('data-navgroup',    alert.navGroup);
+      if (alert.navSubGroup) banner.setAttribute('data-navsubgroup', alert.navSubGroup);
+
+      var iconHtml = alert.icon
+        ? '<span class="alert-icon">' + esc(alert.icon) + '</span>'
+        : '';
+      var actionHtml = '';
+      if (alert.action && alert.action.label) {
+        actionHtml = '<button class="alert-action-btn" type="button">'
+                   + esc(alert.action.label) + '</button>';
+      }
+      var dismissHtml = alert.dismissible
+        ? '<button class="alert-dismiss-btn" type="button" aria-label="Dismiss alert" title="Dismiss">&times;</button>'
+        : '';
+
+      /* alert.message may contain inline HTML by design (matches Add-DhHtmlBlock policy) */
+      banner.innerHTML =
+        '<div class="alert-body">'
+        + iconHtml
+        + '<span class="alert-message">' + alert.message + '</span>'
+        + '</div>'
+        + '<div class="alert-actions">' + actionHtml + dismissHtml + '</div>';
+
+      /* Wire dismiss */
+      if (alert.dismissible) {
+        var dismissBtn = banner.querySelector('.alert-dismiss-btn');
+        dismissBtn.addEventListener('click', function () {
+          dismissedAlerts[alert.id] = true;
+          banner.classList.add('alert-dismissed');
+          /* Match CSS transition before removal */
+          setTimeout(function () { banner.remove(); }, 200);
+          URLState.save();
+        });
+      }
+
+      /* Wire action button */
+      if (alert.action && alert.action.label) {
+        var actionBtn = banner.querySelector('.alert-action-btn');
+        actionBtn.addEventListener('click', function () {
+          if (alert.action.url) {
+            window.open(alert.action.url, '_blank', 'noopener');
+            return;
+          }
+          if (alert.action.tableId && window._showPanel) {
+            window._showPanel(alert.action.tableId);
+            /* Apply filter text if requested */
+            if (alert.action.filter && engines[alert.action.tableId]) {
+              var eng = engines[alert.action.tableId];
+              var inp = document.getElementById('filter-' + alert.action.tableId);
+              eng.filterText = alert.action.filter;
+              if (inp) inp.value = alert.action.filter;
+              eng.currentPage = 1;
+              eng.render();
+              URLState.save();
+            }
+          }
+        });
+      }
+
+      container.appendChild(banner);
+    });
+  }
+
+  /* =========================================================================
+     SUMMARY / TILE HELPERS (module-scope so the bullet, line-chart, and
+     summarystrip renderers can all reuse them).
+     ========================================================================= */
+
+  /* Threshold matcher (v1.4 F4) — column-style Min/Max bands. Highest
+     matching Min wins, supporting the spec-friendly Min-only pattern. */
+  function pickThresholdClass(value, thresholds) {
+    if (!thresholds || !thresholds.length) return '';
+    var best = null, bestMin = -Infinity;
+    for (var i = 0; i < thresholds.length; i++) {
+      var th = thresholds[i];
+      var hasMin = (th.min !== undefined && th.min !== null);
+      var hasMax = (th.max !== undefined && th.max !== null);
+      if (hasMin && value < th.min) continue;
+      if (hasMax && value >= th.max) continue;
+      var mv = hasMin ? th.min : -Infinity;
+      if (best === null || mv > bestMin) { best = th; bestMin = mv; }
+    }
+    return best ? (best['class'] || '') : '';
+  }
+
+  /* Map a cell-* class to its accent CSS var so SVG strokes can read it. */
+  function classToAccent(cls) {
+    switch (cls) {
+      case 'cell-ok':     return 'var(--cell-ok-fg)';
+      case 'cell-warn':   return 'var(--cell-warn-fg)';
+      case 'cell-danger': return 'var(--cell-danger-fg)';
+      case 'cell-nodata': return 'var(--cell-nodata-fg)';
+      default:            return 'var(--accent-primary)';
+    }
+  }
+
+  /* Background-tint variant — used by the bullet chart for performance bands. */
+  function classToAccentBg(cls) {
+    switch (cls) {
+      case 'cell-ok':     return 'var(--cell-ok-bg)';
+      case 'cell-warn':   return 'var(--cell-warn-bg)';
+      case 'cell-danger': return 'var(--cell-danger-bg)';
+      case 'cell-nodata': return 'var(--cell-nodata-bg)';
+      default:            return 'rgba(0,0,0,0.04)';
+    }
+  }
+
+  /* Tile sub-renderers (delta, sparkline, formatted value).
+     These power the standard / bignumber / gauge tiles and run identically
+     from the global top-of-page strip AND from each per-NavGroup strip. */
+  function tileFormatValue(item) {
+    return FMT.apply(
+      {format:item.format||'',locale:item.locale||'',decimals:item.decimals,currency:item.currency||''},
+      item.value
+    ) || String(item.value!==null&&item.value!==undefined?item.value:'');
+  }
+  function tileDeltaHtml(item) {
+    if ((item.previous != null) || (item.trend && item.trend !== 'auto')) {
+      var d = DELTA.build(item);
+      if (d) return '<div class="summary-delta delta-'+d.dir+' '+d.className+'">'+d.html+'</div>';
+    }
+    return '';
+  }
+  function tileSparklineHtml(item) {
+    if (item.sparkline && item.sparkline.length) {
+      return '<div class="summary-sparkline">' +
+             SPARK.build(item.sparkline, {
+               style: item.sparklineStyle || 'line',
+               min:   item.sparklineMin,
+               max:   item.sparklineMax
+             }) +
+             '</div>';
+    }
+    return '';
+  }
+
+  /* Standard tile (default since 1.3.x) */
+  function buildStandardTile(item) {
+    var tile = document.createElement('div');
+    tile.className = 'summary-tile'+(item['class']?' '+item['class']:'');
+    tile.innerHTML = (item.icon?'<span class="summary-icon">'+esc(item.icon)+'</span>':'')+
+      '<span class="summary-value">'+esc(tileFormatValue(item))+'</span>'+
+      tileDeltaHtml(item)+
+      '<span class="summary-label">'+esc(item.label)+'</span>'+
+      (item.subLabel?'<span class="summary-sublabel">'+esc(item.subLabel)+'</span>':'')+
+      tileSparklineHtml(item);
+    return tile;
+  }
+
+  /* Big-number hero tile (v1.4 F3) — full-width, very large value typography. */
+  function buildBignumberTile(item) {
+    var tile = document.createElement('div');
+    tile.className = 'summary-tile tile-bignumber'+(item['class']?' '+item['class']:'');
+    tile.innerHTML =
+      '<div class="bignumber-head">'+
+        (item.icon?'<span class="summary-icon">'+esc(item.icon)+'</span>':'')+
+        '<span class="summary-label">'+esc(item.label)+'</span>'+
+      '</div>'+
+      '<div class="bignumber-value">'+esc(tileFormatValue(item))+'</div>'+
+      (item.caption?'<div class="bignumber-caption">'+esc(item.caption)+'</div>':'')+
+      tileDeltaHtml(item)+
+      tileSparklineHtml(item);
+    return tile;
+  }
+
+  /* Semicircle gauge tile (v1.4 F4). */
+  function buildGaugeTile(item) {
+    var tile = document.createElement('div');
+    tile.className = 'summary-tile tile-gauge'+(item['class']?' '+item['class']:'');
+
+    var rawVal = Number(item.value);
+    var min = (item.min != null) ? Number(item.min) : 0;
+    var max = (item.max != null) ? Number(item.max) : 100;
+    if (max <= min) max = min + 1;
+    var isMissing = (item.value === null || item.value === undefined || item.value === '' || !isFinite(rawVal));
+    var ratio = isMissing ? 0 : Math.max(0, Math.min(1, (rawVal - min) / (max - min)));
+
+    var matchClass;
+    if (isMissing && item.ragNoData) {
+      matchClass = 'cell-nodata';
+    } else {
+      matchClass = pickThresholdClass(rawVal, item.thresholds);
+      if (!matchClass) matchClass = item['class'] || '';
+    }
+    var fillColor = classToAccent(matchClass);
+
+    var cx = 70, cy = 70, r = 56;
+    var angle = -Math.PI + ratio * Math.PI;
+    var ex = cx + r * Math.cos(angle);
+    var ey = cy + r * Math.sin(angle);
+    var bgPath   = 'M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy;
+    var fillPath = (ratio > 0)
+      ? 'M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+ex.toFixed(2)+' '+ey.toFixed(2)
+      : null;
+
+    var readout = tileFormatValue(item);
+    var unitTxt = item.unit ? esc(item.unit) : '';
+
+    var svg =
+      '<svg class="gauge-svg" viewBox="0 0 140 80" width="140" height="80" aria-hidden="true">'+
+        '<path class="gauge-bg" d="'+bgPath+'" stroke="var(--border-subtle)" stroke-width="10" fill="none" stroke-linecap="round"/>'+
+        (fillPath ? '<path class="gauge-fill" d="'+fillPath+'" stroke="'+fillColor+'" stroke-width="10" fill="none" stroke-linecap="round"/>' : '')+
+        '<text class="gauge-readout" x="70" y="66" text-anchor="middle" font-family="var(--font-display)" font-size="20" font-weight="700" fill="var(--text-primary)">'+esc(readout)+(unitTxt?'<tspan font-size="12" font-weight="600" fill="var(--text-secondary)">'+unitTxt+'</tspan>':'')+'</text>'+
+      '</svg>';
+
+    tile.innerHTML =
+      (item.icon?'<span class="summary-icon gauge-icon">'+esc(item.icon)+'</span>':'')+
+      svg+
+      '<span class="summary-label">'+esc(item.label)+'</span>'+
+      (item.subLabel?'<span class="summary-sublabel">'+esc(item.subLabel)+'</span>':'')+
+      tileDeltaHtml(item);
+    return tile;
+  }
+
+  function buildTile(item) {
+    var tile;
+    switch ((item.style || 'tile').toLowerCase()) {
+      case 'bignumber': tile = buildBignumberTile(item); break;
+      case 'gauge':     tile = buildGaugeTile(item);     break;
+      default:          tile = buildStandardTile(item);  break;
+    }
+    /* v1.4.2 — per-tile Action makes the whole tile clickable.
+       Reuses the same nav-and-filter wiring used by Add-DhAlertBanner. */
+    if (item.action && (item.action.tableId || item.action.url)) {
+      tile.classList.add('tile-clickable');
+      if (item.action.label) tile.setAttribute('title', item.action.label);
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('tabindex', '0');
+      var fire = function () {
+        if (item.action.url) {
+          window.open(item.action.url, '_blank', 'noopener');
+          return;
+        }
+        if (item.action.tableId && window._showPanel) {
+          window._showPanel(item.action.tableId);
+          if (item.action.filter && engines[item.action.tableId]) {
+            var eng = engines[item.action.tableId];
+            var inp = document.getElementById('filter-' + item.action.tableId);
+            eng.filterText = item.action.filter;
+            if (inp) inp.value = item.action.filter;
+            eng.currentPage = 1;
+            eng.render();
+            URLState.save();
+          }
+        }
+      };
+      tile.addEventListener('click', fire);
+      tile.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); }
+      });
+    }
+    return tile;
+  }
+
+  /* fillStrip — common workhorse used by both renderSummary (top-of-page)
+     and the v1.4.1 summarystrip block (per-NavGroup). Optionally wraps the
+     tile flow in the collapsible chrome shared with Add-DhCollapsible. */
+  function fillStrip(container, items, opts) {
+    opts = opts || {};
+    container.innerHTML = '';
+    if (!items || !items.length) return;
+
+    if (opts.collapsible) {
+      var title  = opts.title || 'Summary';
+      var icon   = opts.icon  || '';
+      var isOpen = opts.defaultOpen !== false;
+      var uid    = opts.idSuffix || 'summary';
+      container.classList.add('summary-collapsible','collapsible-section');
+
+      var iconHtml = icon ? '<span class="collapsible-icon">'+esc(icon)+'</span> ' : '';
+      container.innerHTML =
+        '<div class="collapsible-toggle'+(isOpen?' open':'')+'" id="ctoggle-'+uid+'">'+
+          '<div class="collapsible-toggle-left">'+
+            '<span class="collapsible-title">'+iconHtml+esc(title)+'</span>'+
+            '<span class="collapsible-badge">'+items.length+'</span>'+
+          '</div>'+
+          '<span class="collapsible-chevron">'+(isOpen?'▾':'▸')+'</span>'+
+        '</div>'+
+        '<div class="collapsible-body'+(isOpen?' open':'')+'" id="cbody-'+uid+'">'+
+          '<div class="summary-tile-strip" id="cinner-'+uid+'"></div>'+
+        '</div>';
+
+      var toggle = container.querySelector('#ctoggle-'+uid);
+      var body   = container.querySelector('#cbody-'+uid);
+      var chev   = container.querySelector('.collapsible-chevron');
+      toggle.addEventListener('click', function () {
+        var open = body.classList.toggle('open');
+        toggle.classList.toggle('open', open);
+        chev.textContent = open ? '▾' : '▸';
+      });
+
+      var inner = container.querySelector('#cinner-'+uid);
+      items.forEach(function (item) { inner.appendChild(buildTile(item)); });
+      return;
+    }
+
+    /* Flat strip */
+    items.forEach(function (item) { container.appendChild(buildTile(item)); });
+  }
+
+  /* =========================================================================
+     SUMMARY TILES — top-of-page strip (no NavGroup; the global summary).
      ========================================================================= */
   function renderSummary() {
     if (!SUMMARY_CONFIG||!SUMMARY_CONFIG.length) return;
     var container = document.getElementById('report-summary');
     if (!container) return;
-    container.innerHTML = '';
-    SUMMARY_CONFIG.forEach(function (item) {
-      var displayVal = FMT.apply(
-        {format:item.format||'',locale:item.locale||'',decimals:item.decimals,currency:item.currency||''},
-        item.value
-      ) || String(item.value!==null&&item.value!==undefined?item.value:'');
-      var tile = document.createElement('div');
-      tile.className = 'summary-tile'+(item['class']?' '+item['class']:'');
-      tile.innerHTML = (item.icon?'<span class="summary-icon">'+esc(item.icon)+'</span>':'')+
-        '<span class="summary-value">'+esc(displayVal)+'</span>'+
-        '<span class="summary-label">'+esc(item.label)+'</span>'+
-        (item.subLabel?'<span class="summary-sublabel">'+esc(item.subLabel)+'</span>':'');
-      container.appendChild(tile);
+
+    fillStrip(container, SUMMARY_CONFIG, {
+      collapsible: container.getAttribute('data-collapsible') === 'true',
+      title:       container.getAttribute('data-title')   || 'Summary',
+      icon:        container.getAttribute('data-icon')    || '',
+      defaultOpen: container.getAttribute('data-default-open') !== 'false',
+      idSuffix:    'summary'
+    });
+  }
+
+  /* Per-NavGroup summarystrip block (v1.4.1) — same look as the top strip
+     but lives inside the block flow so the nav system can hide/show it. */
+  function renderSummaryStrip(container, block) {
+    container.className = 'report-summary';
+    fillStrip(container, block.items || [], {
+      collapsible: !!block.collapsible,
+      title:       block.title || 'Summary',
+      icon:        block.icon  || '',
+      defaultOpen: block.defaultOpen !== false,
+      idSuffix:    'summary-' + (block.id || 'group')
     });
   }
 
   /* =========================================================================
-     BLOCKS ENGINE — HTML, Collapsible, FilterCardGrid, BarChart
+     BLOCKS ENGINE — HTML, Collapsible, FilterCardGrid, BarChart, PieChart
      ========================================================================= */
   function renderBlocks() {
     BLOCKS_CONFIG.forEach(function (block) {
       var container = document.getElementById('block-'+block.id);
       if (!container) return;
       switch (block.blockType) {
-        case 'html':         renderHtmlBlock(container, block); break;
-        case 'collapsible':  renderCollapsible(container, block); break;
+        case 'html':           renderHtmlBlock(container, block); break;
+        case 'collapsible':    renderCollapsible(container, block); break;
         case 'filtercardgrid': renderFilterCardGrid(container, block); break;
-        case 'barchart':     renderBarChart(container, block); break;
+        case 'barchart':       renderBarChart(container, block); break;
+        case 'piechart':       renderPieChart(container, block); break;
+        case 'bullet':         renderBullet(container, block); break;
+        case 'linechart':      renderLineChart(container, block); break;
+        case 'eventfeed':      renderEventFeed(container, block); break;
+        case 'statusgrid':     renderStatusGrid(container, block); break;
+        case 'summarystrip':   renderSummaryStrip(container, block); break;
+        case 'tabs':           renderTabs(container, block); break;
+        case 'heatmap':        renderHeatmap(container, block); break;
+        case 'topologymap':    renderTopologyMap(container, block); break;
       }
+    });
+  }
+
+  /* ── Shared chart helpers (used by standalone PieChart block AND
+        the per-table chart attached via Add-DhTable -Charts) ── */
+  function chartPalette() {
+    var fallbacks = ['#00c8ff','#00e676','#ffc107','#ff4d6a','#a855f7','#f97316','#06b6d4','#84cc16'];
+    return ['--chart-1','--chart-2','--chart-3','--chart-4','--chart-5','--chart-6','--chart-7','--chart-8']
+      .map(function (v, i) { return cssVar(v, fallbacks[i]); });
+  }
+
+  /* buildPieSvg — pure renderer.
+       entries : [{label, count, color}], already sorted highest-first
+       opts.style       'donut' (default) | 'pie'
+       opts.title       chart title shown above the svg
+       opts.showTotal   show total in donut hole (default true; ignored when style='pie')
+       opts.showLegend  show legend rows below (default true)
+       opts.onSliceClick(entry)  optional click handler — slices become clickable
+       opts.totalLabel  text above the total (default 'Total')
+     Returns a DOM element (.chart-panel). */
+  function buildPieSvg(entries, opts) {
+    opts = opts || {};
+    var panel = document.createElement('div');
+    panel.className = 'chart-panel';
+    var total = entries.reduce(function (s, e) { return s + (Number(e.count) || 0); }, 0);
+    if (!total) {
+      panel.innerHTML = '<div class="chart-title">'+esc(opts.title || '')+'</div>'+
+                        '<div class="chart-body chart-empty">No data</div>';
+      return panel;
+    }
+    var size = 130, cx = 65, cy = 65, r = 56;
+    var isPie = (opts.style === 'pie');
+    var inner = isPie ? 0 : 30;
+    var svgParts = ['<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" aria-hidden="true">'];
+    var angle = -Math.PI / 2;
+    entries.forEach(function (e, idx) {
+      var slice = (e.count / total) * 2 * Math.PI;
+      if (slice < 0.001) return;
+      var clickAttr = opts.onSliceClick ? ' class="pie-clickable" data-slice-idx="'+idx+'"' : '';
+      /* v1.4.2 — native hover tooltip with label / count / percentage */
+      var pctTxt = ((e.count / total) * 100).toFixed(1) + '%';
+      var titleSvg = '<title>' + esc(e.label) + ': ' + esc(e.count) + ' (' + pctTxt + ')</title>';
+      if (e.count === total) {
+        svgParts.push('<circle'+clickAttr+' cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+esc(e.color)+'">'+titleSvg+'</circle>');
+      } else {
+        var x1 = (cx + r*Math.cos(angle)).toFixed(2), y1 = (cy + r*Math.sin(angle)).toFixed(2);
+        angle += slice;
+        var x2 = (cx + r*Math.cos(angle)).toFixed(2), y2 = (cy + r*Math.sin(angle)).toFixed(2);
+        svgParts.push('<path'+clickAttr+' d="M'+cx+','+cy+' L'+x1+','+y1+' A'+r+','+r+' 0 '+(slice>Math.PI?1:0)+',1 '+x2+','+y2+' Z" fill="'+esc(e.color)+'" stroke="var(--bg-surface)" stroke-width="2">'+titleSvg+'</path>');
+      }
+    });
+    if (!isPie) {
+      svgParts.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+inner+'" fill="var(--bg-surface)"/>');
+      if (opts.showTotal !== false) {
+        var totalLabel = opts.totalLabel || 'Total';
+        svgParts.push('<text x="'+cx+'" y="'+(cy-5)+'" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="var(--font-ui)">'+esc(totalLabel)+'</text>');
+        svgParts.push('<text x="'+cx+'" y="'+(cy+11)+'" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text-primary)" font-family="var(--font-ui)">'+total+'</text>');
+      }
+    }
+    svgParts.push('</svg>');
+
+    var legendHtml = '';
+    if (opts.showLegend !== false) {
+      var rows = entries.map(function (e) {
+        var pct = ((e.count / total) * 100).toFixed(0);
+        return '<div class="legend-row"><span class="legend-dot" style="background:'+esc(e.color)+'"></span>'+
+               '<span class="legend-label">'+esc(e.label)+'</span>'+
+               '<span class="legend-count">'+esc(e.count)+' <span class="legend-pct">('+esc(pct)+'%)</span></span></div>';
+      }).join('');
+      legendHtml = '<div class="chart-legend">'+rows+'</div>';
+    }
+
+    panel.innerHTML = '<div class="chart-title">'+esc(opts.title || '')+'</div>'+
+                      '<div class="chart-body">'+svgParts.join('')+legendHtml+'</div>';
+
+    if (opts.onSliceClick) {
+      panel.querySelectorAll('.pie-clickable').forEach(function (el) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function () {
+          var idx = parseInt(el.getAttribute('data-slice-idx'), 10);
+          if (entries[idx]) opts.onSliceClick(entries[idx]);
+        });
+      });
+    }
+    return panel;
+  }
+
+  /* ── Standalone Pie / Donut chart block ───────────────────────────── */
+  function renderPieChart(container, block) {
+    container.className = 'pie-chart-section';
+    var palette = chartPalette();
+    var entries = [];
+
+    if (block.mode === 'fromtable') {
+      var eng = engines[block.tableId];
+      if (!eng) { return; }  /* engine not ready yet; post-engine pass handles this */
+      var counts = {};
+      eng._getFiltered().forEach(function (row) {
+        var v = (row[block.field] != null) ? String(row[block.field]) : '(empty)';
+        counts[v] = (counts[v] || 0) + 1;
+      });
+      entries = Object.keys(counts).map(function (k, i) {
+        return { label: k, count: counts[k], color: palette[i % palette.length] };
+      }).sort(function (a, b) { return b.count - a.count; });
+      if (block.topN > 0 && entries.length > block.topN) {
+        entries = entries.slice(0, block.topN);
+      }
+    } else {
+      /* explicit slices */
+      entries = (block.slices || []).map(function (s, i) {
+        return {
+          label: s.label,
+          count: Number(s.value) || 0,
+          color: s.color || palette[i % palette.length]
+        };
+      });
+    }
+
+    var opts = {
+      style:       block.style || 'donut',
+      title:       block.title,
+      showTotal:   block.showTotal !== false,
+      showLegend:  block.showLegend !== false
+    };
+
+    if (block.mode === 'fromtable' && block.clickFilters) {
+      opts.onSliceClick = function (entry) {
+        var eng = engines[block.tableId];
+        if (!eng) return;
+        eng.filterText = entry.label;
+        var inp = document.getElementById('filter-'+block.tableId);
+        if (inp) inp.value = entry.label;
+        eng.currentPage = 1;
+        eng.render();
+        URLState.save();
+      };
+    }
+
+    container.innerHTML = '';
+    container.appendChild(buildPieSvg(entries, opts));
+  }
+
+  /* ── Bullet chart (v1.4 F10) — actual vs target with performance bands ──
+        Renders one horizontal row per item: track, RAG-tinted bands, solid
+        value bar, optional vertical target marker, and a readout on the right.
+        Pure SVG; no library dependency. Re-uses pickThresholdClass + the
+        classToAccent / classToAccentBg helpers. */
+  function renderBullet(container, block) {
+    container.className = 'bullet-chart-section';
+    var titleHtml = block.title
+      ? '<h3 class="bullet-chart-title">' + esc(block.title) + '</h3>'
+      : '';
+    var rowsHtml = (block.items || []).map(buildBulletRow).join('');
+    container.innerHTML = titleHtml + '<div class="bullet-rows">' + rowsHtml + '</div>';
+  }
+
+  function buildBulletRow(item) {
+    var v   = Number(item.value);
+    var min = (item.min != null) ? Number(item.min) : 0;
+    var max = (item.max != null) ? Number(item.max) : 100;
+    if (max <= min) max = min + 1;
+    var target = (item.target != null && isFinite(Number(item.target))) ? Number(item.target) : null;
+    var isMissing = (item.value === null || item.value === undefined || item.value === '' || !isFinite(v));
+
+    /* viewBox: 600 wide × 24 tall. preserveAspectRatio=none lets it stretch
+       horizontally with the container while the height stays fixed via CSS. */
+    var W = 600, H = 24;
+    function scale(x) { return Math.max(0, Math.min(1, (x - min) / (max - min))) * W; }
+
+    /* Performance bands (qualitative ranges) — tinted background segments */
+    var bandHtml = '';
+    if (item.thresholds && item.thresholds.length) {
+      item.thresholds.forEach(function (th) {
+        var bMin = (th.min != null) ? th.min : min;
+        var bMax = (th.max != null) ? th.max : max;
+        var x1 = scale(bMin), x2 = scale(bMax);
+        if (x2 - x1 < 0.1) return;
+        bandHtml += '<rect x="' + x1.toFixed(2) + '" y="2" width="' + (x2 - x1).toFixed(2) +
+                    '" height="' + (H - 4) + '" fill="' + classToAccentBg(th['class'] || '') + '"/>';
+      });
+    }
+
+    /* Pick the value-bar colour: explicit Class wins; otherwise auto-match
+       against the bands; otherwise fall back to a neutral accent. The bullet
+       NoData semantics: missing value + ragNoData → cell-nodata fill, 0% width. */
+    var matchClass;
+    if (isMissing && item.ragNoData) {
+      matchClass = 'cell-nodata';
+    } else if (item['class']) {
+      matchClass = item['class'];
+    } else {
+      matchClass = pickThresholdClass(v, item.thresholds);
+    }
+    var fillColor = classToAccent(matchClass);
+
+    var valX = isMissing ? 0 : scale(v);
+    var barY = H * 0.30, barH = H * 0.40;
+    var valHtml = '<rect x="0" y="' + barY + '" width="' + valX.toFixed(2) +
+                  '" height="' + barH + '" fill="' + fillColor + '" rx="2"/>';
+
+    /* Target marker — vertical tick, full row height, drawn over the value bar */
+    var tgtHtml = '';
+    if (target != null) {
+      var tx = scale(target);
+      tgtHtml = '<line x1="' + tx.toFixed(2) + '" y1="1" x2="' + tx.toFixed(2) +
+                '" y2="' + (H - 1) + '" stroke="var(--text-primary)" stroke-width="2.5"/>';
+    }
+
+    /* Track background — keeps the bar visible when there are no bands defined */
+    var trackHtml = '<rect x="0" y="2" width="' + W + '" height="' + (H - 4) +
+                    '" fill="var(--progress-track-bg)" rx="2"/>';
+
+    var svg = '<svg class="bullet-svg" viewBox="0 0 ' + W + ' ' + H +
+              '" preserveAspectRatio="none" aria-hidden="true">' +
+              trackHtml + bandHtml + valHtml + tgtHtml + '</svg>';
+
+    /* Right-side readout: value + unit + (target N) */
+    var displayVal = isMissing ? '—' : String(item.value);
+    var unitHtml = item.unit ? '<span class="bullet-unit">' + esc(item.unit) + '</span>' : '';
+    var targetHtml = (target != null)
+      ? '<span class="bullet-target-readout">target ' + esc(target) + (item.unit ? ' ' + esc(item.unit) : '') + '</span>'
+      : '';
+
+    return '<div class="bullet-row' + (isMissing && item.ragNoData ? ' bullet-nodata' : '') + '">' +
+             '<div class="bullet-label">' + esc(item.label) + '</div>' +
+             '<div class="bullet-svg-wrap">' + svg + '</div>' +
+             '<div class="bullet-readout">' +
+               '<span class="bullet-value">' + esc(displayVal) + '</span>' +
+               unitHtml + targetHtml +
+             '</div>' +
+           '</div>';
+  }
+
+  /* ── Line / Area chart (v1.4 F9) ──
+        Pure SVG with axes, multi-series support, optional filled-area variant,
+        and an optional dashed target / threshold annotation. Per spec §7.4:
+        "Always pair a time-series chart with a threshold annotation line." */
+  function renderLineChart(container, block) {
+    container.className = 'line-chart-section';
+    var title = block.title ? '<h3 class="line-chart-title">'+esc(block.title)+'</h3>' : '';
+    var H = (block.height && block.height > 0) ? block.height : 240;
+    var W = 800;   /* viewBox width; preserveAspectRatio=none lets it stretch */
+    var padL = 46, padR = 14, padT = 14, padB = 28;
+    var plotW = W - padL - padR;
+    var plotH = H - padT - padB;
+
+    var xLabels = block.xAxis || [];
+    var series  = block.series || [];
+    var n = xLabels.length;
+    if (n < 2 || !series.length) {
+      container.innerHTML = title + '<div class="line-chart-empty">No data</div>';
+      return;
+    }
+
+    /* Y-axis bounds: auto-fit from data, then apply user overrides + a small
+       padding above the max so the line never hugs the top edge. */
+    var dataMin = Infinity, dataMax = -Infinity;
+    series.forEach(function (s) {
+      (s.values || []).forEach(function (v) {
+        if (v === null || v === undefined) return;
+        var num = Number(v);
+        if (!isFinite(num)) return;
+        if (num < dataMin) dataMin = num;
+        if (num > dataMax) dataMax = num;
+      });
+    });
+    if (!isFinite(dataMin) || !isFinite(dataMax)) { dataMin = 0; dataMax = 1; }
+    /* Include the target line in the visible range so the annotation isn't clipped */
+    if (block.targetLine !== null && block.targetLine !== undefined && isFinite(Number(block.targetLine))) {
+      var tl = Number(block.targetLine);
+      if (tl < dataMin) dataMin = tl;
+      if (tl > dataMax) dataMax = tl;
+    }
+    var yMin = (block.yAxisMin !== null && block.yAxisMin !== undefined) ? Number(block.yAxisMin) : dataMin;
+    var yMax = (block.yAxisMax !== null && block.yAxisMax !== undefined) ? Number(block.yAxisMax) : dataMax;
+    /* Pad the auto bounds 5% on each side so the line never touches the frame */
+    if (block.yAxisMin === null || block.yAxisMin === undefined) {
+      var headroom = (yMax - yMin) * 0.05;
+      yMin -= headroom;
+    }
+    if (block.yAxisMax === null || block.yAxisMax === undefined) {
+      var headroom2 = (yMax - yMin) * 0.05;
+      yMax += headroom2;
+    }
+    if (yMax <= yMin) yMax = yMin + 1;   /* defensive */
+
+    function xAt(i) { return padL + (i / (n - 1)) * plotW; }
+    function yAt(v) { return padT + (1 - (v - yMin) / (yMax - yMin)) * plotH; }
+
+    /* Y-axis ticks — 5 levels at 0/25/50/75/100% of range */
+    var tickCount = 5;
+    var unit = block.yAxisUnit || '';
+    var gridHtml = '', yTickHtml = '';
+    for (var i = 0; i <= tickCount; i++) {
+      var t = i / tickCount;
+      var yVal = yMin + (1 - t) * (yMax - yMin);
+      var yPx = yAt(yVal);
+      if (block.showGrid !== false) {
+        gridHtml += '<line class="lc-grid" x1="'+padL+'" y1="'+yPx.toFixed(1)+'" x2="'+(W - padR)+'" y2="'+yPx.toFixed(1)+'" stroke="var(--border-subtle)" stroke-width="1"/>';
+      }
+      var lbl = (Math.abs(yVal) >= 100) ? yVal.toFixed(0) : yVal.toFixed(1).replace(/\.0$/, '');
+      yTickHtml += '<text class="lc-y-tick" x="'+(padL - 6)+'" y="'+(yPx + 4).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text-muted)">'+esc(lbl + unit)+'</text>';
+    }
+
+    /* X-axis tick labels — thin to roughly every Nth so labels never collide */
+    var maxXTicks = 10;
+    var step = Math.max(1, Math.ceil(n / maxXTicks));
+    var xTickHtml = '';
+    for (var j = 0; j < n; j++) {
+      if (j !== 0 && j !== n - 1 && j % step !== 0) continue;
+      var xPx = xAt(j);
+      xTickHtml += '<text class="lc-x-tick" x="'+xPx.toFixed(1)+'" y="'+(H - padB + 14)+'" text-anchor="middle" font-size="10" fill="var(--text-muted)">'+esc(String(xLabels[j]))+'</text>';
+    }
+
+    /* Series polylines / filled areas */
+    var palette = chartPalette();
+    var seriesHtml = '';
+    var legendRows = [];
+    series.forEach(function (s, idx) {
+      var color = s.color || (s['class'] ? classToAccent(s['class']) : palette[idx % palette.length]);
+      /* Build polyline points; null/NaN entries break the line */
+      var segments = [], current = [];
+      (s.values || []).forEach(function (v, i) {
+        if (v === null || v === undefined || !isFinite(Number(v))) {
+          if (current.length > 1) segments.push(current);
+          current = [];
+        } else {
+          current.push(xAt(i).toFixed(1) + ',' + yAt(Number(v)).toFixed(1));
+        }
+      });
+      if (current.length > 1) segments.push(current);
+      if (current.length === 1) {
+        /* single isolated point — draw a dot */
+        var dotXY = current[0].split(',');
+        seriesHtml += '<circle cx="'+dotXY[0]+'" cy="'+dotXY[1]+'" r="3" fill="'+esc(color)+'"/>';
+      }
+
+      if (block.filled) {
+        segments.forEach(function (seg) {
+          if (seg.length < 2) return;
+          var firstX = seg[0].split(',')[0];
+          var lastX  = seg[seg.length - 1].split(',')[0];
+          var baseY  = (padT + plotH).toFixed(1);
+          var pathD = 'M ' + firstX + ',' + baseY + ' L ' + seg.join(' L ') + ' L ' + lastX + ',' + baseY + ' Z';
+          seriesHtml += '<path d="'+pathD+'" fill="'+esc(color)+'" fill-opacity="0.20" stroke="none"/>';
+          seriesHtml += '<polyline points="'+seg.join(' ')+'" fill="none" stroke="'+esc(color)+'" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>';
+        });
+      } else {
+        segments.forEach(function (seg) {
+          if (seg.length < 2) return;
+          seriesHtml += '<polyline points="'+seg.join(' ')+'" fill="none" stroke="'+esc(color)+'" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>';
+        });
+      }
+      legendRows.push('<div class="lc-legend-row"><span class="lc-legend-dot" style="background:'+esc(color)+'"></span><span class="lc-legend-label">'+esc(s.label || '')+'</span></div>');
+    });
+
+    /* Target / threshold annotation line (dashed) */
+    var targetHtml = '';
+    if (block.targetLine !== null && block.targetLine !== undefined && isFinite(Number(block.targetLine))) {
+      var tlY = yAt(Number(block.targetLine));
+      targetHtml += '<line class="lc-target" x1="'+padL+'" y1="'+tlY.toFixed(1)+'" x2="'+(W - padR)+'" y2="'+tlY.toFixed(1)+'" stroke="var(--cell-warn-fg)" stroke-width="1.5" stroke-dasharray="6 4"/>';
+      if (block.targetLabel) {
+        targetHtml += '<text class="lc-target-label" x="'+(W - padR - 6)+'" y="'+(tlY - 4).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--cell-warn-fg)" font-weight="700">'+esc(block.targetLabel)+'</text>';
+      }
+    }
+
+    /* Plot frame (left + bottom axis lines) */
+    var frameHtml =
+      '<line x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(H - padB)+'" stroke="var(--border-medium)" stroke-width="1"/>' +
+      '<line x1="'+padL+'" y1="'+(H - padB)+'" x2="'+(W - padR)+'" y2="'+(H - padB)+'" stroke="var(--border-medium)" stroke-width="1"/>';
+
+    var svg =
+      '<svg class="lc-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" width="100%" height="'+H+'" aria-hidden="true">'+
+        gridHtml + frameHtml + seriesHtml + targetHtml + yTickHtml + xTickHtml +
+      '</svg>';
+
+    var legendHtml = '';
+    if (block.showLegend !== false && legendRows.length) {
+      legendHtml = '<div class="lc-legend">' + legendRows.join('') + '</div>';
+    }
+
+    container.innerHTML = title + '<div class="lc-body">' + svg + '</div>' + legendHtml;
+  }
+
+  /* ── Event Feed (v1.4 F11) — chronological severity-tagged audit trail ──
+        Distinct from AlertBanner (which carries a single current condition).
+        Sorts events by Timestamp string (descending by default — newest first),
+        slices to MaxItems, and optionally groups by Severity or Source. */
+  function renderEventFeed(container, block) {
+    container.className = 'event-feed-section';
+    var titleHtml = block.title ? '<h3 class="event-feed-title">'+esc(block.title)+'</h3>' : '';
+    var events = (block.events || []).slice();
+    var sortDesc = (block.sortDescending !== false);
+
+    /* Lexicographic sort works for ISO-ish timestamps; for free-form values it
+       at least gives a stable order. */
+    events.sort(function (a, b) {
+      var av = String(a.timestamp||''), bv = String(b.timestamp||'');
+      return sortDesc ? bv.localeCompare(av) : av.localeCompare(bv);
+    });
+    if (block.maxItems > 0 && events.length > block.maxItems) {
+      events = events.slice(0, block.maxItems);
+    }
+    if (!events.length) {
+      container.innerHTML = titleHtml + '<div class="event-feed-empty">No events.</div>';
+      return;
+    }
+
+    /* Default glyph per severity (overridden by event.icon when supplied) */
+    var defaultIcon = {
+      info:     '·',
+      ok:       '✓',
+      warning:  '!',
+      critical: '✕'
+    };
+    function rowHtml(ev) {
+      var sev = (ev.severity || 'info').toLowerCase();
+      var icon = ev.icon ? ev.icon : (defaultIcon[sev] || '·');
+      var src  = ev.source ? '<span class="event-source">['+esc(ev.source)+']</span>' : '';
+      return '<li class="event-row event-'+sev+'">' +
+               '<span class="event-icon">'+esc(icon)+'</span>' +
+               '<time class="event-timestamp">'+esc(ev.timestamp)+'</time>' +
+               src +
+               '<span class="event-message">'+esc(ev.message)+'</span>' +
+             '</li>';
+    }
+
+    var listHtml = '';
+    if (block.groupBy === 'severity' || block.groupBy === 'source') {
+      /* Group events; emit one group header + sublist per group */
+      var key = block.groupBy;
+      var sevOrder = ['critical','warning','ok','info'];
+      var groups = {};
+      events.forEach(function (ev) {
+        var g = ev[key] || '(none)';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(ev);
+      });
+      var orderedKeys;
+      if (key === 'severity') {
+        /* Pin severities to a fixed priority order so critical floats up */
+        orderedKeys = sevOrder.filter(function (k) { return groups[k]; });
+        Object.keys(groups).forEach(function (k) {
+          if (orderedKeys.indexOf(k) === -1) orderedKeys.push(k);
+        });
+      } else {
+        orderedKeys = Object.keys(groups).sort();
+      }
+      listHtml = orderedKeys.map(function (k) {
+        var rows = groups[k].map(rowHtml).join('');
+        return '<div class="event-feed-group event-group-'+esc(k)+'">'+
+                 '<div class="event-group-header">'+esc(k)+' <span class="event-group-count">('+groups[k].length+')</span></div>'+
+                 '<ul class="event-feed-list">'+rows+'</ul>'+
+               '</div>';
+      }).join('');
+    } else {
+      listHtml = '<ul class="event-feed-list">' + events.map(rowHtml).join('') + '</ul>';
+    }
+
+    container.innerHTML = titleHtml + listHtml;
+  }
+
+  /* ── Heatmap (v1.5) — rows × columns × numeric value with colour scale ──
+        Distinct from Status Grid: this is a CONTINUOUS scale (sequential or
+        diverging) rather than categorical RAG states. Per spec §2. */
+
+  /* Resolve a CSS variable to an [r,g,b] array by painting an off-screen
+     element and reading back the computed colour. Works for any colour
+     format the browser understands (named, hex, rgb(), oklch(), etc.). */
+  function _resolveCssColor(cssExpr) {
+    var probe = document.createElement('div');
+    probe.style.color = cssExpr;
+    probe.style.display = 'none';
+    document.body.appendChild(probe);
+    var rgb = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    var m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m) return [128, 128, 128];
+    return [+m[1], +m[2], +m[3]];
+  }
+  function _lerp3(a, b, t) {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t)
+    ];
+  }
+  function _rgbStr(arr) { return 'rgb(' + arr[0] + ',' + arr[1] + ',' + arr[2] + ')'; }
+
+  function renderHeatmap(container, block) {
+    container.className = 'heatmap-section heatmap-size-' + (block.cellSize || 'normal');
+    var rows = block.rows || [];
+    var cols = block.columns || [];
+    var cells = block.cells || [];
+
+    var titleHtml = block.title ? '<h3 class="heatmap-title">'+esc(block.title)+'</h3>' : '';
+    if (!rows.length || !cols.length || !cells.length) {
+      container.innerHTML = titleHtml + '<div class="heatmap-empty">No data.</div>';
+      return;
+    }
+
+    /* Sparse lookup */
+    var cellMap = {};
+    var values  = [];
+    cells.forEach(function (c) {
+      cellMap[c.row + '\0' + c.column] = c;
+      values.push(c.value);
+    });
+
+    /* Auto-fit Min/Max from data when user didn't override */
+    var lo = (block.min !== null && block.min !== undefined) ? Number(block.min) : Math.min.apply(null, values);
+    var hi = (block.max !== null && block.max !== undefined) ? Number(block.max) : Math.max.apply(null, values);
+    if (hi <= lo) hi = lo + 1;
+
+    /* Resolve gradient endpoints from theme tokens */
+    var scale = (block.colorScale || 'sequential').toLowerCase();
+    var loColor, midColor, hiColor;
+    if (scale === 'diverging') {
+      /* Red → neutral → green; the centre is the midpoint of the data range */
+      loColor  = _resolveCssColor('var(--cell-danger-fg)');
+      midColor = _resolveCssColor('var(--text-muted)');
+      hiColor  = _resolveCssColor('var(--cell-ok-fg)');
+    } else {
+      /* Sequential single-hue: --bg-row-alt → --accent-primary */
+      loColor = _resolveCssColor('var(--bg-row-alt)');
+      hiColor = _resolveCssColor('var(--accent-primary)');
+    }
+
+    function colourFor(v) {
+      if (v === null || v === undefined || !isFinite(v)) return null;
+      var t = (v - lo) / (hi - lo);
+      if (t < 0) t = 0; else if (t > 1) t = 1;
+      if (scale === 'diverging') {
+        if (t < 0.5) return _rgbStr(_lerp3(loColor, midColor, t * 2));
+        return _rgbStr(_lerp3(midColor, hiColor, (t - 0.5) * 2));
+      }
+      return _rgbStr(_lerp3(loColor, hiColor, t));
+    }
+
+    /* Header row */
+    var header = '<div class="hm-corner">' +
+      (block.rowLabel    ? '<span class="hm-row-label">'+esc(block.rowLabel)+'</span>'    : '') +
+      (block.columnLabel ? '<span class="hm-col-label">'+esc(block.columnLabel)+'</span>' : '') +
+      '</div>';
+    cols.forEach(function (cn) {
+      header += '<div class="hm-col-header" title="'+esc(cn)+'">'+esc(cn)+'</div>';
+    });
+
+    /* Body */
+    var body = '';
+    rows.forEach(function (rn) {
+      body += '<div class="hm-row-header" title="'+esc(rn)+'">'+esc(rn)+'</div>';
+      cols.forEach(function (cn) {
+        var def = cellMap[rn + '\0' + cn];
+        if (!def) {
+          body += '<div class="hm-cell hm-cell-empty" aria-label="'+esc(rn)+' × '+esc(cn)+': no data"></div>';
+          return;
+        }
+        var col = colourFor(def.value);
+        var tipParts = [esc(rn), '×', esc(cn), '—', esc(def.value) + esc(block.unit || '')];
+        if (def.tooltip) tipParts.push('('+esc(def.tooltip)+')');
+        var styleAttr = col ? ' style="background:'+col+'"' : '';
+        var inner = block.showValues ? '<span class="hm-value">'+esc(def.value)+'</span>' : '';
+        body += '<div class="hm-cell"'+styleAttr+' title="'+tipParts.join(' ')+'" aria-label="'+esc(rn)+' × '+esc(cn)+': '+esc(def.value)+esc(block.unit||'')+'">'+inner+'</div>';
+      });
+    });
+
+    /* Inline legend strip */
+    var legendStops = [];
+    var stops = 5;
+    for (var i = 0; i <= stops; i++) {
+      var t = i / stops;
+      var v = lo + t * (hi - lo);
+      var col;
+      if (scale === 'diverging') {
+        col = (t < 0.5) ? _rgbStr(_lerp3(loColor, midColor, t * 2))
+                        : _rgbStr(_lerp3(midColor, hiColor, (t - 0.5) * 2));
+      } else {
+        col = _rgbStr(_lerp3(loColor, hiColor, t));
+      }
+      legendStops.push('<div class="hm-legend-stop" style="background:'+col+'" title="'+esc(v.toFixed(1))+esc(block.unit||'')+'"></div>');
+    }
+    var legend =
+      '<div class="heatmap-legend">' +
+        '<span class="hm-legend-label">'+esc(lo.toFixed(1))+esc(block.unit||'')+'</span>' +
+        '<div class="hm-legend-strip">' + legendStops.join('') + '</div>' +
+        '<span class="hm-legend-label">'+esc(hi.toFixed(1))+esc(block.unit||'')+'</span>' +
+      '</div>';
+
+    container.innerHTML = titleHtml +
+      '<div class="heatmap-inner">' +
+        '<div class="heatmap-grid" style="grid-template-columns: auto repeat('+cols.length+', minmax(0, 1fr));">' +
+          header + body +
+        '</div>' +
+      '</div>' +
+      legend;
+  }
+
+  /* ── Tabs (v1.5) — inline tabbed content block ──
+        Local pivot within one block of the dashboard flow. Distinct from
+        NavGroup (which partitions the whole page). The tab strip uses ARIA
+        role="tablist" + role="tab" + role="tabpanel" for accessibility. */
+  function renderTabs(container, block) {
+    container.className = 'tabs-section';
+    var tabs = block.tabs || [];
+    if (!tabs.length) { container.innerHTML = ''; return; }
+
+    var titleHtml = block.title ? '<h3 class="tabs-title">'+esc(block.title)+'</h3>' : '';
+    var tabId = function (i) { return 'tab-'+block.id+'-'+i; };
+    var panelId = function (i) { return 'tabp-'+block.id+'-'+i; };
+
+    var stripHtml = '<div class="tabs-strip" role="tablist">' +
+      tabs.map(function (t, i) {
+        var icon = t.icon ? '<span class="tabs-tab-icon">'+esc(t.icon)+'</span>' : '';
+        return '<button id="'+tabId(i)+'" type="button" class="tabs-tab'+(t.active?' tab-active':'')+
+               '" role="tab" aria-selected="'+(t.active?'true':'false')+
+               '" aria-controls="'+panelId(i)+'" data-tabs-idx="'+i+'">' +
+               icon + '<span class="tabs-tab-label">'+esc(t.title)+'</span></button>';
+      }).join('') +
+      '</div>';
+
+    var panelsHtml = tabs.map(function (t, i) {
+      return '<div id="'+panelId(i)+'" class="tabs-panel'+(t.active?' panel-active':'')+
+             '" role="tabpanel" aria-labelledby="'+tabId(i)+'">' + t.content + '</div>';
+    }).join('');
+
+    container.innerHTML = titleHtml + stripHtml + panelsHtml;
+
+    /* Wire click + keyboard activation */
+    var tabBtns = container.querySelectorAll('.tabs-tab');
+    var panels  = container.querySelectorAll('.tabs-panel');
+    function activate(idx) {
+      tabBtns.forEach(function (b, j) {
+        var on = (j === idx);
+        b.classList.toggle('tab-active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panels.forEach(function (p, j) {
+        p.classList.toggle('panel-active', j === idx);
+      });
+    }
+    tabBtns.forEach(function (b, idx) {
+      b.addEventListener('click', function () { activate(idx); });
+      b.addEventListener('keydown', function (e) {
+        /* Left/Right arrow keys move focus between tabs (W3C tabs pattern) */
+        var next = null;
+        if (e.key === 'ArrowRight') next = (idx + 1) % tabBtns.length;
+        else if (e.key === 'ArrowLeft') next = (idx - 1 + tabBtns.length) % tabBtns.length;
+        if (next !== null) {
+          e.preventDefault();
+          tabBtns[next].focus();
+          activate(next);
+        }
+      });
+    });
+  }
+
+  /* ── Topology Map (v1.5) — parent/child tree visualisation ──
+        Recursive subtree-width counting: each leaf claims one slot of
+        (nodeWidth + hGap); each parent occupies the centre of its children's
+        combined width. No force-directed layout; no Reingold-Tilford. Good
+        enough for the spec's "≲ 50 nodes" target (AD Forest→Domain→DC,
+        vCenter→Cluster→Host, etc.). */
+  function renderTopologyMap(container, block) {
+    container.className = 'topology-map-section';
+    var nodes = block.nodes || [];
+    var titleHtml = block.title ? '<h3 class="topology-map-title">'+esc(block.title)+'</h3>' : '';
+    if (!nodes.length) {
+      container.innerHTML = titleHtml + '<div class="topology-map-empty">No nodes.</div>';
+      return;
+    }
+
+    /* Build id → node + id → children index */
+    var byId = {};
+    var childrenOf = {};
+    nodes.forEach(function (n) {
+      byId[n.id] = n;
+      childrenOf[n.id] = [];
+    });
+    var roots = [];
+    nodes.forEach(function (n) {
+      if (n.parent && byId[n.parent]) {
+        childrenOf[n.parent].push(n);
+      } else {
+        roots.push(n);
+      }
+    });
+
+    var NW = block.nodeWidth  || 140;
+    var NH = block.nodeHeight || 44;
+    var direction = (block.direction || 'vertical').toLowerCase();
+    var horizontal = (direction === 'horizontal');
+    /* Slot = node + outer gap; depth gap = vertical spacing between levels */
+    var hGap    = horizontal ? 40 : 24;
+    var vGap    = horizontal ? 32 : 56;
+    var slotW   = NW + hGap;
+    var slotH   = NH + vGap;
+    var marginX = 16, marginY = 16;
+
+    /* leafCount(n) — total leaves in subtree rooted at n.
+       Used to size each parent's horizontal footprint. */
+    function leafCount(n) {
+      var kids = childrenOf[n.id];
+      if (!kids.length) return 1;
+      var sum = 0;
+      for (var i = 0; i < kids.length; i++) sum += leafCount(kids[i]);
+      return sum;
+    }
+
+    /* Layout pass — assigns x/y to each node.
+       Vertical mode: width = leafCount × slot, parent centred above kids.
+       Horizontal mode: same maths with axes swapped. */
+    var positioned = {};
+    var maxX = 0, maxY = 0;
+
+    function layoutVertical(n, xOffset, depth) {
+      var kids = childrenOf[n.id];
+      var width = leafCount(n) * slotW;
+      var x;
+      if (!kids.length) {
+        x = xOffset + (slotW - NW) / 2;
+      } else {
+        var cursor = xOffset;
+        kids.forEach(function (k) {
+          var kw = leafCount(k) * slotW;
+          layoutVertical(k, cursor, depth + 1);
+          cursor += kw;
+        });
+        /* Centre parent over its children's span */
+        var firstX = positioned[kids[0].id].x;
+        var lastX  = positioned[kids[kids.length-1].id].x;
+        x = (firstX + lastX) / 2;
+      }
+      var y = marginY + depth * slotH;
+      positioned[n.id] = { x: x, y: y };
+      if (x + NW > maxX) maxX = x + NW;
+      if (y + NH > maxY) maxY = y + NH;
+      return width;
+    }
+
+    function layoutHorizontal(n, yOffset, depth) {
+      var kids = childrenOf[n.id];
+      var height = leafCount(n) * slotH;
+      var y;
+      if (!kids.length) {
+        y = yOffset + (slotH - NH) / 2;
+      } else {
+        var cursor = yOffset;
+        kids.forEach(function (k) {
+          var kh = leafCount(k) * slotH;
+          layoutHorizontal(k, cursor, depth + 1);
+          cursor += kh;
+        });
+        var firstY = positioned[kids[0].id].y;
+        var lastY  = positioned[kids[kids.length-1].id].y;
+        y = (firstY + lastY) / 2;
+      }
+      var x = marginX + depth * (NW + vGap);
+      positioned[n.id] = { x: x, y: y };
+      if (x + NW > maxX) maxX = x + NW;
+      if (y + NH > maxY) maxY = y + NH;
+      return height;
+    }
+
+    /* Walk each root, side-by-side ("forest" layout when multiple roots) */
+    if (horizontal) {
+      var yCursor = marginY;
+      roots.forEach(function (r) {
+        var h = leafCount(r) * slotH;
+        layoutHorizontal(r, yCursor, 0);
+        yCursor += h;
+      });
+    } else {
+      var xCursor = marginX;
+      roots.forEach(function (r) {
+        var w = leafCount(r) * slotW;
+        layoutVertical(r, xCursor, 0);
+        xCursor += w;
+      });
+    }
+
+    var svgW = Math.max(maxX + marginX, 200);
+    var svgH = Math.max(maxY + marginY, 100);
+
+    /* Build connector paths first so node rects draw on top. */
+    var connectors = '';
+    nodes.forEach(function (n) {
+      if (!n.parent || !byId[n.parent]) return;
+      var p = positioned[n.parent];
+      var c = positioned[n.id];
+      if (!p || !c) return;
+      var px, py, cx, cy, mid;
+      if (horizontal) {
+        px = p.x + NW;             py = p.y + NH / 2;
+        cx = c.x;                  cy = c.y + NH / 2;
+        mid = (px + cx) / 2;
+        connectors += '<path class="topo-link" d="M '+px.toFixed(1)+' '+py.toFixed(1)+
+                      ' C '+mid.toFixed(1)+' '+py.toFixed(1)+', '+mid.toFixed(1)+' '+cy.toFixed(1)+', '+
+                      cx.toFixed(1)+' '+cy.toFixed(1)+'" fill="none" stroke="var(--border-strong)" stroke-width="1.5"/>';
+      } else {
+        px = p.x + NW / 2;         py = p.y + NH;
+        cx = c.x + NW / 2;         cy = c.y;
+        mid = (py + cy) / 2;
+        connectors += '<path class="topo-link" d="M '+px.toFixed(1)+' '+py.toFixed(1)+
+                      ' C '+px.toFixed(1)+' '+mid.toFixed(1)+', '+cx.toFixed(1)+' '+mid.toFixed(1)+', '+
+                      cx.toFixed(1)+' '+cy.toFixed(1)+'" fill="none" stroke="var(--border-strong)" stroke-width="1.5"/>';
+      }
+    });
+
+    /* Nodes */
+    var nodeMarkup = '';
+    nodes.forEach(function (n) {
+      var p = positioned[n.id]; if (!p) return;
+      var statusClass = n.status ? ' topo-status-'+n.status : '';
+      var clickable   = n.linkTableId ? ' topo-clickable' : '';
+      var tipAttr     = n.tooltip
+        ? ' data-tooltip="' + esc(n.tooltip) + '"'
+        : '';
+      var dataAttrs = '';
+      if (n.linkTableId) {
+        dataAttrs += ' data-link-table="' + esc(n.linkTableId) + '"';
+        if (n.linkFilter) dataAttrs += ' data-link-filter="' + esc(n.linkFilter) + '"';
+      }
+      var iconHtml  = n.icon  ? '<span class="topo-node-icon">'+esc(n.icon)+'</span>' : '';
+      var badgeHtml = n.badge ? '<span class="topo-node-badge">'+esc(n.badge)+'</span>' : '';
+      /* Use foreignObject so we get HTML text layout (truncation, flex) inside SVG */
+      nodeMarkup +=
+        '<g class="topo-node'+statusClass+clickable+'" data-node-id="'+esc(n.id)+'" transform="translate('+p.x.toFixed(1)+','+p.y.toFixed(1)+')"'+dataAttrs+(n.tooltip?' role="img" aria-label="'+esc(n.label)+': '+esc(n.tooltip)+'"':' role="img" aria-label="'+esc(n.label)+'"')+'>'+
+          '<rect class="topo-node-rect" x="0" y="0" width="'+NW+'" height="'+NH+'" rx="6" ry="6"'+tipAttr+'/>'+
+          '<foreignObject x="0" y="0" width="'+NW+'" height="'+NH+'">'+
+            '<div xmlns="http://www.w3.org/1999/xhtml" class="topo-node-body" style="width:'+NW+'px;height:'+NH+'px;">'+
+              iconHtml +
+              '<span class="topo-node-label" title="'+esc(n.label)+'">'+esc(n.label)+'</span>' +
+              badgeHtml +
+            '</div>'+
+          '</foreignObject>'+
+        '</g>';
+    });
+
+    var svg =
+      '<svg class="topology-map-svg" viewBox="0 0 '+svgW+' '+svgH+'" width="100%" height="'+svgH+'" preserveAspectRatio="xMidYMid meet">'+
+        connectors +
+        nodeMarkup +
+      '</svg>';
+
+    container.innerHTML = titleHtml +
+      '<div class="topology-map-inner" style="overflow:auto">' + svg + '</div>';
+
+    /* Wire clickable nodes — same machinery as StatusGrid */
+    container.querySelectorAll('.topo-clickable').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var tableId = el.getAttribute('data-link-table');
+        var filter  = el.getAttribute('data-link-filter');
+        if (!tableId || !window._showPanel) return;
+        window._showPanel(tableId);
+        if (filter && engines[tableId]) {
+          var eng = engines[tableId];
+          var inp = document.getElementById('filter-' + tableId);
+          eng.filterText = filter;
+          if (inp) inp.value = filter;
+          eng.currentPage = 1;
+          eng.render();
+          URLState.save();
+        }
+      });
+    });
+  }
+
+  /* ── Status Grid (v1.4 F5) — rows × columns RAG matrix ──
+        2-D grid where every cell carries a Status that maps to the existing
+        cell-ok / cell-warn / cell-danger / cell-nodata / cell-info palette.
+        Per the IT-infrastructure KPI dashboard specification §2: the canonical
+        "Status Matrix / Health Grid" widget.
+
+        Layout:
+          ┌──────────┬───────┬───────┬───────┐
+          │ rowLabel │ col1  │ col2  │ col3  │   ← header row
+          ├──────────┼───────┼───────┼───────┤
+          │ rowA     │ ●     │ ●     │ ●     │
+          │ rowB     │ ●     │ ●     │ ●     │
+          └──────────┴───────┴───────┴───────┘
+
+        Missing cells render as a faint neutral state. Cells with linkTableId
+        become clickable, mirroring Add-DhAlertBanner's Action handler. */
+  function renderStatusGrid(container, block) {
+    container.className = 'status-grid-section status-grid-size-' + (block.cellSize || 'normal');
+
+    var rows = block.rows || [];
+    var cols = block.columns || [];
+    if (!rows.length || !cols.length) {
+      container.innerHTML = (block.title ? '<h3 class="status-grid-title">'+esc(block.title)+'</h3>' : '') +
+                            '<div class="status-grid-empty">No axes defined.</div>';
+      return;
+    }
+
+    /* Build sparse cell lookup: cellMap[row + '\0' + column] = cell-def.
+       The NUL separator is chosen because it can't appear in JS object keys
+       coming from PS string data. */
+    var cellMap = {};
+    (block.cells || []).forEach(function (c) {
+      cellMap[c.row + '\0' + c.column] = c;
+    });
+
+    /* Header row: top-left axis caption, then one column header per column */
+    var headerCells = '<div class="sg-corner">' +
+      (block.rowLabel ? '<span class="sg-row-label">'+esc(block.rowLabel)+'</span>' : '') +
+      (block.columnLabel ? '<span class="sg-col-label">'+esc(block.columnLabel)+'</span>' : '') +
+      '</div>';
+    cols.forEach(function (cn) {
+      headerCells += '<div class="sg-col-header" title="'+esc(cn)+'">'+esc(cn)+'</div>';
+    });
+
+    /* Body rows */
+    var bodyHtml = '';
+    rows.forEach(function (rn) {
+      bodyHtml += '<div class="sg-row-header" title="'+esc(rn)+'">'+esc(rn)+'</div>';
+      cols.forEach(function (cn) {
+        var def = cellMap[rn + '\0' + cn];
+        if (!def) {
+          bodyHtml += '<div class="sg-cell sg-cell-empty" aria-label="'+esc(rn)+' × '+esc(cn)+': no data"></div>';
+        } else {
+          var statusClass = 'sg-status-' + (def.status || 'info');
+          var clickable   = def.linkTableId ? ' sg-clickable' : '';
+          var tipAttr     = def.tooltip
+            ? ' title="' + esc(def.tooltip) + '"'
+            : ' title="' + esc(rn) + ' × ' + esc(cn) + ': ' + esc(def.status) + '"';
+          var dataAttrs   = '';
+          if (def.linkTableId) {
+            dataAttrs += ' data-link-table="' + esc(def.linkTableId) + '"';
+            if (def.linkFilter) dataAttrs += ' data-link-filter="' + esc(def.linkFilter) + '"';
+          }
+          bodyHtml += '<div class="sg-cell '+statusClass+clickable+'"'+tipAttr+dataAttrs+' role="img" aria-label="'+esc(rn)+' × '+esc(cn)+': '+esc(def.status)+(def.tooltip?'. '+esc(def.tooltip):'')+'"></div>';
+        }
+      });
+    });
+
+    /* CSS Grid template: row-header column + N data columns.
+       Width per data column comes from the cellSize variant. */
+    var gridHtml =
+      '<div class="status-grid-inner">' +
+        '<div class="status-grid" style="grid-template-columns: auto repeat('+cols.length+', minmax(0, 1fr));">' +
+          headerCells +
+          bodyHtml +
+        '</div>' +
+      '</div>';
+
+    /* Legend strip — auto-generated from the statuses actually present */
+    var statusSet = {};
+    (block.cells || []).forEach(function (c) { statusSet[c.status || 'info'] = true; });
+    var legendOrder = ['ok','warn','danger','nodata','info'];
+    var legendItems = legendOrder.filter(function (s) { return statusSet[s]; }).map(function (s) {
+      return '<div class="sg-legend-row"><span class="sg-legend-swatch sg-status-'+s+'"></span><span class="sg-legend-label">'+esc(s)+'</span></div>';
+    }).join('');
+    var legendHtml = legendItems
+      ? '<div class="status-grid-legend">'+legendItems+'</div>'
+      : '';
+
+    container.innerHTML =
+      (block.title ? '<h3 class="status-grid-title">'+esc(block.title)+'</h3>' : '') +
+      gridHtml +
+      legendHtml;
+
+    /* Wire clickable cells — navigate to a registered table and optionally
+       apply a text filter (same machinery as Add-DhAlertBanner Action). */
+    container.querySelectorAll('.sg-clickable').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var tableId = el.getAttribute('data-link-table');
+        var filter  = el.getAttribute('data-link-filter');
+        if (!tableId || !window._showPanel) return;
+        window._showPanel(tableId);
+        if (filter && engines[tableId]) {
+          var eng = engines[tableId];
+          var inp = document.getElementById('filter-' + tableId);
+          eng.filterText = filter;
+          if (inp) inp.value = filter;
+          eng.currentPage = 1;
+          eng.render();
+          URLState.save();
+        }
+      });
     });
   }
 
@@ -429,6 +1925,12 @@ function Get-DhJsContent {
     var engine = engines[block.tableId];
     if (!engine) { container.innerHTML = '<p class="no-data">Table not ready.</p>'; return; }
 
+    /* v1.4 F12 — stacked branch */
+    if (block.stacked && block.seriesField) {
+      renderBarChartStacked(container, block, engine);
+      return;
+    }
+
     var counts = {};
     engine._getFiltered().forEach(function (row) {
       var v = (row[block.field]!=null)?String(row[block.field]):'(empty)';
@@ -445,9 +1947,11 @@ function Get-DhJsContent {
       var clickAttr = block.clickFilters
         ? ' onclick="(function(){var eng=engines[\''+block.tableId+'\'];if(eng){eng.filterText=\''+e.label.replace(/'/g,"\\'")+ '\';document.getElementById(\'filter-'+block.tableId+'\').value=\''+e.label.replace(/'/g,"\\'")+'\';eng.currentPage=1;eng.render();}})();"'
         : '';
-      return '<div class="bar-item'+(block.clickFilters?' bar-clickable':'')+'"'+clickAttr+'>'+
+      /* v1.4.2 — native hover tooltip with label / count / percentage */
+      var tip = e.label + ': ' + e.count + ' (' + pctTotal + '%)';
+      return '<div class="bar-item'+(block.clickFilters?' bar-clickable':'')+'"'+clickAttr+' title="'+esc(tip)+'">'+
         '<div class="bar-label">'+
-          '<span class="bar-label-text" title="'+esc(e.label)+'">'+esc(e.label)+'</span>'+
+          '<span class="bar-label-text">'+esc(e.label)+'</span>'+
           (block.showCount!==false?'<span class="bar-label-count">'+esc(e.count)+'</span>':'')+
           (block.showPercent?'<span class="bar-label-pct">'+esc(pctTotal)+'%</span>':'')+
         '</div>'+
@@ -458,6 +1962,71 @@ function Get-DhJsContent {
     container.innerHTML =
       '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>'+
       '<div class="bar-chart">'+barsHtml+'</div>';
+  }
+
+  /* Stacked variant — each primary bar is segmented by block.seriesField.
+     Series values are coloured from chartPalette() in alphabetical order so
+     the legend stays stable across renders. clickFilters is intentionally
+     ignored in stacked mode (the bar has no single Field value to filter by). */
+  function renderBarChartStacked(container, block, engine) {
+    /* Two-level aggregation: primary[field][series] = count */
+    var primary = {};
+    var seriesSet = {};
+    engine._getFiltered().forEach(function (row) {
+      var pv = (row[block.field]      != null) ? String(row[block.field])      : '(empty)';
+      var sv = (row[block.seriesField] != null) ? String(row[block.seriesField]) : '(empty)';
+      if (!primary[pv]) primary[pv] = { total: 0, byS: {} };
+      primary[pv].total += 1;
+      primary[pv].byS[sv] = (primary[pv].byS[sv] || 0) + 1;
+      seriesSet[sv] = true;
+    });
+    var seriesValues = Object.keys(seriesSet).sort();
+    var primaryEntries = Object.keys(primary).map(function (k) {
+      return { label: k, total: primary[k].total, byS: primary[k].byS };
+    }).sort(function (a, b) { return b.total - a.total; }).slice(0, block.topN || 10);
+
+    /* Largest total drives the bar width scale */
+    var maxTotal = primaryEntries[0] ? primaryEntries[0].total : 1;
+    var grandTotal = engine._getFiltered().length;
+
+    /* Colour map: deterministic alphabetic series → palette index */
+    var palette = chartPalette();
+    var colorOf = {};
+    seriesValues.forEach(function (sv, i) { colorOf[sv] = palette[i % palette.length]; });
+
+    var barsHtml = primaryEntries.map(function (p) {
+      var widthPct = (p.total / maxTotal * 100).toFixed(2);
+      var pctTotal = (p.total / grandTotal * 100).toFixed(0);
+      /* Segments — each is sized in proportion to its share of THIS bar's total */
+      var segHtml = seriesValues.map(function (sv) {
+        var c = p.byS[sv] || 0;
+        if (c === 0) return '';
+        var segPct = (c / p.total * 100).toFixed(2);
+        var tip = sv + ': ' + c;
+        return '<div class="bar-segment" style="width:'+segPct+'%;background:'+esc(colorOf[sv])+'" title="'+esc(tip)+'"></div>';
+      }).join('');
+      return '<div class="bar-item bar-item-stacked">'+
+        '<div class="bar-label">'+
+          '<span class="bar-label-text" title="'+esc(p.label)+'">'+esc(p.label)+'</span>'+
+          (block.showCount  !== false ? '<span class="bar-label-count">'+esc(p.total)+'</span>' : '')+
+          (block.showPercent          ? '<span class="bar-label-pct">'+esc(pctTotal)+'%</span>' : '')+
+        '</div>'+
+        '<div class="bar-track bar-track-stacked" style="width:'+widthPct+'%">'+segHtml+'</div>'+
+      '</div>';
+    }).join('');
+
+    var legendHtml = '<div class="bar-chart-legend">' +
+      seriesValues.map(function (sv) {
+        return '<div class="bar-legend-row">'+
+                 '<span class="bar-legend-dot" style="background:'+esc(colorOf[sv])+'"></span>'+
+                 '<span class="bar-legend-label">'+esc(sv)+'</span>'+
+               '</div>';
+      }).join('') + '</div>';
+
+    container.innerHTML =
+      '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>'+
+      '<div class="bar-chart bar-chart-stacked">'+barsHtml+'</div>'+
+      legendHtml;
   }
 
   /* =========================================================================
@@ -557,8 +2126,10 @@ function Get-DhJsContent {
         l.style.display = (l.dataset.group === groupName) ? '' : 'none';
         l.classList.remove('nav-active');
       });
-      /* Show all block-sections for this group */
-      document.querySelectorAll('.block-section[data-navgroup="'+groupName+'"]').forEach(function (s) {
+      /* Show all block-sections + alert banners bound to this group */
+      document.querySelectorAll(
+        '.block-section[data-navgroup="'+groupName+'"], .alert-banner[data-navgroup="'+groupName+'"]'
+      ).forEach(function (s) {
         s.classList.add('panel-active');
       });
       /* Show/hide subnav strip — hide it when this group has no table sub-links */
@@ -596,6 +2167,14 @@ function Get-DhJsContent {
         showSubPanel(firstLink.dataset.table || firstLink.dataset.panel, groupName);
       } else {
         URLState.save();
+      }
+      /* Three-tier: auto-select first subgroup pill so that items tagged
+         with -NavSubGroup are bound to a single subgroup (visible only when
+         their pill is active). Items in the group without -NavSubGroup remain
+         visible regardless. */
+      var firstPill = sgEl ? sgEl.querySelector('.subgroup-pill[data-group="'+groupName+'"]') : null;
+      if (firstPill) {
+        showSubGroup(groupName, firstPill.dataset.subgroup);
       }
     }
 
@@ -757,13 +2336,16 @@ function Get-DhJsContent {
     this._renderCharts();
   };
 
-  /* Re-render any bar charts that reference this table */
+  /* Re-render any bar charts and Mode-A pie charts that reference this table */
   TableEngine.prototype._refreshLinkedBarCharts = function () {
     var id = this.id;
     BLOCKS_CONFIG.forEach(function (block) {
       if (block.blockType === 'barchart' && block.tableId === id) {
         var container = document.getElementById('block-' + block.id);
         if (container) renderBarChart(container, block);
+      } else if (block.blockType === 'piechart' && block.mode === 'fromtable' && block.tableId === id) {
+        var container = document.getElementById('block-' + block.id);
+        if (container) renderPieChart(container, block);
       }
     });
   };
@@ -984,10 +2566,20 @@ function Get-DhJsContent {
 
     /* Multi-sort: sortFields is [{field,dir},...] */
     if (self.sortFields&&self.sortFields.length) {
+      /* Pre-build a field → column map so we can spot sparkline columns
+         without scanning self.columns inside the hot comparator loop. */
+      var colMap = {};
+      (self.columns||[]).forEach(function(c){ colMap[c.field] = c; });
       data=data.slice().sort(function(a,b){
         for (var i=0;i<self.sortFields.length;i++) {
           var sf=self.sortFields[i].field,sd=self.sortFields[i].dir;
+          var col=colMap[sf];
           var av=(a[sf]!=null)?a[sf]:'',bv=(b[sf]!=null)?b[sf]:'';
+          /* v1.4 F8 — sparkline columns reduce arrays to a comparable scalar */
+          if (col && col.cellType === 'sparkline') {
+            av = sparkReduce(av, col.sortBy);
+            bv = sparkReduce(bv, col.sortBy);
+          }
           var an=parseFloat(av),bn=parseFloat(bv);
           var n=(!isNaN(an)&&!isNaN(bn))?(an-bn):String(av).localeCompare(String(bv),undefined,{sensitivity:'base'});
           if(n!==0)return sd==='asc'?n:-n;
@@ -1001,9 +2593,13 @@ function Get-DhJsContent {
   /* ── Cell rendering ─────────────────────────────────────────────── */
   TableEngine.prototype._renderCell = function (col,rawVal) {
     var td=document.createElement('td');
+    var cellType=(col.cellType||'text').toLowerCase();
+    var isSparklineCell = (cellType === 'sparkline');
     var strRaw=(rawVal!==null&&rawVal!==undefined)?String(rawVal):'';
-    var dispVal=FMT.apply(col,rawVal)||strRaw;
-    var thClass=getThresholdClass(col,rawVal);
+    /* Skip FMT.apply + threshold matching for sparkline cells — the value is
+       an array, not a scalar, and those code paths would mis-parse it. */
+    var dispVal = isSparklineCell ? '' : (FMT.apply(col,rawVal) || strRaw);
+    var thClass = isSparklineCell ? '' : getThresholdClass(col,rawVal);
 
     var align=(col.align||'left').toLowerCase();
     if(align==='right') td.classList.add('cell-right');
@@ -1013,7 +2609,6 @@ function Get-DhJsContent {
     if(col.italic)td.classList.add('cell-italic');
     if(col.font){var fm={mono:'cell-mono',ui:'cell-ui',display:'cell-display'};var fc=fm[col.font.toLowerCase()];if(fc)td.classList.add(fc);}
 
-    var cellType=(col.cellType||'text').toLowerCase();
     if(cellType==='progressbar'){
       var numVal=parseFloat(strRaw),pMax=col.progressMax||100;
       var pct=isNaN(numVal)?0:Math.min(100,Math.max(0,(numVal/pMax)*100));
@@ -1026,6 +2621,21 @@ function Get-DhJsContent {
       var badge=document.createElement('span');
       badge.className='cell-badge'+(thClass?' badge-'+thClass.replace('cell-',''):'');
       badge.textContent=dispVal;td.appendChild(badge);
+    } else if(cellType==='sparkline'){
+      /* v1.4 F8 — inline mini-chart per row. Cell value must be a numeric array;
+         null/non-array values render as an em dash. Reuses the SPARK helper
+         shared with Add-DhSummary tile sparklines. */
+      td.classList.add('td-sparkline');
+      var arr = Array.isArray(rawVal) ? rawVal : null;
+      if (arr && arr.length) {
+        td.innerHTML = SPARK.build(arr, {
+          style:  col.sparklineStyle || 'line',
+          width:  100,
+          height: 22
+        });
+      } else {
+        td.innerHTML = '<span class="td-sparkline-empty">—</span>';
+      }
     } else {
       td.textContent=dispVal;
     }
@@ -1309,44 +2919,41 @@ function Get-DhJsContent {
     if(btn)btn.style.display=this.selected.length>0?'inline-flex':'none';
   };
 
-  /* ── Pie Charts ─────────────────────────────────────────────────── */
-  TableEngine.prototype._chartPalette=function(){
-    return['--chart-1','--chart-2','--chart-3','--chart-4','--chart-5','--chart-6','--chart-7','--chart-8']
-      .map(function(v,i){return cssVar(v,['#00c8ff','#00e676','#ffc107','#ff4d6a','#a855f7','#f97316','#06b6d4','#84cc16'][i]);});
-  };
+  /* ── Per-table Pie Charts (Add-DhTable -Charts) ─────────────────────
+        Delegates SVG generation to the shared chartPalette() / buildPieSvg()
+        helpers so the standalone Add-DhPieChart and the per-table chart
+        stay visually consistent. */
+  TableEngine.prototype._chartPalette = function () { return chartPalette(); };
 
-  TableEngine.prototype._renderCharts=function(){
-    if(!this.charts||!this.charts.length)return;
-    var container=document.getElementById('charts-'+this.id);
-    if(!container)return;container.innerHTML='';var self=this;
-    this.charts.forEach(function(chart){
-      if((chart.type||'pie').toLowerCase()==='pie')container.appendChild(self._buildPieChart(chart));
-    });
-  };
-
-  TableEngine.prototype._buildPieChart=function(chart){
-    var self=this,palette=this._chartPalette(),counts={};
-    this._getFiltered().forEach(function(row){var v=(row[chart.field]!=null)?String(row[chart.field]):'(empty)';counts[v]=(counts[v]||0)+1;});
-    var entries=Object.keys(counts).map(function(k,i){return{label:k,count:counts[k],color:palette[i%palette.length]};}).sort(function(a,b){return b.count-a.count;});
-    var total=entries.reduce(function(s,e){return s+e.count;},0);if(!total)return document.createElement('div');
-    var size=130,cx=65,cy=65,r=56,inner=30;
-    var svgParts=['<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" aria-hidden="true">'];
-    var angle=-Math.PI/2;
-    entries.forEach(function(e){
-      var slice=(e.count/total)*2*Math.PI;if(slice<0.001)return;
-      if(e.count===total){svgParts.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+e.color+'"/>');}
-      else{
-        var x1=(cx+r*Math.cos(angle)).toFixed(2),y1=(cy+r*Math.sin(angle)).toFixed(2);
-        angle+=slice;
-        var x2=(cx+r*Math.cos(angle)).toFixed(2),y2=(cy+r*Math.sin(angle)).toFixed(2);
-        svgParts.push('<path d="M'+cx+','+cy+' L'+x1+','+y1+' A'+r+','+r+' 0 '+(slice>Math.PI?1:0)+',1 '+x2+','+y2+' Z" fill="'+e.color+'" stroke="var(--bg-surface)" stroke-width="2"/>');
+  TableEngine.prototype._renderCharts = function () {
+    if (!this.charts || !this.charts.length) return;
+    var container = document.getElementById('charts-' + this.id);
+    if (!container) return;
+    container.innerHTML = '';
+    var self = this;
+    this.charts.forEach(function (chart) {
+      if ((chart.type || 'pie').toLowerCase() === 'pie') {
+        container.appendChild(self._buildPieChart(chart));
       }
     });
-    svgParts.push('<circle cx="'+cx+'" cy="'+cy+'" r="'+inner+'" fill="var(--bg-surface)"/>','<text x="'+cx+'" y="'+(cy-5)+'" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="var(--font-ui)">Total</text>','<text x="'+cx+'" y="'+(cy+11)+'" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text-primary)" font-family="var(--font-ui)">'+total+'</text>','</svg>');
-    var legendRows=entries.map(function(e){var pct=((e.count/total)*100).toFixed(0);return'<div class="legend-row"><span class="legend-dot" style="background:'+esc(e.color)+'"></span><span class="legend-label">'+esc(e.label)+'</span><span class="legend-count">'+esc(e.count)+' <span class="legend-pct">('+esc(pct)+'%)</span></span></div>';}).join('');
-    var panel=document.createElement('div');panel.className='chart-panel';
-    panel.innerHTML='<div class="chart-title">'+esc(chart.title||chart.field)+'</div><div class="chart-body">'+svgParts.join('')+'<div class="chart-legend">'+legendRows+'</div></div>';
-    return panel;
+  };
+
+  TableEngine.prototype._buildPieChart = function (chart) {
+    var palette = chartPalette();
+    var counts = {};
+    this._getFiltered().forEach(function (row) {
+      var v = (row[chart.field] != null) ? String(row[chart.field]) : '(empty)';
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    var entries = Object.keys(counts).map(function (k, i) {
+      return { label: k, count: counts[k], color: palette[i % palette.length] };
+    }).sort(function (a, b) { return b.count - a.count; });
+    return buildPieSvg(entries, {
+      style:      'donut',
+      title:      chart.title || chart.field,
+      showTotal:  true,
+      showLegend: true
+    });
   };
 
   /* ── Export ─────────────────────────────────────────────────────── */
@@ -1414,19 +3021,29 @@ function Get-DhJsContent {
       engines[cfg.id] = new TableEngine(cfg);
     });
 
-    /* Bar charts need engines ready */
+    /* Bar charts and Mode-A pie charts need engines ready */
     BLOCKS_CONFIG.forEach(function (block) {
       if (block.blockType === 'barchart') {
         var container = document.getElementById('block-'+block.id);
         if (container) renderBarChart(container, block);
+      } else if (block.blockType === 'piechart' && block.mode === 'fromtable') {
+        var container = document.getElementById('block-'+block.id);
+        if (container) renderPieChart(container, block);
       }
     });
+
+    /* Alert banners — render AFTER engines exist so action filters work,
+       and AFTER initNav() exposes window._showPanel. Moved below. */
 
     initNav();
     syncNavTop();
     window.addEventListener('resize', syncNavTop);
     initThemeToggle();
     initDensityToggle();
+
+    /* Alert banners — initNav() has now exposed window._showPanel,
+       and engines[] exists, so action buttons can navigate + filter. */
+    renderAlerts();
 
     /* ── Restore URL state: density + card filters ── */
     var _saved = URLState.load();

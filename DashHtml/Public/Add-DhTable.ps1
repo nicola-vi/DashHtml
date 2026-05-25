@@ -166,6 +166,35 @@ function Add-DhTable {
         $c = @{} + $col
         if (-not $c.Contains('Sortable'))     { $c['Sortable']     = $Sortable  }
         if (-not $c.Contains('CellType'))     { $c['CellType']     = 'text'     }
+        # v1.4 F8 — explicit validation now that the set is widened to include 'sparkline'
+        $ctNorm = ([string]$c['CellType']).ToLowerInvariant()
+        if ($ctNorm -notin @('text','progressbar','badge','sparkline')) {
+            throw "Add-DhTable: column '$($c.Field)' — CellType must be 'text', 'progressbar', 'badge', or 'sparkline'. Got: $($c['CellType'])"
+        }
+        $c['CellType'] = $ctNorm
+
+        # v1.4 F8 — sparkline-specific column keys
+        # SortBy: how to reduce an array of values to a comparable scalar
+        if (-not $c.Contains('SortBy') -or [string]::IsNullOrWhiteSpace([string]$c['SortBy'])) {
+            $c['SortBy'] = 'last'
+        } else {
+            $sb = ([string]$c['SortBy']).ToLowerInvariant()
+            if ($sb -notin @('last','avg','max','min','sum')) {
+                throw "Add-DhTable: column '$($c.Field)' — SortBy must be 'last', 'avg', 'max', 'min', or 'sum'. Got: $($c['SortBy'])"
+            }
+            $c['SortBy'] = $sb
+        }
+        # SparklineStyle: same options as the tile sparkline
+        if (-not $c.Contains('SparklineStyle') -or [string]::IsNullOrWhiteSpace([string]$c['SparklineStyle'])) {
+            $c['SparklineStyle'] = 'line'
+        } else {
+            $sps = ([string]$c['SparklineStyle']).ToLowerInvariant()
+            if ($sps -notin @('line','area','bars')) {
+                throw "Add-DhTable: column '$($c.Field)' — SparklineStyle must be 'line', 'area', or 'bars'. Got: $($c['SparklineStyle'])"
+            }
+            $c['SparklineStyle'] = $sps
+        }
+
         if (-not $c.Contains('ProgressMax'))  { $c['ProgressMax']  = 100        }
         if (-not $c.Contains('Bold'))         { $c['Bold']         = $false     }
         if (-not $c.Contains('Italic'))       { $c['Italic']       = $false     }
@@ -179,6 +208,20 @@ function Add-DhTable {
         if (-not $c.Contains('RowHighlight')) { $c['RowHighlight'] = $false     }
         if (-not $c.Contains('PinFirst'))     { $c['PinFirst']     = $false     }
         if (-not $c.Contains('Aggregate'))    { $c['Aggregate']    = ''         }  # sum|avg|min|max|count
+
+        # ---- Unified Rag → Thresholds (v1.4 F13) ----
+        # Same semantics as Add-DhSummary: -Rag wins over a legacy Thresholds=
+        # array on the column. Converts to the existing Min/Max/Class shape so
+        # downstream JSON + JS matcher stay unchanged. RagNoData flag tells the
+        # renderer to colour null/missing cells with cell-nodata.
+        $c['RagNoData'] = $false
+        if ($c.Contains('Rag') -and $null -ne $c['Rag']) {
+            $rag = ConvertTo-DhRagThresholds -Rag $c['Rag'] -Context "Add-DhTable column '$($c.Field)'"
+            $c['Thresholds'] = $rag.Thresholds
+            $c['RagNoData']  = $rag.NoData
+            $c.Remove('Rag')
+        }
+
         if (-not $c.Contains('Thresholds'))   { $c['Thresholds']   = @()       }
         $c
     }

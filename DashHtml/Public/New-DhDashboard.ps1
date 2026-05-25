@@ -72,7 +72,7 @@ function New-DhDashboard {
         [string] $Subtitle = '',
         [string] $LogoPath = '',
 
-        [ValidateSet('Default','Azure','VMware','Grey','Company')]
+        [ValidateSet('Default','Azure','VMware','Grey','Company','Rag')]
         [string] $Theme = 'Default',
 
         # Nav bar label — defaults to Title ($null); set '' to suppress.
@@ -86,7 +86,13 @@ function New-DhDashboard {
         [object[]] $InfoFields  = @(),
 
         # Optional script/tool name shown in the report footer
-        [string]   $GeneratedBy = ''
+        [string]   $GeneratedBy = '',
+
+        # v1.4.2+ — auto-refresh interval. Accepts seconds as an int or a duration
+        # string like '30s', '5m', '1h'. When set, the exported HTML carries a
+        # <meta http-equiv="refresh"> tag so wall-display dashboards re-fetch
+        # the file automatically. Omit / pass '' / pass 0 to disable.
+        [string]   $AutoRefresh = ''
     )
 
     # Map theme family to internal light/dark CSS names
@@ -96,6 +102,7 @@ function New-DhDashboard {
         'VMware'  = @{ Light = 'VMwareLight';  Dark = 'VMwareDark'   }
         'Grey'    = @{ Light = 'GreyLight';    Dark = 'GreyDark'     }
         'Company' = @{ Light = 'CompanyLight'; Dark = 'CompanyDark'  }
+        'Rag'     = @{ Light = 'RagLight';     Dark = 'RagDark'      }
     }
     $lightInternal = $themeMap[$Theme].Light
     $darkInternal  = $themeMap[$Theme].Dark
@@ -126,7 +133,25 @@ function New-DhDashboard {
         }
     }
 
-    Write-Verbose "New-DhDashboard: Theme='$Theme'  (light: $lightInternal / dark: $darkInternal)"
+    # Normalise -AutoRefresh into a seconds count (0 = disabled)
+    $autoRefreshSeconds = 0
+    if (-not [string]::IsNullOrWhiteSpace($AutoRefresh)) {
+        $m = [regex]::Match($AutoRefresh.Trim(), '^(?<n>\d+)\s*(?<u>[smh]?)$', 'IgnoreCase')
+        if (-not $m.Success) {
+            throw "New-DhDashboard: -AutoRefresh must be seconds as a number or a duration like '30s', '5m', '1h'. Got: '$AutoRefresh'"
+        }
+        $n = [int]$m.Groups['n'].Value
+        switch (([string]$m.Groups['u'].Value).ToLowerInvariant()) {
+            'm'     { $autoRefreshSeconds = $n * 60 }
+            'h'     { $autoRefreshSeconds = $n * 3600 }
+            default { $autoRefreshSeconds = $n }       # 's' or no unit → seconds
+        }
+        if ($autoRefreshSeconds -lt 1) {
+            $autoRefreshSeconds = 0   # treat 0 / negative as disabled
+        }
+    }
+
+    Write-Verbose "New-DhDashboard: Theme='$Theme'  (light: $lightInternal / dark: $darkInternal)$(if ($autoRefreshSeconds) { ", AutoRefresh=${autoRefreshSeconds}s" })"
 
     return [ordered]@{
         Title          = $Title
@@ -143,5 +168,6 @@ function New-DhDashboard {
         GeneratedAt    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')
         NavTitle       = if ($null -eq $NavTitle) { '' } else { $NavTitle }
         GeneratedBy    = $GeneratedBy
+        AutoRefreshSec = $autoRefreshSeconds   # 0 = disabled
     }
 }

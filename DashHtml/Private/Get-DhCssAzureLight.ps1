@@ -76,6 +76,7 @@ function Get-DhCssAzureLight {
   --cell-ok-fg:      #107C10;  --cell-ok-bg:      rgba(16,124,16,0.08);
   --cell-warn-fg:    #8A3707;  --cell-warn-bg:    rgba(188,75,9,0.08);
   --cell-danger-fg:  #A4262C;  --cell-danger-bg:  rgba(164,38,44,0.08);
+  --cell-nodata-fg:  #605E5C;  --cell-nodata-bg:  rgba(96,94,92,0.08);
 
   --progress-track-bg: rgba(0,0,0,0.07);
 

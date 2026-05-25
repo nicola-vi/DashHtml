@@ -40,7 +40,7 @@
 param(
     [string] $LogoPath   = '',
     [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-DashHtml.html'),
-    [ValidateSet('Default','Azure','VMware','Grey','Company')]
+    [ValidateSet('Default','Azure','VMware','Grey','Company','Rag')]
     [string] $Theme      = 'Company',
     [switch] $OpenInBrowser
 )
@@ -48,10 +48,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ── Module import ──────────────────────────────────────────────────────────────
-if (Get-Module -Name DashHtml -ListAvailable -ErrorAction SilentlyContinue) {
+# Script lives in Examples/ now (v1.4.1+). Prefer the in-repo source when running
+# from a clone; fall back to an installed module otherwise.
+$repoModule = Join-Path (Split-Path $PSScriptRoot -Parent) 'DashHtml\DashHtml.psd1'
+if (Test-Path $repoModule) {
+    Import-Module $repoModule -Force
+} elseif (Get-Module -Name DashHtml -ListAvailable -ErrorAction SilentlyContinue) {
     Import-Module DashHtml -Force
 } else {
-    Import-Module (Join-Path $PSScriptRoot 'DashHtml\DashHtml.psd1') -Force
+    throw "DashHtml module not found. Install it (Install-Module DashHtml) or run this script from a clone of the repo."
 }
 
 # ==============================================================================
@@ -618,6 +623,132 @@ Set-DhTableLink -Report $report `
 Set-DhTableLink -Report $report `
     -MasterTableId 'teams' -DetailTableId 'employees' `
     -MasterField 'TeamName' -DetailField 'TeamName'
+
+# ==============================================================================
+#  GROUP: v1.4 Showcase
+#  Exercises every cmdlet added in v1.4 (plus the v1.4.1 per-NavGroup summary).
+# ==============================================================================
+
+# ── Per-NavGroup KPI strip (v1.4.1) — only visible on this tab ────────────────
+$utilRag = @{ Green=@{Max=70}; Amber=@{Min=70;Max=90}; Red=@{Min=90}; NoData=$true }
+
+Add-DhSummary -Report $report -NavGroup 'v1.4 Showcase' -Title 'v1.4 widgets — at a glance' -Items @(
+    @{ Style='bignumber'; Label='Module version'; Value='1.4.1'
+       Caption='Released as part of the KPI & Dashboard Primitives milestone'; Class='cell-ok' }
+    @{ Style='gauge';    Label='Cluster CPU'; Value=68; Max=100; Unit='%'; Rag=$utilRag }
+    @{                   Label='Active alarms'; Value=3; Previous=1; TrendIsGood=$false; Class='cell-warn'
+                         Sparkline=@(0,0,1,1,2,2,3); SparklineStyle='bars' }
+    @{                   Label='SLA met (30d)'; Value=99.97; Format='percent'; Decimals=2
+                         Previous=99.94; TrendIsGood=$true; Class='cell-ok' }
+)
+
+# ── Alert banner (v1.4 F6) — top-of-page strip with action button ────────────
+Add-DhAlertBanner -Report $report -Id 'demo-banner' `
+    -Severity 'warning' -Icon '⚠' -Dismissible `
+    -Message 'Demo data — replace with your own metrics before shipping this dashboard.' `
+    -Action @{ Label='Open server table'; TableId='servers' }
+
+# ── Standalone Pie chart (v1.4 F7) ───────────────────────────────────────────
+Add-DhPieChart -Report $report -Id 'demo-pie-status' `
+    -Title 'Servers by status' -Style 'donut' `
+    -TableId 'servers' -Field 'Status' -ClickFilters `
+    -NavGroup 'v1.4 Showcase'
+
+# ── Bullet chart (v1.4 F10) — actual vs target with RAG bands ────────────────
+Add-DhBullet -Report $report -Id 'demo-bullets' -Title 'Server CPU vs SLA (selected hosts)' `
+    -Items @(
+        @{ Label='srv-web-01'; Value=42; Target=70; Max=100; Unit='%'; Rag=$utilRag }
+        @{ Label='srv-app-01'; Value=71; Target=70; Max=100; Unit='%'; Rag=$utilRag }
+        @{ Label='srv-app-02'; Value=88; Target=70; Max=100; Unit='%'; Rag=$utilRag }
+        @{ Label='lnx-ci-02';  Value=91; Target=70; Max=100; Unit='%'; Rag=$utilRag }
+    ) `
+    -NavGroup 'v1.4 Showcase'
+
+# ── Line chart (v1.4 F9) — time-series with target / threshold line ─────────
+$hours = @('00:00','04:00','08:00','12:00','16:00','20:00','24:00')
+Add-DhLineChart -Report $report -Id 'demo-cpu-trend' -Title 'Cluster CPU (24h) — with SLA target line' `
+    -Filled `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='Average'; Values=@(42,38,55,67,71,68,52); Class='cell-ok'   }
+        @{ Label='Peak';    Values=@(58,52,72,84,91,86,68); Class='cell-warn' }
+    ) `
+    -TargetLine 80 -TargetLabel 'SLA ceiling' `
+    -YAxisMin 0 -YAxisMax 100 -YAxisUnit '%' `
+    -NavGroup 'v1.4 Showcase'
+
+# ── Stacked bar chart (v1.4 F12) — multi-series breakdown ────────────────────
+Add-DhBarChart -Report $report -Id 'demo-stacked' -Title 'Servers per location, stacked by status' `
+    -TableId 'servers' -Field 'Location' -SeriesField 'Status' -Stacked `
+    -NavGroup 'v1.4 Showcase'
+
+# ── Status grid (v1.4 F5) — service × region RAG matrix ─────────────────────
+Add-DhStatusGrid -Report $report -Id 'demo-status-grid' -Title 'Service health (services × DC)' `
+    -RowLabel 'Service' -ColumnLabel 'DC' `
+    -Rows    @('IIS','AppService','SQL','REST API','Jenkins','File Share') `
+    -Columns @('DC-West','DC-East','DC-DR') `
+    -CellSize 'normal' `
+    -Cells @(
+        @{ Row='IIS';         Column='DC-West'; Status='ok' }
+        @{ Row='IIS';         Column='DC-East'; Status='warn'; Tooltip='legacy 2016 host' }
+        @{ Row='IIS';         Column='DC-DR';   Status='nodata' }
+        @{ Row='AppService';  Column='DC-West'; Status='ok' }
+        @{ Row='AppService';  Column='DC-East'; Status='danger'; Tooltip='srv-app-02 degraded'
+           LinkTableId='services'; LinkFilter='AppService' }
+        @{ Row='AppService';  Column='DC-DR';   Status='nodata' }
+        @{ Row='SQL';         Column='DC-West'; Status='ok' }
+        @{ Row='SQL';         Column='DC-East'; Status='ok' }
+        @{ Row='REST API';    Column='DC-West'; Status='ok' }
+        @{ Row='Jenkins';     Column='DC-West'; Status='warn'; Tooltip='lnx-ci-02 degraded' }
+        @{ Row='File Share';  Column='DC-West'; Status='ok' }
+    ) `
+    -NavGroup 'v1.4 Showcase'
+
+# ── Event feed (v1.4 F11) — chronological severity-tagged log ───────────────
+Add-DhEventFeed -Report $report -Id 'demo-events' -Title 'Recent events (24h)' `
+    -MaxItems 30 -GroupBy 'Severity' `
+    -Events @(
+        @{ Timestamp='2026-05-22 15:18'; Severity='critical'; Source='srv-app-02'; Message='Service degraded — response time > 400 ms p95' }
+        @{ Timestamp='2026-05-22 14:42'; Severity='warning';  Source='lnx-ci-02';  Message='Disk free below 10% threshold' }
+        @{ Timestamp='2026-05-22 14:12'; Severity='warning';  Source='srv-old-01'; Message='Patch level out of compliance (last patched 2025-09-01)' }
+        @{ Timestamp='2026-05-22 13:55'; Severity='info';     Source='DRS';        Message='vm-WEB-08 migrated from srv-app-02 to srv-app-01' }
+        @{ Timestamp='2026-05-22 12:38'; Severity='info';     Source='HA';         Message='Cluster HA monitoring state nominal' }
+        @{ Timestamp='2026-05-22 12:00'; Severity='ok';       Source='Backup';     Message='Nightly Veeam job completed — 0 failures' }
+        @{ Timestamp='2026-05-22 09:14'; Severity='info';     Source='Patch';      Message='KB5044277 deployed to 12 servers' }
+        @{ Timestamp='2026-05-22 02:00'; Severity='info';     Source='Cron';       Message='Index rebuild complete on sql-db-01' }
+    ) `
+    -NavGroup 'v1.4 Showcase'
+
+# ── Sparkline cell type (v1.4 F8) — inline trend per row in a table ─────────
+$cpuSamples = @{
+    'srv-web-01'  = @(38,42,40,45,42,44,40,42)
+    'srv-web-02'  = @(35,38,40,38,40,38,36,38)
+    'srv-app-01'  = @(60,65,70,75,72,70,68,71)
+    'srv-app-02'  = @(75,80,85,88,90,92,88,88)
+    'srv-db-01'   = @(45,48,52,55,58,56,54,55)
+    'srv-db-02'   = @(42,46,48,50,52,50,48,48)
+    'lnx-api-01'  = @(25,28,30,32,30,28,30,29)
+    'lnx-api-02'  = @(28,30,32,30,32,30,32,31)
+    'lnx-mon-01'  = @(16,18,20,18,20,18,18,18)
+    'lnx-ci-01'   = @(55,60,65,62,68,64,60,62)
+    'lnx-ci-02'   = @(85,88,90,91,90,92,90,91)
+}
+$sparkRows = $servers | ForEach-Object {
+    [PSCustomObject]@{
+        Name      = $_.Name
+        Status    = $_.Status
+        Cpu       = $_.CPU_Pct
+        CpuTrend  = if ($cpuSamples.Contains($_.Name)) { $cpuSamples[$_.Name] } else { $null }
+    }
+}
+Add-DhTable -Report $report -TableId 'demo-sparktable' -Title 'Server CPU — current & 8h trend (sparkline column)' `
+    -Data $sparkRows -Columns @(
+        @{ Field='Name';     Label='Server'; PinFirst=$true }
+        @{ Field='Status';   Label='Status'; CellType='badge'
+           Thresholds=$serverStatusThresholds }
+        @{ Field='Cpu';      Label='CPU %'; Align='right'; CellType='progressbar'; ProgressMax=100; Rag=$utilRag }
+        @{ Field='CpuTrend'; Label='CPU 8h'; CellType='sparkline'; SortBy='max'; SparklineStyle='area' }
+    ) -NavGroup 'v1.4 Showcase' -PageSize 10
 
 # ==============================================================================
 #  EXPORT

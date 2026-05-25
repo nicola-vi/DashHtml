@@ -10,7 +10,8 @@ function Get-DhThemeCss {
                      'CompanyLight','CompanyDark',
                      'AzureLight','AzureDark',
                      'VMwareLight','VMwareDark',
-                     'GreyLight','GreyDark')]
+                     'GreyLight','GreyDark',
+                     'RagLight','RagDark')]
         [string] $Theme
     )
 
@@ -25,6 +26,8 @@ function Get-DhThemeCss {
         'VMwareDark'    { Get-DhCssVMwareDark   }
         'GreyLight'     { Get-DhCssGreyLight    }
         'GreyDark'      { Get-DhCssGreyDark     }
+        'RagLight'      { Get-DhCssRagLight     }
+        'RagDark'       { Get-DhCssRagDark      }
     }
 
     return "$rootCss`n$(Get-DhCssBase)"

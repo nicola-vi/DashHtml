@@ -83,6 +83,7 @@ function Get-DhCssVMwareLight {
   --cell-ok-fg:      #007D63;  --cell-ok-bg:      rgba(0,179,136,0.09);
   --cell-warn-fg:    #A0560A;  --cell-warn-bg:    rgba(230,126,34,0.09);
   --cell-danger-fg:  #A0291F;  --cell-danger-bg:  rgba(192,57,43,0.09);
+  --cell-nodata-fg:  #7B8794;  --cell-nodata-bg:  rgba(123,135,148,0.09);
 
   --progress-track-bg: rgba(0,0,0,0.07);
 

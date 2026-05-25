@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Build-DhReference.ps1">
-<title>DashHtml v1.3.1 — PowerShell Module Reference</title>
+<title>DashHtml v1.5.0 — PowerShell Module Reference</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -275,7 +275,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
       <div class="logo-badge">D</div>
       <span class="sidebar-title">DashHtml</span>
     </div>
-    <span class="sidebar-version">v1.3.1 · PS 7.0+</span>
+    <span class="sidebar-version">v1.5.0 · PS 7.0+</span>
   </div>
   <div class="nav-section-label">Overview</div>
   <a class="nav-item" href="#overview"><span class="nav-dot"></span>Getting started</a>
@@ -286,10 +286,20 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
   <div class="nav-section-label">Content Blocks</div>
   <a class="nav-item" href="#Add-DhTable"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhTable <span class="nav-tag">TABLE</span></a>
   <a class="nav-item" href="#Add-DhSummary"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhSummary <span class="nav-tag">KPI</span></a>
-  <a class="nav-item" href="#Add-DhBarChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBarChart <span class="nav-tag">CHART</span></a>
+  <a class="nav-item" href="#Add-DhAlertBanner"><span class="nav-dot" style="background:#ff7b72"></span>Add-DhAlertBanner <span class="nav-tag">ALERT</span></a>
+  <a class="nav-item" href="#Add-DhStatusGrid"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhStatusGrid <span class="nav-tag">GRID</span></a>
+  <a class="nav-item" href="#Add-DhHeatmap"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhHeatmap <span class="nav-tag">HEAT</span></a>
+  <a class="nav-item" href="#Add-DhTopologyMap"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhTopologyMap <span class="nav-tag">TOPO</span></a>
+  <a class="nav-item" href="#Add-DhEventFeed"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhEventFeed <span class="nav-tag">FEED</span></a>
+  <a class="nav-item" href="#Add-DhTabs"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhTabs <span class="nav-tag">TABS</span></a>
   <a class="nav-item" href="#Add-DhFilterCard"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhFilterCard <span class="nav-tag">FILTER</span></a>
   <a class="nav-item" href="#Add-DhHtmlBlock"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhHtmlBlock <span class="nav-tag">HTML</span></a>
   <a class="nav-item" href="#Add-DhCollapsible"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhCollapsible <span class="nav-tag">COLL</span></a>
+  <div class="nav-section-label">Charts</div>
+  <a class="nav-item" href="#Add-DhBarChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBarChart <span class="nav-tag">CHART</span></a>
+  <a class="nav-item" href="#Add-DhPieChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhPieChart <span class="nav-tag">CHART</span></a>
+  <a class="nav-item" href="#Add-DhLineChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhLineChart <span class="nav-tag">CHART</span></a>
+  <a class="nav-item" href="#Add-DhBullet"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBullet <span class="nav-tag">BULLET</span></a>
   <div class="nav-section-label">Linking</div>
   <a class="nav-item" href="#Set-DhTableLink"><span class="nav-dot" style="background:#3fb950"></span>Set-DhTableLink <span class="nav-tag">LINK</span></a>
   <div class="nav-section-label">Reference</div>
@@ -307,10 +317,10 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
   <div class="page-header" id="overview">
     <div class="header-eyebrow">PowerShell Module Reference</div>
     <h1 class="page-title">DashHtml</h1>
-    <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles, bar charts, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Five theme families, embedded light/dark variants, no external dependencies at viewing time.</p>
+    <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles (with sparklines, deltas, big-number and gauge styles), line / area / pie / bullet / stacked-bar charts, RAG status matrix, event feeds, alert banners, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Six theme families (including the v1.4 Rag family with the Office/Excel palette), embedded light/dark variants, no external dependencies at viewing time.</p>
     <div class="module-badges">
       <span class="badge badge-blue">PowerShell 7.0+</span>
-      <span class="badge badge-green">10 exported functions</span>
+      <span class="badge badge-green">19 exported functions</span>
       <span class="badge badge-purple">5 theme families</span>
       <span class="badge badge-orange">MIT License</span>
     </div>
@@ -333,9 +343,37 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
     </a>    <a class="qr-card" href="#Add-DhSummary">
       <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhSummary</div>
       <div class="qr-cmd-desc">Add a row of KPI metric tiles at the top of the dashboard body.</div>
+    </a>    <a class="qr-card" href="#Add-DhAlertBanner">
+      <div class="qr-cmd-name" style="color:#ff7b72">Add-DhAlertBanner</div>
+      <div class="qr-cmd-desc">Add a top-of-page alert banner to the dashboard.</div>
     </a>    <a class="qr-card" href="#Add-DhBarChart">
       <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhBarChart</div>
       <div class="qr-cmd-desc">Add a horizontal bar chart aggregating values from a table field.</div>
+    </a>    <a class="qr-card" href="#Add-DhPieChart">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhPieChart</div>
+      <div class="qr-cmd-desc">Add a standalone pie or donut chart block to the dashboard.</div>
+    </a>    <a class="qr-card" href="#Add-DhLineChart">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhLineChart</div>
+      <div class="qr-cmd-desc">Add a line or area chart with axes, multi-series support, and an
+optional target / threshold annotation.</div>
+    </a>    <a class="qr-card" href="#Add-DhBullet">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhBullet</div>
+      <div class="qr-cmd-desc">Add a bullet-chart block (actual vs target with performance bands).</div>
+    </a>    <a class="qr-card" href="#Add-DhStatusGrid">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhStatusGrid</div>
+      <div class="qr-cmd-desc">Add a status-matrix / health-grid block — rows &#215; columns of RAG cells.</div>
+    </a>    <a class="qr-card" href="#Add-DhHeatmap">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhHeatmap</div>
+      <div class="qr-cmd-desc">Add a heatmap block — 2D grid with a sequential or diverging colour scale.</div>
+    </a>    <a class="qr-card" href="#Add-DhTopologyMap">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhTopologyMap</div>
+      <div class="qr-cmd-desc">Add a topology / hierarchy map block (tree visualisation, v1.5+).</div>
+    </a>    <a class="qr-card" href="#Add-DhEventFeed">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhEventFeed</div>
+      <div class="qr-cmd-desc">Add a chronological event-feed block — severity-tagged audit trail.</div>
+    </a>    <a class="qr-card" href="#Add-DhTabs">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhTabs</div>
+      <div class="qr-cmd-desc">Add an inline tabbed content block (v1.5+).</div>
     </a>    <a class="qr-card" href="#Add-DhFilterCard">
       <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhFilterCard</div>
       <div class="qr-cmd-desc">Add a clickable card grid that filters a target table.</div>
@@ -399,7 +437,8 @@ at runtime without any server round-trip.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Theme</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavTitle</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-InfoFields</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-GeneratedBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+   [<span class='hl-opt'><span class='hl-param'>-GeneratedBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-AutoRefresh</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -458,6 +497,14 @@ Example: -InfoFields @(@{Label=&#39;Environment&#39;;Value=&#39;Production&#39;}
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>Optional script/tool name shown in the report footer.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-AutoRefresh</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v1.4.2+ — auto-refresh interval. Accepts seconds as an int or a duration
+string like &#39;30s&#39;, &#39;5m&#39;, &#39;1h&#39;. When set, the exported HTML carries a
+&lt;meta http-equiv=&quot;refresh&quot;&gt; tag so wall-display dashboards re-fetch
+the file automatically. Omit / pass &#39;&#39; / pass 0 to disable.</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>
         </tbody>
       </table>
@@ -590,7 +637,7 @@ directory as  &lt;Family&gt;-light.css  and  &lt;Family&gt;-dark.css.</p></div>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-yes">required</span></td>
           <td class="param-desc"><p>Theme family to retrieve.
-Valid values: Default | Azure | VMware | Grey | Company</p></td>
+Valid values: Default | Azure | VMware | Grey | Company | Rag</p></td>
         </tr>        <tr>
           <td><span class="param-name">-SaveTo</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -849,12 +896,23 @@ Add-DhTable -Report $report -TableId &#39;servers&#39; -Title &#39;Servers&#39; 
 
     <div class='desc-block'><p>Renders a horizontal strip of summary cards. Each tile shows an optional
 icon, a formatted value, a label, and an optional sub-label. Tiles can
-be coloured with the same threshold classes used on table cells.</p></div>
+be coloured with the same threshold classes used on table cells.</p><p>By default the strip is wrapped in a collapsible container (same chrome
+as Add-DhCollapsible) with a clickable header bar — handy when the
+dashboard has many tiles and you want to give viewers the option to
+fold them away. Pass -Collapsible:$false to render a flat strip with
+no header.</p></div>
 
     <div class="syntax-label">Syntax</div>
     <div class="syntax-block"><span class='hl-cmd'>Add-DhSummary</span>
     <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
-    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span></div>
+    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Icon</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -881,7 +939,60 @@ Format   = &#39;number&#39;         # optional: same as column Format values
 Locale   = &#39;en-US&#39;          # optional BCP-47 locale
 Decimals = 0                # optional decimal places
 Currency = &#39;USD&#39;            # optional: for Format=&#39;currency&#39;
+</pre><p># ---- Trend / delta indicator (v1.4+) — optional ----</p><pre class="desc-code">Previous     = 219          # baseline for auto-computed delta vs Value
+Trend        = &#39;up&#39;         # &#39;auto&#39; (default) | &#39;up&#39; | &#39;down&#39; | &#39;flat&#39;
+TrendIsGood  = $true        # $true=force green, $false=force red, omit=semantic default
+DeltaFormat  = &#39;both&#39;       # &#39;percent&#39; | &#39;absolute&#39; | &#39;both&#39; (default)
+</pre><p># ---- Sparkline (v1.4+) — optional inline mini-chart below the value ----</p><pre class="desc-code">Sparkline      = @(12,18,15,22,19,24,31)  # raw numeric series
+SparklineMin   = 0                         # optional Y-axis min (default: series min)
+SparklineMax   = 100                       # optional Y-axis max (default: series max)
+SparklineStyle = &#39;line&#39;                    # &#39;line&#39; (default) | &#39;area&#39; | &#39;bars&#39;
 </pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Collapsible</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Wrap the summary tile strip in a collapsible container with a header
+bar (same look &amp; feel as Add-DhCollapsible). Defaults to $true. Pass
+-Collapsible:$false for a flat strip with no header.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Header text for the collapsible container. Defaults to &#39;Summary&#39;.
+Only used when -Collapsible is $true.</p><span class='param-default'>default: &#39;Summary&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Icon</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional emoji / unicode icon shown before the collapsible header
+title. Only used when -Collapsible is $true.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DefaultOpen</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Start expanded (default $true). Only used when -Collapsible is $true.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>---- v1.4.1 — per-NavGroup summary ----
+When -NavGroup is set, the strip lives inside the per-panel block
+flow (hidden / shown by the existing two-tier nav routing) rather
+than at the top of the page. Each NavGroup can have its own strip
+with its own tiles. Without -NavGroup, the legacy top-of-page
+singleton behaviour is preserved.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Block Id used when -NavGroup is set (auto-derived from the group name
+when omitted). Ignored when there&#39;s no NavGroup.</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>
         </tbody>
       </table>
@@ -903,6 +1014,161 @@ Currency = &#39;USD&#39;            # optional: for Format=&#39;currency&#39;
     @{ Label=&#39;Avg Uptime&#39;;    Value=99.87;
        Format=&#39;percent&#39;; Locale=&#39;en-US&#39;; Decimals=2 }
 )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Custom collapsible header — fold away initially</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhSummary -Report $report -Title &#39;Key metrics&#39; -Icon &#39;K&#39; -DefaultOpen $false `
+    -Items @(
+        @{ Label=&#39;Total&#39;; Value=247 }
+        @{ Label=&#39;Active&#39;; Value=231; Class=&#39;cell-ok&#39; }
+    )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Opt out of the collapsible chrome — flat tile strip (pre-1.3.2 behaviour)</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhSummary -Report $report -Collapsible:$false -Items @(
+    @{ Label=&#39;Total&#39;; Value=247 }
+)</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhAlertBanner ═══ -->
+  <section class="cmd-section" id="Add-DhAlertBanner">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#ff7b72 15%,var(--bg3))">
+        <span style="color:#ff7b72;font-size:11px;font-weight:700;font-family:var(--font-mono)">ALERT</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#ff7b72">Add-DhAlertBanner</div>
+        <div class="cmd-synopsis">Add a top-of-page alert banner to the dashboard.</div>
+      </div>
+      <span class="cmd-tag badge-purple">ALERT</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a strip *above* the KPI summary tiles. Useful for surfacing
+current operational conditions — open incidents, recent failures,
+compliance breaches — so they are visible the moment the report opens.</p><p>Multiple banners can be added; they stack vertically in the order they
+were declared. Each banner carries a severity (info / ok / warning /
+critical) which drives the colour via the existing RAG palette.</p><p>Optionally:
+  -Dismissible  — adds a close button; the dismissal is remembered in
+                  the URL hash so it survives a page reload.
+  -Action       — adds a button that either navigates to a registered
+                  table (with an optional pre-filter) or opens an
+                  external URL.</p><p>Distinct from Add-DhEventFeed (v1.4+): a banner surfaces a single
+current condition; an event feed lists a chronological audit trail.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhAlertBanner</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Message</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Severity</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Icon</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Dismissible</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Action</span> <span class='hl-type'>&lt;Hashtable&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, or underscore). Used as the
+DOM id and as the dismissal key in the URL hash.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Message</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>The text shown in the banner (required). May contain inline HTML —
+use Add-DhHtmlBlock for richer content.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Severity</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Visual treatment: &#39;info&#39; | &#39;ok&#39; | &#39;warning&#39; | &#39;critical&#39;.
+Default: &#39;info&#39;.</p><span class='param-default'>default: &#39;info&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Icon</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional emoji / unicode glyph shown before the message.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Dismissible</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Adds a close (x) button. Dismissal persists across reloads via the URL
+hash. The banner re-appears in a new browser session.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Action</span></td>
+          <td><span class="param-type">&lt;Hashtable&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional action button hashtable:
+  @{</p><pre class="desc-code">Label    = &#39;View incidents&#39;    # REQUIRED — button text
+TableId  = &#39;incidents&#39;         # navigate to this registered table
+Filter   = &#39;severity:critical&#39; # optional pre-filter text
+</pre><p># ─ OR ─</p><pre class="desc-code">Url      = &#39;https://...&#39;       # external link instead of TableId
+</pre><p>}</p><span class='param-default'>default: $null</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v1.4.2+ — optional NavGroup binding. When set, the banner is visible
+only while the matching nav group (and optional subgroup) is active.
+Without these, the banner stays page-global (visible everywhere) as
+in v1.4.x — full backward compatibility.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Simplest banner — just a message</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhAlertBanner -Report $report -Id &#39;maintenance&#39; `
+    -Severity &#39;info&#39; -Message &#39;Maintenance window tonight 22:00–02:00 UTC&#39;</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Critical alert with action button — clicking jumps to a filtered table</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhAlertBanner -Report $report -Id &#39;open-incidents&#39; `
+    -Severity &#39;critical&#39; -Icon &#39;!&#39; `
+    -Message &#39;3 critical incidents open in the last 24h&#39; `
+    -Dismissible `
+    -Action @{ Label=&#39;View incidents&#39;; TableId=&#39;incidents&#39;; Filter=&#39;critical&#39; }</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">External link</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhAlertBanner -Report $report -Id &#39;release-notes&#39; `
+    -Severity &#39;ok&#39; -Message &#39;Patch level KB5044277 applied to 98% of hosts&#39; `
+    -Action @{ Label=&#39;Open KB&#39;; Url=&#39;https://support.microsoft.com/kb/5044277&#39; }</div>
       </div>
   </section>
   <hr class="section-rule">
@@ -935,6 +1201,8 @@ re-calculated at page load from the table&#39;s full dataset.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-ShowCount</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-ShowPercent</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-ClickFilters</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Stacked</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-SeriesField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
 
@@ -990,6 +1258,16 @@ re-calculated at page load from the table&#39;s full dataset.</p></div>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
         </tr>        <tr>
+          <td><span class="param-name">-Stacked</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SeriesField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
           <td><span class="param-name">-NavGroup</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -1024,6 +1302,1130 @@ optional second-level group under NavGroup (enables three-tier nav)</p><span cla
     -Title &#39;Items by Status&#39; `
     -TableId &#39;items&#39; -Field &#39;Status&#39; -TopN 5 `
     -ClickFilters $true</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">v1.4 — stacked: items per Region, segments coloured by Status</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhBarChart -Report $report -Id &#39;by-region-stacked&#39; `
+    -Title &#39;Items by Region (stacked by Status)&#39; `
+    -TableId &#39;items&#39; -Field &#39;Region&#39; -SeriesField &#39;Status&#39; -Stacked</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhPieChart ═══ -->
+  <section class="cmd-section" id="Add-DhPieChart">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">CHART</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhPieChart</div>
+        <div class="cmd-synopsis">Add a standalone pie or donut chart block to the dashboard.</div>
+      </div>
+      <span class="cmd-tag badge-purple">CHART</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a pie / donut chart as a top-level block in the dashboard flow.
+Two data modes:</p><p>Mode A — derive from a registered table:
+    -TableId / -Field [ -TopN ] [ -ClickFilters ]
+    Counts distinct values of the field across the table&#39;s rows.
+    With -ClickFilters, clicking a slice applies the slice label as a
+    text filter on the source table.</p><p>Mode B — explicit slices:
+    -Slices @( @{ Label=&#39;...&#39;; Value=...; Color=&#39;...&#39; } ... )
+    Values are taken as-is. Use this for non-tabular data such as
+    cost breakdowns or weighted distributions.</p><p>The &#39;donut&#39; style (default) leaves a hole in the centre and prints
+the total value there. &#39;pie&#39; renders a solid disc.</p><p>Per the IT-infrastructure KPI dashboard specification:
+&quot;Avoid Pie Charts for more than 5 segments — use a horizontal bar
+chart instead.&quot; Use -TopN to cap segments or switch to Add-DhBarChart.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhPieChart</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Style</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-TableId</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Field</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-TopN</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ClickFilters</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Slices</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowTotal</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowLegend</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Chart heading shown above the SVG.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Style</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>&#39;donut&#39; (default) leaves a hole in the centre for the total.
+&#39;pie&#39; renders a solid disc with no hole.</p><span class='param-default'>default: &#39;donut&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>(Mode A) Id of a registered table to aggregate from. Must already be
+added via Add-DhTable before this cmdlet is called.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Field</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>(Mode A) Field name on the source table. The chart counts distinct
+values of this field.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TopN</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>(Mode A) Maximum number of segments to show. Slices beyond TopN are
+discarded (no &#39;Other&#39; bucket — keep the chart honest). Default 10.</p><span class='param-default'>default: 10</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ClickFilters</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>(Mode A) When set, clicking a slice applies the slice label as a text
+filter on the source table.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Slices</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>(Mode B) Array of slice definitions:
+  @{</p><pre class="desc-code">Label = &#39;us-east&#39;    # REQUIRED
+Value = 12500        # REQUIRED — numeric
+Color = &#39;#0088BB&#39;    # optional — defaults to the chart palette
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowTotal</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Show the total value in the donut hole. Default $true.
+Ignored when -Style is &#39;pie&#39;.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowLegend</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Show the legend with label / count / percentage rows. Default $true.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Primary nav group label (enables two-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional second-level group under NavGroup (enables three-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Mode A — derive from a table column</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhPieChart -Report $report -Id &#39;status-pie&#39; -Title &#39;Items by status&#39; `
+    -TableId &#39;items&#39; -Field &#39;Status&#39; -ClickFilters</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Mode B — explicit slices (e.g. cost by region)</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhPieChart -Report $report -Id &#39;cost-pie&#39; -Title &#39;Monthly cost by region&#39; `
+    -Style &#39;donut&#39; `
+    -Slices @(
+        @{ Label=&#39;us-east&#39;; Value=12500 }
+        @{ Label=&#39;eu-west&#39;; Value=8200  }
+        @{ Label=&#39;ap-south&#39;; Value=3400 }
+    )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Pie style, no donut hole, custom colours</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhPieChart -Report $report -Id &#39;license-pie&#39; -Title &#39;License usage&#39; `
+    -Style &#39;pie&#39; -ShowLegend $false `
+    -Slices @(
+        @{ Label=&#39;Used&#39;;      Value=820; Color=&#39;#1B6B35&#39; }
+        @{ Label=&#39;Available&#39;; Value=180; Color=&#39;#8B5200&#39; }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhLineChart ═══ -->
+  <section class="cmd-section" id="Add-DhLineChart">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">CHART</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhLineChart</div>
+        <div class="cmd-synopsis">Add a line or area chart with axes, multi-series support, and an
+optional target / threshold annotation.</div>
+      </div>
+      <span class="cmd-tag badge-purple">CHART</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a time-series style chart as a top-level block. Pure SVG, no
+external library. Single or multiple series share a common X-axis of
+category labels (timestamps, day names, etc.). Optional `-Filled`
+switches each series from a polyline to a filled area.</p><p>Per the IT-infrastructure KPI dashboard specification (&#167;7.4):
+&quot;Always pair a time-series chart with a threshold annotation line.&quot;
+Use `-TargetLine` to draw a dashed horizontal reference at a Y value
+(SLA, alert threshold, capacity ceiling) plus an optional
+`-TargetLabel`.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhLineChart</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-XAxis</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-Series</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Filled</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-TargetLine</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-TargetLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-YAxisMin</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-YAxisMax</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-YAxisUnit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowLegend</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowGrid</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Height</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Chart heading shown above the plot.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-XAxis</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of category labels for the X-axis (e.g. timestamps). Each
+series&#39;s Values must have the same length.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Series</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of series-definition hashtables:
+  @{</p><pre class="desc-code">Label  = &#39;Avg CPU&#39;                 # REQUIRED
+Values = @(42,38,55,67,71,68,52)   # REQUIRED — numeric, len == XAxis
+Class  = &#39;cell-ok&#39;                 # optional — RAG class for line colour
+Color  = &#39;#1B6B35&#39;                 # optional — explicit colour override
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Filled</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Render each series as a filled area chart instead of a line.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TargetLine</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional numeric Y value — a dashed horizontal annotation line is
+drawn at this position. Use it for SLA / warning thresholds, capacity
+ceilings, alert lines.</p><span class='param-default'>default: $null</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TargetLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional label text shown next to the target line.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-YAxisMin</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $null</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-YAxisMax</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $null</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-YAxisUnit</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional suffix appended to Y-axis tick labels (e.g. &#39;%&#39;, &#39;ms&#39;, &#39;GB&#39;).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowLegend</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Show a legend strip below the chart with one swatch per series.
+Defaults to $true.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowGrid</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Show horizontal gridlines at each Y-axis tick. Defaults to $true.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Height</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Pixel height of the SVG. Defaults to 240.</p><span class='param-default'>default: 240</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Single series with a warning-threshold line</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhLineChart -Report $report -Id &#39;cpu-trend&#39; -Title &#39;Cluster CPU (24h)&#39; `
+    -XAxis @(&#39;00:00&#39;,&#39;04:00&#39;,&#39;08:00&#39;,&#39;12:00&#39;,&#39;16:00&#39;,&#39;20:00&#39;,&#39;24:00&#39;) `
+    -Series @(
+        @{ Label=&#39;Avg&#39;; Values=@(42,38,55,67,71,68,52); Class=&#39;cell-ok&#39; }
+    ) `
+    -TargetLine 70 -TargetLabel &#39;Warning threshold&#39; `
+    -YAxisMax 100 -YAxisUnit &#39;%&#39;</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Multi-series filled area chart</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhLineChart -Report $report -Id &#39;net-bw&#39; -Title &#39;Network throughput&#39; `
+    -Filled `
+    -XAxis $hours `
+    -Series @(
+        @{ Label=&#39;Ingress&#39;; Values=$ingress; Class=&#39;cell-ok&#39;   }
+        @{ Label=&#39;Egress&#39;;  Values=$egress;  Class=&#39;cell-warn&#39; }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhBullet ═══ -->
+  <section class="cmd-section" id="Add-DhBullet">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">BULLET</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhBullet</div>
+        <div class="cmd-synopsis">Add a bullet-chart block (actual vs target with performance bands).</div>
+      </div>
+      <span class="cmd-tag badge-purple">BULLET</span>
+    </div>
+
+    <div class='desc-block'><p>Renders one horizontal bullet bar per item — the canonical visualisation
+for &quot;actual vs target with qualitative ranges&quot; per the IT-infrastructure
+KPI dashboard specification (&#167;2 Widget Types).</p><p>Each bullet row shows:
+  • a full-width track from Min to Max
+  • optional coloured performance bands (RAG ranges)
+  • a centred solid value bar from Min to Value
+  • an optional vertical target marker
+  • a readout (Value + Unit + optional &#39;target N&#39;) on the right</p><p>Multiple items stack vertically inside a single block. Pair this with
+Add-DhSummary for high-level KPI tiles and use bullets for the
+actual-vs-SLA detail (latency vs target, headroom vs minimum, etc.).</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhBullet</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Block heading shown above the bullets.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Items</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of bullet definition hashtables:
+  @{</p><pre class="desc-code">Label  = &#39;DC01&#39;           # REQUIRED — left-side row label
+Value  = 42               # REQUIRED — the actual numeric value
+Target = 50               # optional — vertical marker on the track
+Min    = 0                # optional — track start (default 0)
+Max    = 120              # optional — track end (default 100)
+Unit   = &#39;ms&#39;             # optional — suffix in the readout
+Class  = &#39;cell-warn&#39;      # optional — explicit value-bar colour;
+                          #            wins over auto threshold match
+</pre><p># ---- Performance bands (one of these) ----</p><pre class="desc-code"># Modern shape (v1.4+):
+Rag = @{
+    Green = @{ Max = 50 }
+    Amber = @{ Min = 50; Max = 80 }
+    Red   = @{ Min = 80 }
+    NoData = $false
+</pre><p>}</p><pre class="desc-code"># OR legacy array shape (also accepted under alias &#39;Bands&#39;):
+Thresholds = @(
+    @{           Max = 50;  Class = &#39;cell-ok&#39;     }
+    @{ Min = 50; Max = 80;  Class = &#39;cell-warn&#39;   }
+    @{ Min = 80;             Class = &#39;cell-danger&#39; }
+</pre><p>)
+  }</p><p>When both Rag and Thresholds (or Bands) are supplied, Rag wins.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Primary nav group label (enables two-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional second-level group under NavGroup (enables three-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Three rows sharing one RAG band definition</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$latencyRag = @{
+    Green = @{ Max = 50 }
+    Amber = @{ Min = 50; Max = 80 }
+    Red   = @{ Min = 80 }
+}
+Add-DhBullet -Report $report -Id &#39;auth-latency&#39; -Title &#39;LDAP Bind Time&#39; `
+    -Items @(
+        @{ Label=&#39;DC01&#39;; Value=42; Target=50; Max=120; Unit=&#39;ms&#39;; Rag=$latencyRag }
+        @{ Label=&#39;DC02&#39;; Value=68; Target=50; Max=120; Unit=&#39;ms&#39;; Rag=$latencyRag }
+        @{ Label=&#39;DC03&#39;; Value=92; Target=50; Max=120; Unit=&#39;ms&#39;; Rag=$latencyRag }
+    )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Headroom — bigger is better, so flip the RAG semantics</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhBullet -Report $report -Id &#39;cpu-headroom&#39; -Title &#39;CPU Headroom per Host&#39; `
+    -Items @(
+        @{ Label=&#39;esxi-01&#39;; Value=42; Target=30; Min=0; Max=100; Unit=&#39;%&#39;
+           Rag=@{ Green=@{Min=30}; Amber=@{Min=15;Max=30}; Red=@{Max=15} }
+        }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhStatusGrid ═══ -->
+  <section class="cmd-section" id="Add-DhStatusGrid">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">GRID</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhStatusGrid</div>
+        <div class="cmd-synopsis">Add a status-matrix / health-grid block — rows &#215; columns of RAG cells.</div>
+      </div>
+      <span class="cmd-tag badge-purple">GRID</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a 2-D grid where each cell carries a status (ok / warn / danger /
+nodata / info), per the IT-infrastructure KPI dashboard specification
+(&#167;2 Widget Types — &quot;Status Matrix / Health Grid&quot;). Use it as a
+compact at-a-glance overview of binary or low-cardinality health state
+across many entities — services &#215; regions, DCs &#215; replication links,
+hosts &#215; probes.</p><p>Distinct from Add-DhTable: a status grid is a colour-first matrix where
+the individual cell labels don&#39;t matter; a table is text-first with rich
+sorting, filtering, and per-cell content.</p><p>Cells are sparse — declare only the (Row, Column) pairs that exist;
+missing cells render as a faint neutral state.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhStatusGrid</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Rows</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-Columns</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-Cells</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-RowLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ColumnLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-CellSize</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MaxCells</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Rows</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of row labels (Y-axis). Each cell&#39;s Row must match one of these.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Columns</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of column labels (X-axis). Each cell&#39;s Column must match one of these.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Cells</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of cell hashtables:
+  @{</p><pre class="desc-code">Row       = &#39;Auth&#39;              # REQUIRED — must appear in -Rows
+Column    = &#39;us-east&#39;           # REQUIRED — must appear in -Columns
+Status    = &#39;ok&#39;                # REQUIRED — ok | warn | danger | nodata | info
+Tooltip   = &#39;99.98% / 24h&#39;      # optional — native hover tooltip
+LinkTableId = &#39;incidents&#39;       # optional — click jumps to a registered table
+LinkFilter  = &#39;auth-eu&#39;         # optional — text filter applied on jump
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-RowLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ColumnLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-CellSize</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Cell side length preset: &#39;small&#39; (32 px) | &#39;normal&#39; (48 px, default) | &#39;large&#39; (64 px).
+On a narrow viewport (&lt; 600 px) the grid collapses to a stacked list
+regardless of this setting.</p><span class='param-default'>default: &#39;normal&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxCells</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Hard ceiling on Rows &#215; Columns. Default 2000. Above this the cmdlet
+throws to protect against accidental 10k-cell matrices from broad
+`Get-AzResource`-style queries. A soft warning fires at 200 cells.</p><span class='param-default'>default: 2000</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhStatusGrid -Report $report -Id &#39;service-health&#39; -Title &#39;Service Health&#39; `
+    -RowLabel &#39;Service&#39; -ColumnLabel &#39;Region&#39; `
+    -Rows    @(&#39;Auth&#39;,&#39;Billing&#39;,&#39;Search&#39;,&#39;Mail&#39;) `
+    -Columns @(&#39;us-east&#39;,&#39;us-west&#39;,&#39;eu-west&#39;,&#39;ap-south&#39;) `
+    -Cells   @(
+        @{ Row=&#39;Auth&#39;;    Column=&#39;us-east&#39;; Status=&#39;ok&#39;;     Tooltip=&#39;99.98% / 24h&#39; }
+        @{ Row=&#39;Auth&#39;;    Column=&#39;eu-west&#39;; Status=&#39;warn&#39;;   Tooltip=&#39;latency spike&#39;;
+           LinkTableId=&#39;incidents&#39;; LinkFilter=&#39;auth-eu&#39; }
+        @{ Row=&#39;Billing&#39;; Column=&#39;us-east&#39;; Status=&#39;danger&#39;; Tooltip=&#39;down 12m&#39; }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhHeatmap ═══ -->
+  <section class="cmd-section" id="Add-DhHeatmap">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">HEAT</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhHeatmap</div>
+        <div class="cmd-synopsis">Add a heatmap block — 2D grid with a sequential or diverging colour scale.</div>
+      </div>
+      <span class="cmd-tag badge-purple">HEAT</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a rows &#215; columns matrix where each cell is coloured by its
+numeric value via a continuous colour scale. This is the canonical
+&quot;Heatmap&quot; widget from the IT-infrastructure KPI dashboard specification
+(&#167;2): time-of-day patterns, replication-lag matrices, latency by
+endpoint &#215; hour, request volume by region &#215; day.</p><p>**Distinct from Add-DhStatusGrid**: StatusGrid is CATEGORICAL (cells
+carry a state like ok / warn / danger). Heatmap is CONTINUOUS (cells
+carry a numeric value mapped to a colour gradient).</p><p>Two colour scales:
+  &#39;sequential&#39; (default) — single-hue gradient from light to dark.
+                           Use for &quot;more is more&quot;: request counts,
+                           latency, error counts.
+  &#39;diverging&#39;            — three-stop gradient red → neutral → green.
+                           Use for &quot;deviation from a centre&quot;:
+                           actual-vs-target deltas, drift, A/B lift.</p><p>Cells you don&#39;t declare render as a faint &quot;no data&quot; state.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhHeatmap</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Rows</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-Columns</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-Cells</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-RowLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ColumnLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ColorScale</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Min</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Max</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Unit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-CellSize</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowValues</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MaxCells</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Block heading shown above the matrix.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Rows</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of row labels (Y-axis).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Columns</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of column labels (X-axis).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Cells</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of cell hashtables:
+  @{</p><pre class="desc-code">Row    = &#39;DC01&#39;           # REQUIRED — must appear in -Rows
+Column = &#39;14:00&#39;          # REQUIRED — must appear in -Columns
+Value  = 42               # REQUIRED — numeric (the heat)
+Tooltip = &#39;avg over 5m&#39;   # optional — extra text in hover tooltip
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-RowLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ColumnLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ColorScale</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>&#39;sequential&#39; (default) | &#39;diverging&#39;.</p><span class='param-default'>default: &#39;sequential&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Min</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Lower bound of the colour scale. Auto-fits from data when omitted.</p><span class='param-default'>default: $null</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Max</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Upper bound of the colour scale. Auto-fits from data when omitted.</p><span class='param-default'>default: $null</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Unit</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional suffix appended to values in hover tooltips (&#39;ms&#39;, &#39;%&#39;, etc).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-CellSize</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Cell side length preset: &#39;small&#39; (24 px) | &#39;normal&#39; (36 px, default) | &#39;large&#39; (48 px).</p><span class='param-default'>default: &#39;normal&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowValues</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>When set, the numeric value is printed inside each cell. Useful for
+small grids where the colour alone isn&#39;t precise enough.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxCells</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Hard ceiling on Rows &#215; Columns. Default 5000 (heatmaps can be larger
+than StatusGrids since cells are smaller). Throws above this.</p><span class='param-default'>default: 5000</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Replication latency per DC pair &#215; hour (24h)</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$hours = 0..23 | ForEach-Object { &#39;{0:00}:00&#39; -f $_ }
+Add-DhHeatmap -Report $report -Id &#39;repl-latency-heat&#39; `
+    -Title &#39;Replication latency (ms) — DC pair &#215; hour&#39; `
+    -RowLabel &#39;DC pair&#39; -ColumnLabel &#39;Hour&#39; `
+    -Rows    @(&#39;DC01→DC02&#39;,&#39;DC01→DC03&#39;,&#39;DC02→DC03&#39;) `
+    -Columns $hours `
+    -Cells   $latencyCells `
+    -ColorScale &#39;sequential&#39; -Unit &#39; ms&#39; -Min 0 -Max 100</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhTopologyMap ═══ -->
+  <section class="cmd-section" id="Add-DhTopologyMap">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">TOPO</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhTopologyMap</div>
+        <div class="cmd-synopsis">Add a topology / hierarchy map block (tree visualisation, v1.5+).</div>
+      </div>
+      <span class="cmd-tag badge-purple">TOPO</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a parent-child tree from a flat list of nodes. Per the
+IT-infrastructure KPI dashboard specification &#167;2 (&quot;Topology /
+Hierarchy Map&quot;): used for AD Forest → Domain → DC, vCenter →
+Cluster → Host, network device hierarchies, etc.</p><p>The renderer is intentionally simple: a recursive SVG tree with
+&quot;spread leaves evenly, centre parents above children&quot; layout. No
+force-directed graphs, no Reingold-Tilford — just a clean tidy
+tree that handles realistic IT hierarchies (≲ 50 nodes well).</p><p>Cycles are rejected; missing parents throw.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhTopologyMap</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Nodes</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Direction</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NodeWidth</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NodeHeight</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MaxNodes</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Block heading shown above the tree.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Nodes</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of node hashtables:
+  @{</p><pre class="desc-code">Id      = &#39;forest&#39;         # REQUIRED — unique within this topology
+Label   = &#39;contoso.com&#39;    # REQUIRED — displayed inside the node
+Parent  = &#39;root-id&#39;        # OR $null/&#39;&#39; for a root node
+Status  = &#39;ok&#39;             # optional — ok | warn | danger | nodata | info
+Icon    = &#39;F&#39;              # optional — emoji/glyph
+Badge   = &#39;AD&#39;             # optional — small tag next to the label
+Tooltip = &#39;Forest functional level 2016&#39;  # optional
+LinkTableId = &#39;incidents&#39;  # optional — click navigates to a table
+LinkFilter  = &#39;auth-eu&#39;    # optional — applied filter on jump
+</pre><p>}</p><p>Multiple root nodes (Parent=$null) are allowed and render as forests.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Direction</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>&#39;vertical&#39; (default — parent above children, tree flows downward) or
+&#39;horizontal&#39; (parent left of children, tree flows rightward).</p><span class='param-default'>default: &#39;vertical&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NodeWidth</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 140</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NodeHeight</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 44</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxNodes</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Hard ceiling. Default 200. Throws above this. Trees larger than this
+usually need a different visualisation anyway.</p><span class='param-default'>default: 200</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhTopologyMap -Report $report -Id &#39;ad-forest&#39; -Title &#39;AD Forest&#39; `
+    -Nodes @(
+        @{ Id=&#39;forest&#39;;  Label=&#39;contoso.com&#39;;        Status=&#39;ok&#39;;   Parent=$null }
+        @{ Id=&#39;dom-hq&#39;;  Label=&#39;hq.contoso.com&#39;;     Status=&#39;ok&#39;;   Parent=&#39;forest&#39; }
+        @{ Id=&#39;dom-eu&#39;;  Label=&#39;eu.contoso.com&#39;;     Status=&#39;warn&#39;; Parent=&#39;forest&#39; }
+        @{ Id=&#39;dc01&#39;;    Label=&#39;DC01&#39;;               Status=&#39;ok&#39;;   Parent=&#39;dom-hq&#39; }
+        @{ Id=&#39;dc02&#39;;    Label=&#39;DC02&#39;;               Status=&#39;ok&#39;;   Parent=&#39;dom-hq&#39; }
+        @{ Id=&#39;dc03&#39;;    Label=&#39;DC03&#39;;               Status=&#39;warn&#39;; Parent=&#39;dom-eu&#39;
+           Tooltip=&#39;Replication lag 4m&#39;; LinkTableId=&#39;incidents&#39;; LinkFilter=&#39;dc03&#39; }
+        @{ Id=&#39;dc04&#39;;    Label=&#39;DC04&#39;;               Status=&#39;danger&#39;; Parent=&#39;dom-eu&#39; }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhEventFeed ═══ -->
+  <section class="cmd-section" id="Add-DhEventFeed">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">FEED</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhEventFeed</div>
+        <div class="cmd-synopsis">Add a chronological event-feed block — severity-tagged audit trail.</div>
+      </div>
+      <span class="cmd-tag badge-purple">FEED</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a list of timestamped events with severity colour-coding. Per
+the IT-infrastructure KPI dashboard specification (&#167;4.1 and &#167;4.2), the
+event feed is the canonical &quot;Row 5&quot; of an ops dashboard — the
+evidence trail that pairs with the at-a-glance KPI tiles above.</p><p>Distinct from Add-DhAlertBanner: a banner surfaces a single CURRENT
+condition (visible at the top of the page until dismissed); an event
+feed lists a chronological history (typically the last N events from
+a log query).</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhEventFeed</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Events</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-MaxItems</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GroupBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-SortDescending</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Events</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of event hashtables. Per event:
+  @{</p><pre class="desc-code">Timestamp = &#39;2026-05-22 14:32&#39;          # REQUIRED — free-form string
+Severity  = &#39;critical&#39;                  # REQUIRED — info | ok | warning | critical
+Message   = &#39;Replication failure to DC03&#39; # REQUIRED — the event text
+Source    = &#39;DC01&#39;                      # optional — origin tag, shown in brackets
+Icon      = &#39;!&#39;                         # optional — overrides default severity glyph
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxItems</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Cap on the number of events shown. Defaults to 50. Older events are
+dropped after the sort+slice. Range 1..1000.</p><span class='param-default'>default: 50</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GroupBy</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional grouping: &#39;None&#39; (default), &#39;Severity&#39;, or &#39;Source&#39;. When
+grouped, the events within each group are still ordered by Timestamp;
+groups themselves appear in a fixed priority order
+(Severity: critical &gt; warning &gt; ok &gt; info; Source: alphabetical).</p><span class='param-default'>default: &#39;None&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SortDescending</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Newest-first by Timestamp. Default $true. Set $false to show oldest
+events at the top (chronological reading order).</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhEventFeed -Report $report -Id &#39;recent-events&#39; `
+    -Title &#39;Recent events (24h)&#39; -MaxItems 50 `
+    -Events @(
+        @{ Timestamp=&#39;2026-05-22 14:32&#39;; Severity=&#39;critical&#39;; Source=&#39;DC01&#39;;
+           Message=&#39;Replication failure to DC03&#39; }
+        @{ Timestamp=&#39;2026-05-22 14:18&#39;; Severity=&#39;warning&#39;;  Source=&#39;DC02&#39;;
+           Message=&#39;LDAP bind time &gt; 80 ms (avg)&#39; }
+        @{ Timestamp=&#39;2026-05-22 13:55&#39;; Severity=&#39;info&#39;;     Source=&#39;vSphere&#39;;
+           Message=&#39;vMotion: VM-027 → ESXi-04&#39; }
+    )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Group by severity so critical entries float to the top</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhEventFeed -Report $report -Id &#39;incidents-by-sev&#39; `
+    -Title &#39;Open incidents&#39; -GroupBy &#39;Severity&#39; `
+    -Events $incidents</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhTabs ═══ -->
+  <section class="cmd-section" id="Add-DhTabs">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">TABS</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhTabs</div>
+        <div class="cmd-synopsis">Add an inline tabbed content block (v1.5+).</div>
+      </div>
+      <span class="cmd-tag badge-purple">TABS</span>
+    </div>
+
+    <div class='desc-block'><p>Renders a tab strip with one content pane per tab. Distinct from the
+page-level NavGroup mechanism: NavGroup partitions the whole dashboard
+into named panels; Add-DhTabs creates a tabbed pivot inside a single
+block of the dashboard flow.</p><p>Use it for &quot;summary / details / settings&quot; style pivots — when several
+related views share the same surface area and the user toggles between
+them locally without navigating away from the current panel.</p><p>Each tab is a hashtable carrying:
+  - Title (required) — the label shown on the tab strip
+  - Content — free-form HTML rendered inside the tab pane, OR
+  - HtmlBlockId — an Id of an Add-DhHtmlBlock previously declared</p><p>Free-form Content is the simplest path. To embed a richer block
+(sparkline table, status grid, etc.) inside a tab, the easiest pattern
+is still to wrap the block in -NavGroup / -NavSubGroup and use the
+page-level nav; Add-DhTabs is intentionally limited to inline HTML.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhTabs</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Tabs</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Tabs</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of tab definition hashtables:
+  @{</p><pre class="desc-code">Title   = &#39;Overview&#39;       # REQUIRED — tab label
+Content = &#39;&lt;p&gt;...&lt;/p&gt;&#39;     # REQUIRED — inline HTML
+Icon    = &#39;X&#39;              # optional — glyph shown before the label
+Active  = $true            # optional — selects this tab on load (first by default)
+</pre><p>}</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional block heading shown above the tab strip.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Primary nav group label (enables two-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Optional second-level group under NavGroup (enables three-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhTabs -Report $report -Id &#39;auth-pivot&#39; -Title &#39;Authentication detail&#39; `
+    -Tabs @(
+        @{ Title=&#39;Overview&#39;;
+           Content=&#39;&lt;p&gt;Auth subsystem is operating within SLA.&lt;/p&gt;&#39; }
+        @{ Title=&#39;Errors&#39;;
+           Content=&#39;&lt;p&gt;3 auth errors in the last hour. &lt;a href=&quot;#&quot;&gt;View log&lt;/a&gt;.&lt;/p&gt;&#39; }
+        @{ Title=&#39;Configuration&#39;;
+           Content=&#39;&lt;pre&gt;kerberos.maxRetries=3
+ntlm.fallback=disabled&lt;/pre&gt;&#39; }
+    )</div>
       </div>
   </section>
   <hr class="section-rule">
@@ -1571,7 +2973,7 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
       </div>
       <div>
         <div class="cmd-name" style="color:#bc8cff">Theme families</div>
-        <div class="cmd-synopsis">Five built-in theme families — each embeds light and dark variants</div>
+        <div class="cmd-synopsis">Six built-in theme families — each embeds light and dark variants</div>
       </div>
     </div>
     <table class="params-table">
@@ -1613,7 +3015,7 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
 <li><strong>Two-tier navigation</strong> — flat nav or grouped primary-tabs + subnav strip</li>
 <li><strong>Client-side export</strong> — CSV (no CDN), XLSX and PDF (cdnjs, requires internet)</li>
 <li><strong>Light/dark theme toggle</strong> — both variants embedded, switchable at runtime</li>
-<li><strong>Five theme families</strong> — Default, Azure, VMware, Grey, Company</li>
+<li><strong>Six theme families</strong> — Default, Azure, VMware, Grey, Company, Rag (the v1.4 family using the Office/Excel-compatible RAG palette)</li>
 <li><strong>Column features</strong> — progress bars, badges, threshold colouring, row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting</li>
 </ul>
 <hr />
@@ -1631,7 +3033,7 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
 </div></div>
 <h3 id="manual">Manual</h3>
 <p>Copy the <code>DashHtml/</code> folder to a directory in <code>$env:PSModulePath</code>, under a versioned subfolder:</p>
-<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>code</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>&lt;modules-root&gt;\DashHtml\1.3.1\
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>code</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>&lt;modules-root&gt;\DashHtml\1.5.0\
 </div></div>
 <hr />
 <h2 id="quick-start">Quick start</h2>
@@ -1651,6 +3053,49 @@ Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers
 # 3. Export
 Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenInBrowser
 </div></div>
+<hr />
+<h2 id="declaration-order-important">Declaration order (important)</h2>
+<p><strong>Always declare a table <em>before</em> any object that references it.</strong> This is the single most common source of &quot;filter does nothing&quot; / &quot;chart is empty&quot; / &quot;link broken&quot; issues.</p>
+<p>The cmdlets below depend on a previously declared table identified by its <code>-TableId</code> / <code>-TargetTableId</code> / <code>-MasterTableId</code> / <code>-DetailTableId</code>. If the referenced table has not been added yet when the dependent cmdlet runs, the binding silently fails (the referenced data simply isn't available to bind against):</p>
+<table>
+<thead>
+<tr>
+<th>Dependent cmdlet</th>
+<th>Depends on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Add-DhFilterCard</code></td>
+<td><code>-TargetTableId</code> must already exist</td>
+</tr>
+<tr>
+<td><code>Add-DhBarChart</code></td>
+<td><code>-TableId</code> must already exist</td>
+</tr>
+<tr>
+<td><code>Set-DhTableLink</code></td>
+<td>both <code>-MasterTableId</code> and <code>-DetailTableId</code> must already exist</td>
+</tr>
+</tbody>
+</table>
+<h3 id="correct-order">Correct order</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># 1. Tables first
+Add-DhTable -Report $report -TableId 'items' -Title 'Items' -Data $items
+Add-DhTable -Report $report -TableId 'groups' -Title 'Groups' -Data $groups
+
+# 2. Then anything that references them
+Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterField 'Region' -Cards $cards
+Add-DhBarChart   -Report $report -Id 'status-bc' -TableId 'items' -Field 'Status'
+Set-DhTableLink  -Report $report -MasterTableId 'groups' -DetailTableId 'items' -MasterField 'GroupId' -DetailField 'GroupId'
+</div></div>
+<h3 id="wrong-order-filter-chart-link-will-not-work">Wrong order (filter / chart / link will not work)</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># ❌ FilterCard declared before its target table
+Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterField 'Region' -Cards $cards
+Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
+</div></div>
+<h3 id="tip-visual-position-vs.declaration-order">Tip: visual position vs. declaration order</h3>
+<p>When using <code>-NavGroup</code>, a filter card or bar chart will still render <strong>above</strong> its table in the UI even if the table was declared first — the layout engine groups related blocks visually. So you can keep the safe declaration order (tables first) without sacrificing the desired on-screen layout.</p>
 <hr />
 <h2 id="cmdlet-reference">Cmdlet reference</h2>
 <table>
@@ -1690,6 +3135,30 @@ Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenIn
 <td>Add a collapsible card/content section</td>
 </tr>
 <tr>
+<td><code>Add-DhAlertBanner</code></td>
+<td>Add a top-of-page alert banner (severity, dismiss, action)</td>
+</tr>
+<tr>
+<td><code>Add-DhPieChart</code></td>
+<td>Add a standalone pie / donut chart (from table or explicit slices)</td>
+</tr>
+<tr>
+<td><code>Add-DhBullet</code></td>
+<td>Add a bullet-chart block (actual vs target with performance bands)</td>
+</tr>
+<tr>
+<td><code>Add-DhLineChart</code></td>
+<td>Add a line / area chart with axes, multi-series, and optional target line</td>
+</tr>
+<tr>
+<td><code>Add-DhEventFeed</code></td>
+<td>Add a chronological severity-tagged event list (audit trail)</td>
+</tr>
+<tr>
+<td><code>Add-DhStatusGrid</code></td>
+<td>Add a rows × columns RAG status matrix (health grid)</td>
+</tr>
+<tr>
 <td><code>Set-DhTableLink</code></td>
 <td>Link a master table to a detail table</td>
 </tr>
@@ -1706,7 +3175,7 @@ Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenIn
 <p>Use <code>Get-Help &lt;cmdlet&gt; -Full</code> for complete parameter documentation.</p>
 <hr />
 <h2 id="themes">Themes</h2>
-<p>Five built-in families — each includes a light and a dark variant, both always embedded in the output HTML. The toggle button in the nav bar switches at runtime.</p>
+<p>Six built-in families — each includes a light and a dark variant, both always embedded in the output HTML. The toggle button in the nav bar switches at runtime.</p>
 <table>
 <thead>
 <tr>
@@ -1747,6 +3216,12 @@ Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenIn
 <td>Near-black + Crimson</td>
 <td>Montserrat</td>
 </tr>
+<tr>
+<td><code>Rag</code> <em>(v1.4+)</em></td>
+<td>Spec-exact Office/Excel RAG palette on white</td>
+<td>Office dark-mode RAG companions on near-black</td>
+<td>System UI</td>
+</tr>
 </tbody>
 </table>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># List all families
@@ -1759,6 +3234,83 @@ $css.DarkCss
 
 # Save CSS files to disk
 Get-DhTheme -Name Company -SaveTo 'C:\Reports\css'
+</div></div>
+<h3 id="the-rag-theme-v1.4">The <code>Rag</code> theme (v1.4+)</h3>
+<p>Use this family when <strong>strict Office/Excel parity</strong> matters for your audience — auditors, compliance reviewers, finance reports. It uses the exact RGB values from the IT-infrastructure KPI dashboard specification (§7.2):</p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Foreground</th>
+<th>Background</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GREEN (<code>cell-ok</code>)</td>
+<td><code>#375623</code></td>
+<td><code>#E2EFDA</code></td>
+</tr>
+<tr>
+<td>AMBER (<code>cell-warn</code>)</td>
+<td><code>#7F4B00</code></td>
+<td><code>#FFF2CC</code></td>
+</tr>
+<tr>
+<td>RED (<code>cell-danger</code>)</td>
+<td><code>#9C0006</code></td>
+<td><code>#FFDCE1</code></td>
+</tr>
+<tr>
+<td>GREY (<code>cell-nodata</code>)</td>
+<td><code>#595959</code></td>
+<td><code>#F2F2F2</code></td>
+</tr>
+</tbody>
+</table>
+<p>The other five families keep their brand-aligned RAG colours unchanged — switching to <code>Rag</code> is an explicit opt-in.</p>
+<h3 id="unified-rag-parameter-v1.4">Unified <code>-Rag</code> parameter (v1.4+)</h3>
+<p>Threshold rules were historically spelled out as an array of <code>Min</code>/<code>Max</code>/<code>Class</code> hashtables (per column on <code>Add-DhTable</code>, per item on <code>Add-DhSummary</code>). v1.4 adds a more readable <strong><code>Rag</code></strong> alternative that maps directly to the spec's GREEN / AMBER / RED / GREY bands. Both shapes are accepted; when both are supplied on the same item or column, <code>Rag</code> wins.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Defined once, reused on a gauge and on two table columns
+$cpuRag = @{
+    Green  = @{ Max = 70 }
+    Amber  = @{ Min = 70; Max = 90 }
+    Red    = @{ Min = 90 }
+    NoData = $true    # ← paint null / missing cells with cell-nodata
+}
+
+Add-DhSummary -Report $report -Items @(
+    @{ Style='gauge'; Label='CPU';  Value=42;    Max=100; Unit='%'; Rag=$cpuRag }
+    @{ Style='gauge'; Label='Disk'; Value=95;    Max=100; Unit='%'; Rag=$cpuRag }
+    @{ Style='gauge'; Label='Net';  Value=$null; Max=100; Unit='%'; Rag=$cpuRag }   # → cell-nodata
+)
+
+Add-DhTable -Report $report -TableId 'srv' -Title 'Servers' -Data $rows -Columns @(
+    @{ Field='Host'; Label='Host' }
+    @{ Field='Cpu';  Label='CPU %'; Align='right'; Rag=$cpuRag }
+    @{ Field='Mem';  Label='Mem %'; Align='right'
+       Rag=@{ Green=@{Max=80}; Amber=@{Min=80;Max=95}; Red=@{Min=95}; NoData=$true } }
+)
+</div></div>
+<p>Allowed keys on the <code>Rag</code> hashtable:</p>
+<ul>
+<li><code>Green</code> — maps to <code>cell-ok</code>. Hashtable with optional <code>Min</code> and/or <code>Max</code>.</li>
+<li><code>Amber</code> — maps to <code>cell-warn</code>. Same shape.</li>
+<li><code>Red</code>   — maps to <code>cell-danger</code>. Same shape.</li>
+<li><code>NoData</code> — boolean. When <code>$true</code>, null / empty / non-numeric cell values render with <code>cell-nodata</code> instead of being left blank. Also lets a gauge accept <code>Value=$null</code> and paint itself grey.</li>
+</ul>
+<p>Bounds are interpreted as <code>Min ≤ value &lt; Max</code> (either bound may be omitted). Unknown keys throw — typos surface as errors instead of silently doing nothing. The legacy <code>Thresholds=@(@{Min=...;Max=...;Class='cell-...'})</code> shape on columns and <code>Thresholds=</code> on tile items keeps working unchanged for backward compatibility.</p>
+<h3 id="cell-nodata-fourth-rag-state-across-all-themes-v1.4"><code>cell-nodata</code> — fourth RAG state across all themes (v1.4+)</h3>
+<p>Every theme now defines <code>--cell-nodata-fg</code> / <code>--cell-nodata-bg</code> so missing / unmeasured / collection-failed values can be marked visually distinct from <code>0</code> or <code>OK</code>. Available as <code>cell-nodata</code> everywhere <code>cell-ok</code> / <code>cell-warn</code> / <code>cell-danger</code> worked previously: table cell thresholds, summary tile <code>Class</code>, html-block <code>-Style 'nodata'</code>, collapsible card <code>BadgeClass</code>, and the <code>badge-nodata</code> / <code>fill-nodata</code> / <code>row-hl-nodata</code> modifiers. Non-<code>Rag</code> themes pick a brand-appropriate neutral grey for the foreground.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Column threshold for a status that may be &quot;NoData&quot;
+@{ Field='Status'; Label='Status'
+   Thresholds=@(
+       @{ Value='OK';     Class='cell-ok'     }
+       @{ Value='Warn';   Class='cell-warn'   }
+       @{ Value='Error';  Class='cell-danger' }
+       @{ Value='NoData'; Class='cell-nodata' }   # ← v1.4
+   )
+}
 </div></div>
 <hr />
 <h2 id="tables">Tables</h2>
@@ -1798,16 +3350,219 @@ Add-DhTable -Report $report -TableId 'items' -Title 'Items' -Data $data -Columns
     @{ Field='Updated';  Label='Updated'; Format='datetime'; DatePattern='yyyy-MM-dd' }
 )
 </div></div>
+<h3 id="sparkline-cells-v1.4">Sparkline cells (v1.4+)</h3>
+<p>Set <code>CellType='sparkline'</code> and feed the column <strong>arrays</strong> of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (<code>SPARK.build</code>), so the look stays consistent between summary tiles and table cells.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$rows = @(
+    [PSCustomObject]@{ Host='srv-01'; Cpu24h=@(30,42,38,55,67,71,68,52); Mem24h=@(40,42,45,48,50,52,55,58) }
+    [PSCustomObject]@{ Host='srv-02'; Cpu24h=@(80,85,90,95,92,88,84,82); Mem24h=@(70,72,75,80,82,85,88,90) }
+    [PSCustomObject]@{ Host='srv-03'; Cpu24h=@(10,12,15,11,13,9,8,7);    Mem24h=@(20,18,22,25,20,18,15,12) }
+    [PSCustomObject]@{ Host='srv-04'; Cpu24h=$null; Mem24h=@(60,65,70,75,80,85,90,95) }   # renders an em-dash
+)
+
+Add-DhTable -Report $report -TableId 'srv' -Title 'Server fleet' -Data $rows -Columns @(
+    @{ Field='Host';   Label='Host' }
+    @{ Field='Cpu24h'; Label='CPU 24h'; Align='right'
+       CellType='sparkline'; SortBy='max';  SparklineStyle='line' }
+    @{ Field='Mem24h'; Label='Mem 24h'; Align='right'
+       CellType='sparkline'; SortBy='last'; SparklineStyle='area' }
+)
+</div></div>
+<p>Sparkline-cell column keys:</p>
+<ul>
+<li><code>CellType</code> — <code>'sparkline'</code> activates this renderer.</li>
+<li><code>SortBy</code> — array-to-scalar reduction for sorting: <code>'last'</code> (default) / <code>'avg'</code> / <code>'max'</code> / <code>'min'</code> / <code>'sum'</code>. Clicking the column header sorts rows by the reduction.</li>
+<li><code>SparklineStyle</code> — <code>'line'</code> (default) / <code>'area'</code> / <code>'bars'</code>. Same options as the tile sparkline.</li>
+</ul>
+<p>Threshold colouring and per-cell <code>Format</code> are skipped for sparkline columns (the value is an array, not a scalar). Null / missing values render as a muted em-dash.</p>
 <hr />
 <h2 id="kpi-summary-tiles">KPI summary tiles</h2>
+<p>Since <strong>1.3.2</strong> the tile strip is wrapped in a collapsible header bar by default (same chrome as <code>Add-DhCollapsible</code>), with a badge showing the tile count. Existing scripts get the new look automatically — no parameter changes required.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
-    @{ Label='Total';    Value=247; Icon='X' }
-    @{ Label='Active';   Value=231; Icon='Y'; Class='cell-ok'   }
-    @{ Label='Warnings'; Value=12;  Icon='W'; Class='cell-warn' }
-    @{ Label='Critical'; Value=4;   Icon='E'; Class='cell-danger' }
+    # Icon is decorative — pass an emoji ('🖥', '⚠', '🔒'), a unicode glyph,
+    # or HTML if you use a font-icon library. Omit for clean iconless tiles.
+    @{ Label='Total';    Value=247 }
+    @{ Label='Active';   Value=231; Class='cell-ok'     }
+    @{ Label='Warnings'; Value=12;  Class='cell-warn'   }
+    @{ Label='Critical'; Value=4;   Class='cell-danger' }
     @{ Label='Storage';  Value=1610612736; Format='bytes' }
 )
 </div></div>
+<h3 id="customising-the-collapsible-header">Customising the collapsible header</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report `
+    -Title 'Key metrics' -Icon 'K' -DefaultOpen $false `
+    -Items @(
+        @{ Label='Total';    Value=247 }
+        @{ Label='Active';   Value=231; Class='cell-ok'     }
+        @{ Label='Warnings'; Value=12;  Class='cell-warn'   }
+        @{ Label='Critical'; Value=4;   Class='cell-danger' }
+    )
+</div></div>
+<p>Collapsible-related parameters:</p>
+<ul>
+<li><code>-Collapsible</code> — wrap in a collapsible container (default <code>$true</code>). Pass <code>-Collapsible:$false</code> to render a flat tile strip with no header (the pre-1.3.2 behaviour).</li>
+<li><code>-Title</code> — header text (default <code>'Summary'</code>)</li>
+<li><code>-Icon</code> — optional emoji / unicode glyph shown before the title</li>
+<li><code>-DefaultOpen</code> — start expanded (default <code>$true</code>)</li>
+</ul>
+<h3 id="flat-tile-strip-pre-1.3.2-behaviour">Flat tile strip (pre-1.3.2 behaviour)</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Collapsible:$false -Items @(
+    @{ Label='Total';   Value=247 }
+    @{ Label='Active';  Value=231; Class='cell-ok' }
+)
+</div></div>
+<h3 id="per-navgroup-summary-strips-v1.4.1">Per-NavGroup summary strips (v1.4.1+)</h3>
+<p>Pass <code>-NavGroup</code> (and optionally <code>-NavSubGroup</code>) to scope a summary to a single nav panel. Each panel in a two-tier nav can have its own KPI hero row, and these coexist with the unscoped global summary at the top of the page.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Global summary — no NavGroup, visible on every panel
+Add-DhSummary -Report $report -Title 'Overall health' -Items @(
+    @{ Style='bignumber'; Label='SLA (30d)'; Value='99.96%'; Class='cell-ok' }
+    @{ Label='Open incidents'; Value=4; Previous=7; TrendIsGood=$true }
+)
+
+# Identity-panel summary — visible only when the 'Identity' tab is active
+Add-DhSummary -Report $report -NavGroup 'Identity' -Title 'Identity KPIs' -Items @(
+    @{ Label='Active users';  Value=231 }
+    @{ Label='Failed logons'; Value=842; Previous=920; TrendIsGood=$true }
+)
+
+# Infrastructure-panel summary — different metrics for a different panel
+Add-DhSummary -Report $report -NavGroup 'Infrastructure' -Title 'Cluster KPIs' -Items @(
+    @{ Style='gauge'; Label='Cluster CPU'; Value=68; Max=100; Unit='%'
+       Rag=@{ Green=@{Max=70}; Amber=@{Min=70;Max=90}; Red=@{Min=90} } }
+    @{ Label='Active alarms'; Value=3; Previous=1; TrendIsGood=$false }
+)
+
+# Add the rest of each panel's content with -NavGroup matching the strip
+Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
+Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
+</div></div>
+<p>Full runnable example: <a href="Examples/Multi-Panel-Dashboard.ps1"><code>Examples/Multi-Panel-Dashboard.ps1</code></a>.</p>
+<p>NavGroup-specific keys:</p>
+<ul>
+<li><code>-Id</code> — explicit block Id; auto-derived by slugifying <code>NavGroup</code> (+ optional <code>NavSubGroup</code>) when omitted, e.g. <code>My Group</code> → <code>summary-my-group</code>. Duplicate Ids throw.</li>
+</ul>
+<h3 id="tile-styles-v1.4">Tile styles (v1.4+)</h3>
+<p>By default each item renders as the compact tile that has shipped since 1.3.x. Pass <code>Style='bignumber'</code> or <code>Style='gauge'</code> to switch to one of the new variants for hero metrics or threshold visualisations.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
+
+    # Hero metric — full-width tile, very large value typography
+    @{ Style='bignumber'; Label='Current SLA'; Value='99.97%'
+       Caption='Target 99.9% — met' }
+
+    # Semicircle gauge with RAG bands driven by Thresholds
+    @{ Style='gauge'; Label='Cluster CPU'; Value=42; Max=100; Unit='%'
+       Thresholds=@(
+           @{ Min=0;  Class='cell-ok'     }
+           @{ Min=70; Class='cell-warn'   }
+           @{ Min=90; Class='cell-danger' }
+       )
+    }
+    @{ Style='gauge'; Label='Disk used'; Value=92; Max=100; Unit='%'
+       Thresholds=@(
+           @{ Min=0;  Class='cell-ok'     }
+           @{ Min=70; Class='cell-warn'   }
+           @{ Min=90; Class='cell-danger' }
+       )
+    }
+
+    # Default compact tile — unchanged
+    @{ Label='Active sessions'; Value=287; Icon='S' }
+)
+</div></div>
+<p><strong>Style values:</strong></p>
+<ul>
+<li><code>'tile'</code> (default) — the compact strip tile.</li>
+<li><code>'bignumber'</code> — full-width tile, 2.4–3.6rem value typography, optional <code>Caption</code> line.</li>
+<li><code>'gauge'</code> — 140×80 semicircle SVG, background arc + filled arc coloured by the matching threshold. Defaults <code>Min=0</code>, <code>Max=100</code>. <code>Unit</code> is appended after the centre readout. <code>Value</code> must be numeric.</li>
+</ul>
+<p><strong>Threshold matching:</strong> mirrors <code>Add-DhTable</code> column thresholds. A band matches when <code>Min ≤ value &lt; Max</code> (either bound may be omitted). When multiple bands match, the one with the highest <code>Min</code> wins — so the spec-friendly &quot;Min-only&quot; pattern in the example above does the intuitive thing.</p>
+<p>All three styles still honour <code>Class</code>, <code>Format</code>/<code>Locale</code>/<code>Decimals</code>/<code>Currency</code>, and (where it makes visual sense) the v1.4 delta and sparkline keys.</p>
+<h3 id="trend-and-delta-indicators-on-tiles-v1.4">Trend and delta indicators on tiles (v1.4+)</h3>
+<p>Each tile can show how its current <code>Value</code> compares to a previous baseline. Supply <code>Previous</code>, and an arrow + delta line appears between the value and the label:</p>
+<ul>
+<li><code>▲ +12 (+5.5%)</code> (green) — <code>Active users 231</code> vs previous <code>219</code></li>
+<li><code>▼ -8 (-3.2%)</code> (red)   — regression</li>
+<li><code>▶ ±0</code>        (grey)  — no change</li>
+</ul>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
+    # Auto-derived delta: up = good by default
+    @{ Label='Active users';  Value=231;      Previous=219 }
+    @{ Label='Revenue';       Value=99450.75; Previous=92330.25; Format='currency'; Locale='en-US'; Currency='USD'; Decimals=2 }
+
+    # Inverted semantics — fewer errors is GOOD news, paint green when down
+    @{ Label='Errors (24h)';  Value=4;  Previous=12; TrendIsGood=$true; Class='cell-warn' }
+    @{ Label='Latency p95';   Value=82; Previous=88; TrendIsGood=$true; DeltaFormat='absolute' }
+
+    # Explicit trend with no baseline number
+    @{ Label='Pipeline';      Value=12; Trend='up' }
+)
+</div></div>
+<p>Per-item keys (all optional):</p>
+<ul>
+<li><code>Previous</code> — baseline value. When supplied, the arrow direction and delta numbers are computed automatically.</li>
+<li><code>Trend</code> — <code>'auto'</code> (default — derived from Previous), <code>'up'</code>, <code>'down'</code>, or <code>'flat'</code>. Pass an explicit value to override the auto direction, or to show a direction without a numeric baseline.</li>
+<li><code>TrendIsGood</code> — flip the colour semantics for &quot;lower is better&quot; metrics. By default <code>up</code> is green (good) and <code>down</code> is red (bad). Pass <code>$true</code> to paint <strong>this direction</strong> as good regardless (e.g. errors trending down), or <code>$false</code> to mark it as bad.</li>
+<li><code>DeltaFormat</code> — <code>'both'</code> (default, <code>+12 (+5.5%)</code>), <code>'percent'</code> (just <code>+5.5%</code>), or <code>'absolute'</code> (just <code>+12</code>).</li>
+</ul>
+<p>When <code>Previous</code> is <code>0</code> only the absolute delta is shown (percent is undefined). The arrow alone is rendered when only <code>Trend</code> is supplied without <code>Previous</code>.</p>
+<h3 id="inline-sparklines-on-tiles-v1.4">Inline sparklines on tiles (v1.4+)</h3>
+<p>Each tile can carry an inline mini-chart below the label. Pure SVG, ~120 × 24 px, no library required. Choose between three styles:</p>
+<ul>
+<li><code>'line'</code> (default) — polyline through the points</li>
+<li><code>'area'</code> — line plus filled area to the baseline</li>
+<li><code>'bars'</code> — small vertical bar at each point</li>
+</ul>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
+    @{ Label='CPU avg (24h)'; Value=42; Format='percent'
+       Sparkline      = @(30,42,38,55,67,71,68,52)
+       SparklineStyle = 'line'
+       SparklineMin   = 0       # optional fixed axis
+       SparklineMax   = 100
+    }
+    @{ Label='Requests/s'; Value=1240; Format='number'; Class='cell-ok'
+       Sparkline      = @(800,950,1100,1240,1200,1180)
+       SparklineStyle = 'area'
+    }
+    @{ Label='Errors (7d)'; Value=4; Class='cell-warn'
+       Sparkline      = @(12,8,3,2,5,1,4)
+       SparklineStyle = 'bars'
+    }
+    @{ Label='SLA'; Value=99.97; Format='percent'; Decimals=2 }   # no sparkline
+)
+</div></div>
+<p>Per-item keys (all optional):</p>
+<ul>
+<li><code>Sparkline</code> — numeric array. Non-numeric values are dropped with a warning.</li>
+<li><code>SparklineStyle</code> — <code>'line'</code> (default) / <code>'area'</code> / <code>'bars'</code></li>
+<li><code>SparklineMin</code> / <code>SparklineMax</code> — fix the Y-axis. Defaults to the series min/max so flat-looking series still render dramatically.</li>
+</ul>
+<p>Sparklines work in both the flat and collapsible variants of the summary strip, and use the accent colour <code>--chart-1</code> from the active theme.</p>
+<hr />
+<h2 id="alert-banners">Alert banners</h2>
+<p>Top-of-page strips for current conditions — open incidents, recent failures, maintenance notices, compliance breaches. Banners stack vertically <em>above</em> the KPI summary tiles in the order they were declared. Each banner carries a severity (<code>info</code> / <code>ok</code> / <code>warning</code> / <code>critical</code>) that drives the colour via the standard RAG palette.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Simplest banner — just a message
+Add-DhAlertBanner -Report $report -Id 'maintenance' `
+    -Severity 'info' -Message 'Maintenance window tonight 22:00–02:00 UTC'
+
+# Critical alert with action button — clicking jumps to a filtered table
+Add-DhAlertBanner -Report $report -Id 'open-incidents' `
+    -Severity 'critical' -Icon '!' `
+    -Message '3 critical incidents open in the last 24h' `
+    -Dismissible `
+    -Action @{ Label='View incidents'; TableId='incidents'; Filter='critical' }
+
+# External link
+Add-DhAlertBanner -Report $report -Id 'release-notes' `
+    -Severity 'ok' -Message 'Patch level KB5044277 applied to 98% of hosts' `
+    -Action @{ Label='Open KB'; Url='https://support.microsoft.com/kb/5044277' }
+</div></div>
+<p><strong>Key behaviours:</strong></p>
+<ul>
+<li><code>-Dismissible</code> adds a close (×) button. The dismissal is remembered in the URL hash so a page reload keeps the banner hidden; opening the report in a new browser session restores it.</li>
+<li><code>-Action</code> adds a button that either navigates to a registered table (with optional <code>Filter</code> text pre-applied) or opens an external <code>Url</code>. Provide one of <code>TableId</code> or <code>Url</code>, not both.</li>
+<li>The <code>-Message</code> may contain inline HTML — useful for embedding a short link inside the prose.</li>
+<li>Severity maps to the existing <code>cell-ok</code> / <code>cell-warn</code> / <code>cell-danger</code> palette, so the colours follow the active theme.</li>
+<li>Distinct from <code>Add-DhCollapsible</code> or <code>Add-DhHtmlBlock</code>: an alert banner sits <strong>above</strong> the summary and is meant for transient, high-visibility conditions.</li>
+</ul>
 <hr />
 <h2 id="bar-charts">Bar charts</h2>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Basic distribution chart
@@ -1820,7 +3575,202 @@ Add-DhBarChart -Report $report -Id 'status-chart' `
 Add-DhBarChart -Report $report -Id 'region-chart' `
     -Title 'Items by Region' `
     -TableId 'items' -Field 'Region' -ClickFilters
+
+# v1.4 — stacked: bars represent Region, segments coloured by Status
+Add-DhBarChart -Report $report -Id 'by-region-stacked' `
+    -Title 'Items by Region (stacked by Status)' `
+    -TableId 'items' -Field 'Region' -SeriesField 'Status' -Stacked
 </div></div>
+<p><strong>Stacked mode (v1.4+):</strong> pass <code>-SeriesField</code> to break each primary bar into colour-coded segments. The legend below the chart maps each series value to its colour. The <code>-Stacked</code> switch is optional — supplying <code>-SeriesField</code> alone implies it. Click-to-filter (<code>-ClickFilters</code>) is single-series only; stacked bars have no single value to filter by. Series colours are pulled from the active theme's chart palette and assigned in alphabetical order, so the legend stays stable across renders.</p>
+<hr />
+<h2 id="pie-donut-charts">Pie / Donut charts</h2>
+<p>Standalone pie or donut chart as a top-level block. Supports two data modes:</p>
+<ul>
+<li><strong>Mode A — derive from a registered table.</strong> Counts distinct values of a field across all rows; sorts highest-to-lowest; caps at <code>TopN</code> segments.</li>
+<li><strong>Mode B — explicit slices.</strong> Provide <code>Label</code>/<code>Value</code> (and optional <code>Color</code>) hashtables directly. Use this for non-tabular data (cost breakdowns, weighted distributions).</li>
+</ul>
+<p>The <code>donut</code> style (default) leaves a hole in the centre with the total; <code>pie</code> renders a solid disc.</p>
+<blockquote>
+<p><strong>Spec guidance:</strong> the IT-infrastructure KPI dashboard spec recommends avoiding pies with more than 5 segments — switch to <code>Add-DhBarChart</code> for higher cardinality.</p>
+</blockquote>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Mode A — derive from a table column
+Add-DhPieChart -Report $report -Id 'status-pie' `
+    -Title 'Items by status' `
+    -TableId 'items' -Field 'Status' -ClickFilters
+
+# Mode B — explicit slices, donut style
+Add-DhPieChart -Report $report -Id 'cost-pie' `
+    -Title 'Monthly cost by region' -Style 'donut' `
+    -Slices @(
+        @{ Label='us-east';  Value=12500 }
+        @{ Label='eu-west';  Value=8200  }
+        @{ Label='ap-south'; Value=3400  }
+    )
+
+# Pie style, custom colours, no legend
+Add-DhPieChart -Report $report -Id 'license-pie' `
+    -Title 'License usage' -Style 'pie' -ShowLegend $false `
+    -Slices @(
+        @{ Label='Used';      Value=820; Color='#1B6B35' }
+        @{ Label='Available'; Value=180; Color='#8B5200' }
+    )
+</div></div>
+<p><strong>Key parameters:</strong></p>
+<ul>
+<li><code>-Style</code> — <code>'donut'</code> (default) or <code>'pie'</code></li>
+<li><code>-TableId</code> / <code>-Field</code> — Mode A only; the source table must already be added</li>
+<li><code>-TopN</code> — Mode A only; cap at N segments (default 10)</li>
+<li><code>-ClickFilters</code> — Mode A only; clicking a slice applies the slice label as a text filter on the source table</li>
+<li><code>-Slices</code> — Mode B only; mutually exclusive with <code>-TableId</code></li>
+<li><code>-ShowTotal</code> — show the total in the donut hole (default <code>$true</code>; ignored for <code>pie</code> style)</li>
+<li><code>-ShowLegend</code> — show the label / count / percentage rows (default <code>$true</code>)</li>
+</ul>
+<hr />
+<h2 id="line-area-charts-v1.4">Line / Area charts (v1.4+)</h2>
+<p>Time-series-style chart as a top-level block. Multiple series share one X-axis of category labels (typically timestamps). Optional <code>-Filled</code> switches the lines into filled areas. Optional <code>-TargetLine</code> draws a dashed horizontal annotation at a Y value, which the spec (§7.4) calls out as the canonical pairing for any time-series visualisation: <em>&quot;Always pair a time-series chart with a threshold annotation line.&quot;</em></p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$hours = @('00:00','04:00','08:00','12:00','16:00','20:00','24:00')
+
+# Single series with a warning-threshold annotation
+Add-DhLineChart -Report $report -Id 'cpu-trend' -Title 'Cluster CPU (24h)' `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='Avg'; Values=@(42,38,55,67,71,68,52); Class='cell-ok' }
+    ) `
+    -TargetLine 70 -TargetLabel 'Warning threshold' `
+    -YAxisMin 0 -YAxisMax 100 -YAxisUnit '%'
+
+# Multi-series filled area chart
+Add-DhLineChart -Report $report -Id 'net-bw' -Title 'Network throughput (Mbps)' `
+    -Filled `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='Ingress'; Values=@(800,950,1100,1240,1200,1180,900); Class='cell-ok'   }
+        @{ Label='Egress';  Values=@(600,700,820,910,880,850,720);     Class='cell-warn' }
+    )
+
+# Gap handling — $null entries break the line at that index
+Add-DhLineChart -Report $report -Id 'replication-lag' -Title 'Replication Lag' `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='DC01→DC02'; Values=@(2,3,$null,$null,5,4,3); Color='#0088BB' }
+        @{ Label='DC01→DC03'; Values=@(1,2,2,3,2,2,1);         Color='#E08800' }
+    ) `
+    -TargetLine 60 -TargetLabel 'SLA 60s' -YAxisUnit 's'
+</div></div>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>-XAxis</code> — array of category labels (typically timestamps). Must have ≥ 2 entries.</li>
+<li><code>-Series</code> — array of <code>@{Label;Values[];Class;Color}</code>. Each series's <code>Values</code> length must match <code>XAxis</code>. <code>Class</code> maps to the RAG palette (<code>cell-ok</code> / <code>cell-warn</code> / …); <code>Color</code> is an explicit override. <code>$null</code> entries in <code>Values</code> are allowed and rendered as line breaks.</li>
+<li><code>-Filled</code> — switch; renders each series as a filled area instead of a polyline.</li>
+<li><code>-TargetLine</code> / <code>-TargetLabel</code> — optional numeric reference Y and its label. Dashed line drawn in the warning colour.</li>
+<li><code>-YAxisMin</code> / <code>-YAxisMax</code> / <code>-YAxisUnit</code> — explicit Y-axis bounds (auto-fitted with 5% padding when omitted) and an optional unit suffix on tick labels (<code>'%'</code>, <code>'ms'</code>, <code>'GB'</code> etc.).</li>
+<li><code>-ShowLegend</code> / <code>-ShowGrid</code> — defaults <code>$true</code>. Disable for compact embeds.</li>
+<li><code>-Height</code> — SVG height in px (80–1000, default 240).</li>
+</ul>
+<p>The plot stretches to fit its container horizontally; height is fixed by <code>-Height</code>.</p>
+<hr />
+<h2 id="status-grid-v1.4">Status Grid (v1.4+)</h2>
+<p>Rows × columns RAG matrix — the IT-infrastructure KPI dashboard specification's &quot;Status Matrix / Health Grid&quot; (§2). Use it for at-a-glance health overviews where many entities share a small set of states: services × regions, DCs × replication links, hosts × probes. A status grid is a colour-first matrix; if your data needs sortable columns or rich cell content, use <code>Add-DhTable</code> instead.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhStatusGrid -Report $report -Id 'service-health' -Title 'Service Health' `
+    -RowLabel 'Service' -ColumnLabel 'Region' `
+    -Rows    @('Auth','Billing','Search','Mail','Payments') `
+    -Columns @('us-east','us-west','eu-west','eu-central','ap-south') `
+    -CellSize 'normal' `
+    -Cells @(
+        @{ Row='Auth';    Column='us-east';   Status='ok';     Tooltip='99.98% / 24h' }
+        @{ Row='Auth';    Column='eu-west';   Status='warn';   Tooltip='latency spike'
+           LinkTableId='incidents'; LinkFilter='auth-eu' }
+        @{ Row='Billing'; Column='us-east';   Status='danger'; Tooltip='down 12m' }
+        @{ Row='Billing'; Column='ap-south';  Status='nodata' }
+        # ... declare only the (Row, Column) pairs that exist
+    )
+</div></div>
+<p><strong>Per-cell keys:</strong></p>
+<ul>
+<li><code>Row</code> — required string, must appear in <code>-Rows</code>. Typo throws (no silent miss).</li>
+<li><code>Column</code> — required string, must appear in <code>-Columns</code>.</li>
+<li><code>Status</code> — required. One of <code>'ok'</code> / <code>'warn'</code> / <code>'danger'</code> / <code>'nodata'</code> / <code>'info'</code>. Drives the cell colour via the existing RAG palette.</li>
+<li><code>Tooltip</code> — optional string. Renders as the native <code>title=&quot;&quot;</code> hover tooltip; no popover library.</li>
+<li><code>LinkTableId</code> — optional. Clicking the cell jumps to this registered table (reuses the same panel-navigation hook as <code>Add-DhAlertBanner -Action</code>).</li>
+<li><code>LinkFilter</code> — optional. When <code>LinkTableId</code> is set, the table receives this text filter on jump. Filter without <code>LinkTableId</code> throws.</li>
+</ul>
+<p><strong>Cmdlet parameters:</strong></p>
+<ul>
+<li><code>-Rows</code> / <code>-Columns</code> — required string arrays defining the axes.</li>
+<li><code>-RowLabel</code> / <code>-ColumnLabel</code> — optional axis captions shown in the top-left corner of the grid.</li>
+<li><code>-CellSize</code> — <code>'small'</code> (32 px) / <code>'normal'</code> (48 px, default) / <code>'large'</code> (64 px). Below a 600 px viewport, the grid collapses to a stacked list regardless of this setting.</li>
+<li><code>-MaxCells</code> — hard ceiling on <code>Rows × Columns</code> (default <code>2000</code>). A soft warning fires above 200 cells.</li>
+</ul>
+<p>Cells you don't declare render as a faint dashed neutral state. A legend strip below the grid auto-generates from the statuses actually present.</p>
+<hr />
+<h2 id="event-feed-v1.4">Event feed (v1.4+)</h2>
+<p>Chronological severity-tagged audit trail. Per the IT-infrastructure KPI dashboard specification (§4.1 and §4.2), this is the canonical <strong>Row 5</strong> of an ops dashboard — the evidence trail that pairs with the at-a-glance KPI tiles above. Distinct from <code>Add-DhAlertBanner</code> (which surfaces a single <em>current</em> condition at the top of the page).</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhEventFeed -Report $report -Id 'recent-events' `
+    -Title 'Recent events (24h)' -MaxItems 50 `
+    -Events @(
+        @{ Timestamp='2026-05-22 14:32'; Severity='critical'; Source='DC01'
+           Message='Replication failure to DC03' }
+        @{ Timestamp='2026-05-22 14:18'; Severity='warning';  Source='DC02'
+           Message='LDAP bind time &gt; 80 ms (avg)' }
+        @{ Timestamp='2026-05-22 13:55'; Severity='info';     Source='vSphere'
+           Message='vMotion: VM-027 → ESXi-04' }
+        @{ Timestamp='2026-05-22 12:42'; Severity='ok';       Source='Backup'
+           Message='Nightly backup completed in 42 minutes' }
+    )
+
+# Optional grouping — critical floats to the top
+Add-DhEventFeed -Report $report -Id 'incidents-by-sev' `
+    -Title 'Open incidents' -GroupBy 'Severity' -Events $incidents
+</div></div>
+<p><strong>Per-event keys:</strong></p>
+<ul>
+<li><code>Timestamp</code> — required string. Free-form — sorted lexicographically. ISO-8601 timestamps sort correctly out of the box.</li>
+<li><code>Severity</code> — required. One of <code>'info'</code> / <code>'ok'</code> / <code>'warning'</code> / <code>'critical'</code>. Drives the row colour via the existing RAG palette.</li>
+<li><code>Message</code> — required string. Long messages wrap onto a second line.</li>
+<li><code>Source</code> — optional string. Rendered in <code>[brackets]</code> between the timestamp and the message.</li>
+<li><code>Icon</code> — optional emoji / glyph. Overrides the default severity icon (<code>·</code> / <code>✓</code> / <code>!</code> / <code>✕</code>).</li>
+</ul>
+<p><strong>Cmdlet parameters:</strong></p>
+<ul>
+<li><code>-MaxItems</code> — cap on visible rows (default 50, range 1..1000). Older events are dropped after sort+slice.</li>
+<li><code>-GroupBy</code> — <code>'None'</code> (default) / <code>'Severity'</code> / <code>'Source'</code>. With grouping, each group is preceded by a header showing the group key and entry count. <code>'Severity'</code> groups appear in priority order (critical → warning → ok → info).</li>
+<li><code>-SortDescending</code> — newest-first by default (<code>$true</code>). Pass <code>$false</code> for chronological top-down reading.</li>
+</ul>
+<hr />
+<h2 id="bullet-charts-v1.4">Bullet charts (v1.4+)</h2>
+<p>The canonical &quot;actual vs target with performance bands&quot; visualisation, per the IT-infrastructure KPI dashboard specification (§2 Widget Types). Each row stacks vertically and shows: a full-width track, RAG-coloured performance bands, a solid value bar from <code>Min</code> to <code>Value</code>, and an optional vertical target marker on top.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Share one RAG definition across multiple rows
+$latencyRag = @{
+    Green = @{ Max = 50 }
+    Amber = @{ Min = 50; Max = 80 }
+    Red   = @{ Min = 80 }
+}
+
+Add-DhBullet -Report $report -Id 'auth-latency' -Title 'LDAP Bind Time' -Items @(
+    @{ Label='DC01'; Value=42; Target=50; Max=120; Unit='ms'; Rag=$latencyRag }
+    @{ Label='DC02'; Value=68; Target=50; Max=120; Unit='ms'; Rag=$latencyRag }
+    @{ Label='DC03'; Value=92; Target=50; Max=120; Unit='ms'; Rag=$latencyRag }
+)
+</div></div>
+<p>For &quot;bigger is better&quot; metrics (headroom, uptime SLA), flip the RAG semantics:</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhBullet -Report $report -Id 'cpu-headroom' -Title 'CPU Headroom per Host' -Items @(
+    @{ Label='esxi-01'; Value=42; Target=30; Min=0; Max=100; Unit='%'
+       Rag=@{ Green=@{Min=30}; Amber=@{Min=15;Max=30}; Red=@{Max=15} } }
+    @{ Label='esxi-02'; Value=12; Target=30; Min=0; Max=100; Unit='%'
+       Rag=@{ Green=@{Min=30}; Amber=@{Min=15;Max=30}; Red=@{Max=15} } }
+)
+</div></div>
+<p>Per-item keys:</p>
+<ul>
+<li><code>Label</code> — left-side row label (required)</li>
+<li><code>Value</code> — actual numeric value (required)</li>
+<li><code>Target</code> — optional numeric. When set, a vertical tick mark appears on the track.</li>
+<li><code>Min</code> / <code>Max</code> — track range. Defaults <code>0..100</code>; <code>Max</code> must be <code>&gt; Min</code>.</li>
+<li><code>Unit</code> — optional suffix in the readout (<code>'ms'</code>, <code>'%'</code>, …)</li>
+<li><code>Class</code> — optional value-bar colour override (<code>'cell-ok'</code> / <code>'cell-warn'</code> / <code>'cell-danger'</code> / <code>'cell-nodata'</code>). Wins over the auto threshold match.</li>
+<li><code>Rag</code> — preferred way to declare the bands (see <a href="#unified--rag-parameter-v14">Unified <code>-Rag</code> parameter</a>).</li>
+<li><code>Bands</code> / <code>Thresholds</code> — legacy array shape <code>@(@{Min;Max;Class})</code>; <code>Bands</code> is an alias for <code>Thresholds</code>. <code>Rag</code> wins when both are supplied.</li>
+</ul>
 <hr />
 <h2 id="filter-cards">Filter cards</h2>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$regionCards = $data | Group-Object Region | ForEach-Object {
@@ -1876,7 +3826,7 @@ Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
 </div></div>
 <p>Result: primary nav shows <strong>Identity</strong> and <strong>Infrastructure</strong> group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching <code>-NavGroup</code> appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.</p>
 <h3 id="three-tier-navigation-optional">Three-tier navigation (optional)</h3>
-<p>Add an optional <code>-NavSubGroup</code> on top of <code>-NavGroup</code> to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. Clicking a pill narrows the group view to items tagged with that subgroup; clicking the active pill again clears the filter. Items in a group that have no <code>NavSubGroup</code> remain visible regardless of pill state.</p>
+<p>Add an optional <code>-NavSubGroup</code> on top of <code>-NavGroup</code> to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. When a group with subgroups is opened, the <strong>first pill is automatically active</strong>, so items tagged with <code>-NavSubGroup</code> behave as a true subgroup binding — visible only when their pill is the active one. Clicking another pill switches the subgroup; clicking the active pill clears the filter and shows all items in the group. Items in a group that have <strong>no</strong> <code>-NavSubGroup</code> remain visible regardless of pill state, acting as group-wide content.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhTable -Report $report -TableId 'users-prod' -Title 'Users (Prod)' -Data $prodUsers `
     -NavGroup 'Identity' -NavSubGroup 'Production'
 Add-DhTable -Report $report -TableId 'users-dev'  -Title 'Users (Dev)'  -Data $devUsers  `
@@ -1989,7 +3939,7 @@ README.md
   </section>
 
   <div class="page-footer">
-    Generated by Build-DhReference.ps1 · DashHtml v1.3.1 · 2026-05-14 08:01
+    Generated by Build-DhReference.ps1 · DashHtml v1.5.0 · 2026-05-25 14:36
   </div>
 
 </main>

@@ -1,12 +1,12 @@
 @{
     # Module identity
     RootModule        = 'DashHtml.psm1'
-    ModuleVersion     = '1.3.1'
+    ModuleVersion     = '1.5.0'
     GUID              = '3f8e9a2c-1d4b-47f5-8c6e-0a5d2b9f3e71'
     Author            = 'DashHtml Contributors'
     CompanyName       = 'DashHtml Contributors'
     Copyright         = '(c) 2026 DashHtml Contributors. MIT License.'
-    Description       = 'Generate interactive self-contained HTML dashboards with sort, filter, paging, linked drill-down, client-side CSV/Excel/PDF export, pie charts, progress bars, threshold cell colouring, and a nav bar. Five built-in theme families (Default, Azure, VMware, Grey, Company) each with embedded light/dark variants and a runtime toggle button.'
+    Description       = 'Generate interactive self-contained HTML dashboards. Includes sortable / filterable / pageable tables, linked drill-down, client-side CSV / Excel / PDF export, KPI summary tiles (with optional sparklines, trend deltas, big-number and gauge styles), pie / donut / line / area / bar / stacked-bar / bullet charts, RAG status matrix, sequential / diverging 2-D heatmaps, parent-child topology trees, inline tabbed content blocks, chronological event feeds, dismissible alert banners, threshold cell colouring with a unified -Rag parameter, and a sticky nav bar. Six built-in theme families (Default, Azure, VMware, Grey, Company, Rag — the v1.4 family using the Office/Excel-compatible RAG palette) each with embedded light / dark variants and a runtime toggle button.'
     PowerShellVersion = '7.0'
 
     # Exports
@@ -21,6 +21,15 @@
         'Add-DhCollapsible'
         'Add-DhFilterCard'
         'Add-DhBarChart'
+        'Add-DhAlertBanner'
+        'Add-DhPieChart'
+        'Add-DhBullet'
+        'Add-DhLineChart'
+        'Add-DhEventFeed'
+        'Add-DhStatusGrid'
+        'Add-DhTabs'
+        'Add-DhHeatmap'
+        'Add-DhTopologyMap'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
@@ -32,7 +41,117 @@
             Tags         = @('HTML','Dashboard','Table','Export','CSV','Excel','PDF','Report','Infrastructure')
             LicenseUri   = 'https://github.com/nicola-vi/DashHtml/blob/main/LICENSE'
             ProjectUri   = 'https://github.com/nicola-vi/DashHtml'
-            ReleaseNotes = '1.3.1 — UX: table row hover is now clearly visible. The --bg-row-hover token was bumped to a more saturated shade in every built-in theme (Default / Azure / VMware / Grey / Company, light + dark) and the hover row gains an inset 3px accent-coloured left edge for additional visibility.'
+            ReleaseNotes = @'
+1.5.0 — Tier A widgets: inline tabs, 2-D heatmaps, topology trees.
+
+New cmdlets:
+  * Add-DhTabs         - Inline tabbed content block. Local pivot within one
+                         section of the dashboard flow (distinct from NavGroup
+                         which partitions the whole page). Full W3C tabs
+                         accessibility pattern (role=tablist / tab / tabpanel,
+                         arrow-key navigation, focus-visible outline).
+  * Add-DhHeatmap      - Rows × Columns matrix with a sequential or diverging
+                         numeric colour scale. Distinct from Add-DhStatusGrid
+                         (categorical RAG). -ColorScale 'sequential' | 'diverging',
+                         -Min / -Max auto-fit, -Unit suffix on values, -ShowValues
+                         to render the number inside each cell. Defaults to a
+                         5000-cell ceiling with a soft 1000-cell warning.
+  * Add-DhTopologyMap  - Parent-child tree visualisation (AD Forest → Domain → DC,
+                         vCenter → Cluster → Host, network device hierarchies, etc.).
+                         Recursive subtree-width layout — simple tidy tree, no
+                         force-directed graph. Cycles rejected; missing parents
+                         throw. Per-node Status / Icon / Badge / Tooltip /
+                         LinkTableId / LinkFilter for click-to-jump navigation.
+                         -Direction 'vertical' (default) or 'horizontal'.
+
+Behaviour unchanged for everything else; fully backward compatible at the
+API level. 308 Pester tests pass (up from 282 at 1.4.2).
+
+------------------------------------------------------------------------------
+1.4.2 — Small UX wins.
+
+Added:
+  * Add-DhAlertBanner -NavGroup / -NavSubGroup — per-panel banners.
+    Without the params, banners remain page-global as in 1.4.x.
+  * Add-DhSummary per-tile Action=@{TableId?;Filter?;Url?;Label?} — the whole
+    tile becomes clickable, navigating to a registered table (with optional
+    pre-filter) or opening an external URL. Same shape as the AlertBanner
+    -Action. Adds .tile-clickable styling + keyboard activation (Enter/Space).
+  * New-DhDashboard -AutoRefresh '30s' / '5m' / '1h' / '300' — emits a
+    <meta http-equiv="refresh"> in <head>. Useful for wall-display ops
+    dashboards. Omit / pass '' to disable (default).
+  * Native hover tooltips (title="...") on pie slices and bar chart bars —
+    label / count / percentage shown on hover. No JS library, browser-native.
+
+282 Pester tests pass (up from 266 at 1.4.1).
+
+------------------------------------------------------------------------------
+1.4.1 — Per-NavGroup summary strips + JS hoist fix.
+
+Added:
+  * Add-DhSummary now accepts -NavGroup / -NavSubGroup / -Id, so each panel
+    in a two-tier nav can have its own KPI strip. Without -NavGroup, the
+    legacy top-of-page singleton behaviour is preserved. Multiple per-group
+    strips can coexist alongside one global strip.
+  * New example: Examples/Multi-Panel-Dashboard.ps1 — focused showcase of the
+    multi-summary feature.
+  * Invoke-Demo-DashHtml.ps1 moved to Examples/ and refreshed to exercise the
+    full v1.4 widget set (banner, gauge, bignumber, bullet, line, pie, status
+    grid, event feed, sparkline cells, per-group summary).
+
+Fixed:
+  * JS hoist: pickThresholdClass / classToAccent / classToAccentBg and the
+    tile-builder helpers (buildTile, buildStandardTile, buildBignumberTile,
+    buildGaugeTile, tileFormatValue, tileDeltaHtml, tileSparklineHtml) were
+    nested inside renderSummary() and therefore unreachable from the bullet
+    and line-chart renderers at runtime. The latent ReferenceError didn't
+    surface in the Pester tests (which match emitted HTML text rather than
+    executing the JS), but a browser would have thrown when rendering those
+    blocks. All helpers are now at module scope and reused everywhere.
+
+266 Pester tests pass (up from 257 at 1.4.0).
+
+------------------------------------------------------------------------------
+1.4.0 — KPI & Dashboard Primitives. Major widget expansion driven by the
+IT-infrastructure KPI dashboard specification.
+
+New cmdlets:
+  * Add-DhStatusGrid   - rows x columns RAG matrix (services x regions etc.)
+  * Add-DhAlertBanner  - top-of-page dismissible alert strip
+  * Add-DhEventFeed    - chronological severity-tagged audit trail
+  * Add-DhPieChart     - standalone pie / donut block
+  * Add-DhBullet       - actual-vs-target with performance bands
+  * Add-DhLineChart    - line / area chart with axes, multi-series, optional
+                         dashed target / threshold annotation line
+
+Add-DhSummary tile upgrades:
+  * Inline sparklines (line / area / bars) below the value
+  * Trend & delta indicators (Previous baseline, auto direction, TrendIsGood
+    inversion for "lower is better" metrics, percent / absolute / both)
+  * Style="bignumber"  hero metric, full-width, large typography, optional Caption
+  * Style="gauge"      semicircle SVG with threshold-coloured arc + central readout
+
+Cross-cutting:
+  * Unified -Rag parameter (@{ Green; Amber; Red; NoData }) accepted on summary
+    items, gauge tiles, bullet items, and table columns; replaces or supplements
+    the legacy Thresholds=@(...) array shape.
+  * New Rag theme family using the Office/Excel-compatible RAG palette
+    (#375623 / #7F4B00 / #9C0006 / #595959) for strict-parity reports.
+  * Fourth cell-nodata state added across all six themes.
+
+Other:
+  * Add-DhBarChart gains -Stacked + -SeriesField for multi-series breakdowns.
+  * Add-DhTable column CellType="sparkline" with SortBy reduction (last / avg /
+    max / min / sum) and SparklineStyle.
+  * Two example scripts (Examples/AD-Dashboard.ps1, Examples/vSphere-Dashboard.ps1)
+    mirror the spec's reference layouts.
+  * Bug fix: locale-sensitive [double]::TryParse calls in v1.4 normalisers now
+    use InvariantCulture; protects decimal values on locales like it-IT where
+    the period is a thousands separator.
+
+Fully backward compatible at the API level. 257 Pester tests pass (up from 116
+at the start of v1.4 work).
+'@
         }
     }
 }

@@ -89,6 +89,12 @@ function Export-DhDashboard {
             $rh  = if ($col.Contains('RowHighlight'))                { ",`"rowHighlight`":$(([bool]$col.RowHighlight).ToString().ToLower())"            } else { '' }
             $pf  = if ($col.Contains('PinFirst') -and $col.PinFirst) { ',"pinFirst":true'                                                               } else { '' }
             $agg = if ($col.Contains('Aggregate') -and $col.Aggregate) { ",`"aggregate`":$(ConvertTo-DhJsonString $col.Aggregate)"                       } else { '' }
+            # ragNoData flag (v1.4 F13) — tells the JS matcher to paint null/missing
+            # cells with cell-nodata when the column was declared with -Rag NoData=$true
+            $rnd = if ($col.Contains('RagNoData') -and $col.RagNoData) { ',"ragNoData":true' } else { '' }
+            # v1.4 F8 — sparkline cell column extras (sortBy + sparklineStyle)
+            $sb  = if ($col.Contains('SortBy') -and $col.SortBy)         { ",`"sortBy`":$(ConvertTo-DhJsonString $col.SortBy)"                       } else { '' }
+            $sps = if ($col.Contains('SparklineStyle') -and $col.SparklineStyle) { ",`"sparklineStyle`":$(ConvertTo-DhJsonString $col.SparklineStyle)" } else { '' }
 
             # Thresholds — supports both numeric (Min/Max) and string (Value) rules
             $thJson = ''
@@ -110,7 +116,7 @@ function Export-DhDashboard {
                 }) -join ','
                 $thJson = ",`"thresholds`":[$thEntries]"
             }
-            "{`"field`":$(ConvertTo-DhJsonString $col.Field),`"label`":$(ConvertTo-DhJsonString $col.Label)$w$s$ct$pm$bl$it$fn$al$fo$lc$dc$cu$dp$rh$pf$agg$thJson}"
+            "{`"field`":$(ConvertTo-DhJsonString $col.Field),`"label`":$(ConvertTo-DhJsonString $col.Label)$w$s$ct$pm$bl$it$fn$al$fo$lc$dc$cu$dp$rh$pf$agg$rnd$sb$sps$thJson}"
         }) -join ','
 
         # Rows -> JSON
@@ -125,6 +131,30 @@ function Export-DhDashboard {
                     $v.ToString().ToLower()
                 } elseif ($v -is [int] -or $v -is [long] -or $v -is [double] -or $v -is [float] -or $v -is [decimal]) {
                     [string]$v
+                } elseif ($v -is [string]) {
+                    ConvertTo-DhJsonString $v
+                } elseif ($v -is [System.Collections.IEnumerable]) {
+                    # v1.4 F8 — arrays preserve their structure so 'sparkline' cell
+                    # types can render an inline mini-chart. Each element is either
+                    # a number (emitted bare) or null (for line breaks); anything
+                    # else collapses to its string form for fidelity.
+                    $items = foreach ($el in $v) {
+                        if ($null -eq $el) {
+                            'null'
+                        } elseif ($el -is [bool]) {
+                            $el.ToString().ToLower()
+                        } elseif ($el -is [int] -or $el -is [long] -or $el -is [double] -or $el -is [float] -or $el -is [decimal]) {
+                            [string]$el
+                        } else {
+                            $nNum = 0.0
+                            if ([double]::TryParse(
+                                [string]$el,
+                                [System.Globalization.NumberStyles]::Float -bor [System.Globalization.NumberStyles]::AllowThousands,
+                                [System.Globalization.CultureInfo]::InvariantCulture,
+                                [ref]$nNum)) { [string]$nNum } else { ConvertTo-DhJsonString ([string]$el) }
+                        }
+                    }
+                    "[$($items -join ',')]"
                 } else {
                     ConvertTo-DhJsonString ([string]$v)
                 }
@@ -179,7 +209,71 @@ function Export-DhDashboard {
                    elseif ($s.Value -is [int] -or $s.Value -is [long] -or $s.Value -is [double] -or $s.Value -is [float] -or $s.Value -is [decimal]) { [string]$s.Value } `
                    else { ConvertTo-DhJsonString ([string]$s.Value) }
             $dec = if ($s.Contains('Decimals') -and $s.Decimals -ge 0) { $s.Decimals } else { -1 }
-            "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $s.Icon),`"subLabel`":$(ConvertTo-DhJsonString $s.SubLabel),`"class`":$(ConvertTo-DhJsonString $s.Class),`"format`":$(ConvertTo-DhJsonString $s.Format),`"locale`":$(ConvertTo-DhJsonString $s.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $s.Currency)}"
+
+            # Trend / delta (v1.4 F1) — emit only when Previous or an explicit Trend is supplied
+            $deltaJson = ''
+            $hasPrev   = $s.Contains('Previous')   -and $null -ne $s.Previous
+            $hasTrend  = $s.Contains('Trend')      -and $s.Trend -ne 'auto'
+            if ($hasPrev -or $hasTrend) {
+                $prevJson = if ($hasPrev) { [string]$s.Previous } else { 'null' }
+                $trendStr = if ($s.Contains('Trend') -and $s.Trend) { [string]$s.Trend } else { 'auto' }
+                $tigJson  = if ($null -ne $s.TrendIsGood) { ([bool]$s.TrendIsGood).ToString().ToLower() } else { 'null' }
+                $dfStr    = if ($s.Contains('DeltaFormat') -and $s.DeltaFormat) { [string]$s.DeltaFormat } else { 'both' }
+                $deltaJson = ",`"previous`":$prevJson,`"trend`":$(ConvertTo-DhJsonString $trendStr),`"trendIsGood`":$tigJson,`"deltaFormat`":$(ConvertTo-DhJsonString $dfStr)"
+            }
+
+            # Sparkline (v1.4 F2) — emit only when the series is non-empty
+            $sparkJson = ''
+            if ($s.Contains('Sparkline') -and $s.Sparkline -and @($s.Sparkline).Count -gt 0) {
+                $sparkValues  = ((@($s.Sparkline) | ForEach-Object { [string]$_ }) -join ',')
+                $sparkMinJson = if ($null -ne $s.SparklineMin) { [string]$s.SparklineMin } else { 'null' }
+                $sparkMaxJson = if ($null -ne $s.SparklineMax) { [string]$s.SparklineMax } else { 'null' }
+                $sparkStyle   = if ($s.Contains('SparklineStyle') -and $s.SparklineStyle) { [string]$s.SparklineStyle } else { 'line' }
+                $sparkJson = ",`"sparkline`":[$sparkValues],`"sparklineMin`":$sparkMinJson,`"sparklineMax`":$sparkMaxJson,`"sparklineStyle`":$(ConvertTo-DhJsonString $sparkStyle)"
+            }
+
+            # Tile style (v1.4 F3 + F4) — always emit; default 'tile' preserves the existing renderer
+            $styleStr = if ($s.Contains('Style') -and $s.Style) { [string]$s.Style } else { 'tile' }
+            $styleJson = ",`"style`":$(ConvertTo-DhJsonString $styleStr)"
+
+            # Bignumber caption (only when style is bignumber and caption is set)
+            $captionJson = ''
+            if ($styleStr -eq 'bignumber' -and $s.Contains('Caption') -and -not [string]::IsNullOrWhiteSpace([string]$s.Caption)) {
+                $captionJson = ",`"caption`":$(ConvertTo-DhJsonString $s.Caption)"
+            }
+
+            # Gauge fields (only when style is gauge)
+            $gaugeJson = ''
+            if ($styleStr -eq 'gauge') {
+                $minJson  = if ($null -ne $s.Min)  { [string]$s.Min }  else { '0' }
+                $maxJson  = if ($null -ne $s.Max)  { [string]$s.Max }  else { '100' }
+                $unitStr  = if ($s.Contains('Unit') -and $s.Unit) { [string]$s.Unit } else { '' }
+                $thJson   = ''
+                if ($s.Contains('Thresholds') -and @($s.Thresholds).Count -gt 0) {
+                    $thItems = (@($s.Thresholds) | ForEach-Object {
+                        $th = $_
+                        $minPart = if ($th.Contains('Min')) { "`"min`":$([string]$th.Min)," } else { '' }
+                        $maxPart = if ($th.Contains('Max')) { "`"max`":$([string]$th.Max)," } else { '' }
+                        "{$minPart$maxPart`"class`":$(ConvertTo-DhJsonString $th.Class)}"
+                    }) -join ','
+                    $thJson = ",`"thresholds`":[$thItems]"
+                } else {
+                    $thJson = ',"thresholds":[]'
+                }
+                # ragNoData (v1.4 F13) — when true the gauge paints itself cell-nodata
+                # if the value is null/NaN or outside [min,max]
+                $rndJson = if ($s.Contains('RagNoData') -and $s.RagNoData) { ',"ragNoData":true' } else { '' }
+                $gaugeJson = ",`"min`":$minJson,`"max`":$maxJson,`"unit`":$(ConvertTo-DhJsonString $unitStr)$thJson$rndJson"
+            }
+
+            # Per-tile Action (v1.4.2 — click-to-jump) — emit only when set
+            $actionJson = ''
+            if ($s.Contains('Action') -and $null -ne $s.Action) {
+                $a = $s.Action
+                $actionJson = ",`"action`":{`"label`":$(ConvertTo-DhJsonString $a.Label),`"tableId`":$(ConvertTo-DhJsonString $a.TableId),`"filter`":$(ConvertTo-DhJsonString $a.Filter),`"url`":$(ConvertTo-DhJsonString $a.Url)}"
+            }
+
+            "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $s.Icon),`"subLabel`":$(ConvertTo-DhJsonString $s.SubLabel),`"class`":$(ConvertTo-DhJsonString $s.Class),`"format`":$(ConvertTo-DhJsonString $s.Format),`"locale`":$(ConvertTo-DhJsonString $s.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $s.Currency)$styleJson$captionJson$gaugeJson$deltaJson$sparkJson$actionJson}"
         }) -join ','
         $summaryConfigJson = "[$summaryItems]"
     }
@@ -220,17 +314,255 @@ function Export-DhDashboard {
                     $spStr = $b.ShowPercent.ToString().ToLower()
                     $scStr = $b.ShowCount.ToString().ToLower()
                     $cfStr = $b.ClickFilters.ToString().ToLower()
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr}"
+                    # v1.4 F12 — stacked mode adds seriesField + stacked flag
+                    $stStr   = if ($b.Contains('Stacked'))     { ([bool]$b.Stacked).ToString().ToLower() } else { 'false' }
+                    $sfStr   = if ($b.Contains('SeriesField') -and $b.SeriesField) { [string]$b.SeriesField } else { '' }
+                    $stacked = ",`"stacked`":$stStr,`"seriesField`":$(ConvertTo-DhJsonString $sfStr)"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr$stacked}"
+                }
+                'heatmap' {
+                    # v1.5 — rows × columns matrix with sequential / diverging colour scale.
+                    $rowsJ    = (@($b.Rows)    | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ','
+                    $columnsJ = (@($b.Columns) | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ','
+                    $cellsJ = ''
+                    if ($b.Cells -and @($b.Cells).Count -gt 0) {
+                        $cellsJ = (@($b.Cells) | ForEach-Object {
+                            $hc = $_
+                            "{`"row`":$(ConvertTo-DhJsonString $hc.Row),`"column`":$(ConvertTo-DhJsonString $hc.Column),`"value`":$([string]$hc.Value),`"tooltip`":$(ConvertTo-DhJsonString $hc.Tooltip)}"
+                        }) -join ','
+                    }
+                    $minJ  = if ($null -ne $b.Min) { [string]$b.Min } else { 'null' }
+                    $maxJ  = if ($null -ne $b.Max) { [string]$b.Max } else { 'null' }
+                    $svStr = ([bool]$b.ShowValues).ToString().ToLower()
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJ],`"columns`":[$columnsJ],`"cells`":[$cellsJ],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"colorScale`":$(ConvertTo-DhJsonString $b.ColorScale),`"min`":$minJ,`"max`":$maxJ,`"unit`":$(ConvertTo-DhJsonString $b.Unit),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize),`"showValues`":$svStr}"
+                }
+                'tabs' {
+                    # v1.5 — inline tabbed content block.
+                    $tabsJson = ''
+                    if ($b.Tabs -and @($b.Tabs).Count -gt 0) {
+                        $tabsJson = (@($b.Tabs) | ForEach-Object {
+                            $tb = $_
+                            $actStr = ([bool]$tb.Active).ToString().ToLower()
+                            "{`"title`":$(ConvertTo-DhJsonString $tb.Title),`"content`":$(ConvertTo-DhJsonString $tb.Content),`"icon`":$(ConvertTo-DhJsonString $tb.Icon),`"active`":$actStr}"
+                        }) -join ','
+                    }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tabs`":[$tabsJson]}"
+                }
+                'topologymap' {
+                    # v1.5 — parent/child tree visualisation. Each node carries its
+                    # id, label, parent id (or '' for root), optional status / icon /
+                    # badge / tooltip, plus optional LinkTableId / LinkFilter for
+                    # click-to-jump navigation.
+                    $nodesJson = ''
+                    if ($b.Nodes -and @($b.Nodes).Count -gt 0) {
+                        $nodesJson = (@($b.Nodes) | ForEach-Object {
+                            $tn = $_
+                            "{`"id`":$(ConvertTo-DhJsonString $tn.Id),`"label`":$(ConvertTo-DhJsonString $tn.Label),`"parent`":$(ConvertTo-DhJsonString $tn.Parent),`"status`":$(ConvertTo-DhJsonString $tn.Status),`"icon`":$(ConvertTo-DhJsonString $tn.Icon),`"badge`":$(ConvertTo-DhJsonString $tn.Badge),`"tooltip`":$(ConvertTo-DhJsonString $tn.Tooltip),`"linkTableId`":$(ConvertTo-DhJsonString $tn.LinkTableId),`"linkFilter`":$(ConvertTo-DhJsonString $tn.LinkFilter)}"
+                        }) -join ','
+                    }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"nodes`":[$nodesJson],`"direction`":$(ConvertTo-DhJsonString $b.Direction),`"nodeWidth`":$($b.NodeWidth),`"nodeHeight`":$($b.NodeHeight)}"
+                }
+                'statusgrid' {
+                    # v1.4 F5 — rows × columns RAG matrix.
+                    $rowsJson    = (@($b.Rows)    | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ','
+                    $columnsJson = (@($b.Columns) | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ','
+                    $cellsJson = ''
+                    if ($b.Cells -and @($b.Cells).Count -gt 0) {
+                        $cellsJson = (@($b.Cells) | ForEach-Object {
+                            $cell = $_
+                            "{`"row`":$(ConvertTo-DhJsonString $cell.Row),`"column`":$(ConvertTo-DhJsonString $cell.Column),`"status`":$(ConvertTo-DhJsonString $cell.Status),`"tooltip`":$(ConvertTo-DhJsonString $cell.Tooltip),`"linkTableId`":$(ConvertTo-DhJsonString $cell.LinkTableId),`"linkFilter`":$(ConvertTo-DhJsonString $cell.LinkFilter)}"
+                        }) -join ','
+                    }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJson],`"columns`":[$columnsJson],`"cells`":[$cellsJson],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize)}"
+                }
+                'summarystrip' {
+                    # v1.4.1 F-multi-summary — per-NavGroup KPI strip emitted as
+                    # a regular block. The JS renderer reuses the same tile
+                    # helpers as the top-of-page strip; only the host container
+                    # differs (per-block instead of #report-summary).
+                    $stItems = ''
+                    if ($b.Items -and @($b.Items).Count -gt 0) {
+                        $stItems = (@($b.Items) | ForEach-Object {
+                            $it = $_
+
+                            # Mirrors the summary-tile JSON in $summaryItems above —
+                            # delta + sparkline + style + gauge fields all included.
+                            $val = if ($null -eq $it.Value) { 'null' } `
+                                   elseif ($it.Value -is [bool])    { $it.Value.ToString().ToLower() } `
+                                   elseif ($it.Value -is [int] -or $it.Value -is [long] -or $it.Value -is [double] -or $it.Value -is [float] -or $it.Value -is [decimal]) { [string]$it.Value } `
+                                   else { ConvertTo-DhJsonString ([string]$it.Value) }
+                            $dec = if ($it.Contains('Decimals') -and $it.Decimals -ge 0) { $it.Decimals } else { -1 }
+
+                            # Trend / delta
+                            $deltaJson2 = ''
+                            $hasPrev2   = $it.Contains('Previous')   -and $null -ne $it.Previous
+                            $hasTrend2  = $it.Contains('Trend')      -and $it.Trend -ne 'auto'
+                            if ($hasPrev2 -or $hasTrend2) {
+                                $prevJson2 = if ($hasPrev2) { [string]$it.Previous } else { 'null' }
+                                $trendStr2 = if ($it.Contains('Trend') -and $it.Trend) { [string]$it.Trend } else { 'auto' }
+                                $tigJson2  = if ($null -ne $it.TrendIsGood) { ([bool]$it.TrendIsGood).ToString().ToLower() } else { 'null' }
+                                $dfStr2    = if ($it.Contains('DeltaFormat') -and $it.DeltaFormat) { [string]$it.DeltaFormat } else { 'both' }
+                                $deltaJson2 = ",`"previous`":$prevJson2,`"trend`":$(ConvertTo-DhJsonString $trendStr2),`"trendIsGood`":$tigJson2,`"deltaFormat`":$(ConvertTo-DhJsonString $dfStr2)"
+                            }
+
+                            # Sparkline
+                            $sparkJson2 = ''
+                            if ($it.Contains('Sparkline') -and $it.Sparkline -and @($it.Sparkline).Count -gt 0) {
+                                $sparkValues2 = ((@($it.Sparkline) | ForEach-Object { [string]$_ }) -join ',')
+                                $sparkMinJson2 = if ($null -ne $it.SparklineMin) { [string]$it.SparklineMin } else { 'null' }
+                                $sparkMaxJson2 = if ($null -ne $it.SparklineMax) { [string]$it.SparklineMax } else { 'null' }
+                                $sparkStyle2   = if ($it.Contains('SparklineStyle') -and $it.SparklineStyle) { [string]$it.SparklineStyle } else { 'line' }
+                                $sparkJson2 = ",`"sparkline`":[$sparkValues2],`"sparklineMin`":$sparkMinJson2,`"sparklineMax`":$sparkMaxJson2,`"sparklineStyle`":$(ConvertTo-DhJsonString $sparkStyle2)"
+                            }
+
+                            # Style + style-specific fields (bignumber caption, gauge fields)
+                            $styleStr2  = if ($it.Contains('Style') -and $it.Style) { [string]$it.Style } else { 'tile' }
+                            $styleJson2 = ",`"style`":$(ConvertTo-DhJsonString $styleStr2)"
+                            $captionJson2 = ''
+                            if ($styleStr2 -eq 'bignumber' -and $it.Contains('Caption') -and -not [string]::IsNullOrWhiteSpace([string]$it.Caption)) {
+                                $captionJson2 = ",`"caption`":$(ConvertTo-DhJsonString $it.Caption)"
+                            }
+                            $gaugeJson2 = ''
+                            if ($styleStr2 -eq 'gauge') {
+                                $minJson2 = if ($null -ne $it.Min) { [string]$it.Min } else { '0' }
+                                $maxJson2 = if ($null -ne $it.Max) { [string]$it.Max } else { '100' }
+                                $unitStr2 = if ($it.Contains('Unit') -and $it.Unit) { [string]$it.Unit } else { '' }
+                                $thJson2  = ''
+                                if ($it.Contains('Thresholds') -and @($it.Thresholds).Count -gt 0) {
+                                    $thItems2 = (@($it.Thresholds) | ForEach-Object {
+                                        $th = $_
+                                        $minPart = if ($th.Contains('Min')) { "`"min`":$([string]$th.Min)," } else { '' }
+                                        $maxPart = if ($th.Contains('Max')) { "`"max`":$([string]$th.Max)," } else { '' }
+                                        "{$minPart$maxPart`"class`":$(ConvertTo-DhJsonString $th.Class)}"
+                                    }) -join ','
+                                    $thJson2 = ",`"thresholds`":[$thItems2]"
+                                } else {
+                                    $thJson2 = ',"thresholds":[]'
+                                }
+                                $rndJson2 = if ($it.Contains('RagNoData') -and $it.RagNoData) { ',"ragNoData":true' } else { '' }
+                                $gaugeJson2 = ",`"min`":$minJson2,`"max`":$maxJson2,`"unit`":$(ConvertTo-DhJsonString $unitStr2)$thJson2$rndJson2"
+                            }
+
+                            # Per-tile Action (v1.4.2) — same shape as the top-of-page strip
+                            $actionJson2 = ''
+                            if ($it.Contains('Action') -and $null -ne $it.Action) {
+                                $a2 = $it.Action
+                                $actionJson2 = ",`"action`":{`"label`":$(ConvertTo-DhJsonString $a2.Label),`"tableId`":$(ConvertTo-DhJsonString $a2.TableId),`"filter`":$(ConvertTo-DhJsonString $a2.Filter),`"url`":$(ConvertTo-DhJsonString $a2.Url)}"
+                            }
+
+                            "{`"label`":$(ConvertTo-DhJsonString $it.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $it.Icon),`"subLabel`":$(ConvertTo-DhJsonString $it.SubLabel),`"class`":$(ConvertTo-DhJsonString $it.Class),`"format`":$(ConvertTo-DhJsonString $it.Format),`"locale`":$(ConvertTo-DhJsonString $it.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $it.Currency)$styleJson2$captionJson2$gaugeJson2$deltaJson2$sparkJson2$actionJson2}"
+                        }) -join ','
+                    }
+                    $collStr = ([bool]$b.Collapsible).ToString().ToLower()
+                    $doStr   = ([bool]$b.DefaultOpen).ToString().ToLower()
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"icon`":$(ConvertTo-DhJsonString $b.Icon),`"collapsible`":$collStr,`"defaultOpen`":$doStr,`"items`":[$stItems]}"
+                }
+                'eventfeed' {
+                    # v1.4 F11 — chronological severity-tagged audit trail.
+                    $eventsJson = ''
+                    if ($b.Events -and @($b.Events).Count -gt 0) {
+                        $eventsJson = (@($b.Events) | ForEach-Object {
+                            $ev = $_
+                            "{`"timestamp`":$(ConvertTo-DhJsonString $ev.Timestamp),`"severity`":$(ConvertTo-DhJsonString $ev.Severity),`"message`":$(ConvertTo-DhJsonString $ev.Message),`"source`":$(ConvertTo-DhJsonString $ev.Source),`"icon`":$(ConvertTo-DhJsonString $ev.Icon)}"
+                        }) -join ','
+                    }
+                    $sdStr = $b.SortDescending.ToString().ToLower()
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"events`":[$eventsJson],`"maxItems`":$($b.MaxItems),`"groupBy`":$(ConvertTo-DhJsonString $b.GroupBy),`"sortDescending`":$sdStr}"
+                }
+                'linechart' {
+                    # v1.4 F9 — pure-SVG line / area chart with optional target line.
+                    # xAxis is a string array; series is an array of {label, values[], class, color}.
+                    $xAxisJson = ''
+                    if ($b.XAxis -and @($b.XAxis).Count -gt 0) {
+                        $xAxisJson = (@($b.XAxis) | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ','
+                    }
+                    $seriesJson = ''
+                    if ($b.Series -and @($b.Series).Count -gt 0) {
+                        $seriesJson = (@($b.Series) | ForEach-Object {
+                            $sr = $_
+                            # NaN doubles serialise as 'NaN' which is not valid JSON — emit null instead
+                            $valsJoin = (@($sr.Values) | ForEach-Object {
+                                if ([double]::IsNaN([double]$_)) { 'null' } else { [string]$_ }
+                            }) -join ','
+                            "{`"label`":$(ConvertTo-DhJsonString $sr.Label),`"values`":[$valsJoin],`"class`":$(ConvertTo-DhJsonString $sr.Class),`"color`":$(ConvertTo-DhJsonString $sr.Color)}"
+                        }) -join ','
+                    }
+                    $filledStr = $b.Filled.ToString().ToLower()
+                    $tlStr     = if ($null -ne $b.TargetLine) { [string]$b.TargetLine } else { 'null' }
+                    $tlLabel   = ConvertTo-DhJsonString ([string]$b.TargetLabel)
+                    $yMinStr   = if ($null -ne $b.YAxisMin) { [string]$b.YAxisMin } else { 'null' }
+                    $yMaxStr   = if ($null -ne $b.YAxisMax) { [string]$b.YAxisMax } else { 'null' }
+                    $yUnitStr  = ConvertTo-DhJsonString ([string]$b.YAxisUnit)
+                    $slStr     = $b.ShowLegend.ToString().ToLower()
+                    $sgStr     = $b.ShowGrid.ToString().ToLower()
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"xAxis`":[$xAxisJson],`"series`":[$seriesJson],`"filled`":$filledStr,`"targetLine`":$tlStr,`"targetLabel`":$tlLabel,`"yAxisMin`":$yMinStr,`"yAxisMax`":$yMaxStr,`"yAxisUnit`":$yUnitStr,`"showLegend`":$slStr,`"showGrid`":$sgStr,`"height`":$($b.Height)}"
+                }
+                'bullet' {
+                    # v1.4 F10 — each item carries Value/Target/Min/Max/Unit/Class
+                    # + a thresholds[] array + an optional ragNoData flag.
+                    $itemsJson = ''
+                    if ($b.Items -and @($b.Items).Count -gt 0) {
+                        $itemsJson = (@($b.Items) | ForEach-Object {
+                            $bi = $_
+                            $targetJson = if ($null -ne $bi.Target) { [string]$bi.Target } else { 'null' }
+                            $thArr = ''
+                            if ($bi.Thresholds -and @($bi.Thresholds).Count -gt 0) {
+                                $thArr = (@($bi.Thresholds) | ForEach-Object {
+                                    $th = $_
+                                    $mn = if ($th.Contains('Min')) { "`"min`":$([string]$th.Min)," } else { '' }
+                                    $mx = if ($th.Contains('Max')) { "`"max`":$([string]$th.Max)," } else { '' }
+                                    "{$mn$mx`"class`":$(ConvertTo-DhJsonString $th.Class)}"
+                                }) -join ','
+                            }
+                            $rndPart = if ($bi.RagNoData) { ',"ragNoData":true' } else { '' }
+                            $valueJson = if ($null -eq $bi.Value) { 'null' } else { [string]$bi.Value }
+                            "{`"label`":$(ConvertTo-DhJsonString $bi.Label),`"value`":$valueJson,`"target`":$targetJson,`"min`":$([string]$bi.Min),`"max`":$([string]$bi.Max),`"unit`":$(ConvertTo-DhJsonString $bi.Unit),`"class`":$(ConvertTo-DhJsonString $bi.Class),`"thresholds`":[$thArr]$rndPart}"
+                        }) -join ','
+                    }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"items`":[$itemsJson]}"
+                }
+                'piechart' {
+                    $cfStr = $b.ClickFilters.ToString().ToLower()
+                    $stStr = $b.ShowTotal.ToString().ToLower()
+                    $slStr = $b.ShowLegend.ToString().ToLower()
+                    $slicesJson = ''
+                    if ($b.Slices -and $b.Slices.Count -gt 0) {
+                        $slicesJson = ($b.Slices | ForEach-Object {
+                            $s = $_
+                            "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$($s.Value),`"color`":$(ConvertTo-DhJsonString $s.Color)}"
+                        }) -join ','
+                    }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"style`":$(ConvertTo-DhJsonString $b.Style),`"mode`":$(ConvertTo-DhJsonString $b.Mode),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"clickFilters`":$cfStr,`"slices`":[$slicesJson],`"showTotal`":$stStr,`"showLegend`":$slStr}"
                 }
             }
         }) -join ','
         $blocksConfigJson = "[$blockItems]"
     }
 
+    # ---- Build alert banners JSON --------------------------------------------------
+    $alertsConfigJson = '[]'
+    if ($Report.Contains('AlertBanners') -and $Report.AlertBanners.Count -gt 0) {
+        $alertItems = ($Report.AlertBanners | ForEach-Object {
+            $a = $_
+            $dismissStr = $a.Dismissible.ToString().ToLower()
+            $actionJson = 'null'
+            if ($a.Action) {
+                $actionJson = "{`"label`":$(ConvertTo-DhJsonString $a.Action.Label),`"tableId`":$(ConvertTo-DhJsonString $a.Action.TableId),`"filter`":$(ConvertTo-DhJsonString $a.Action.Filter),`"url`":$(ConvertTo-DhJsonString $a.Action.Url)}"
+            }
+            # v1.4.2+ — optional NavGroup / NavSubGroup so the banner can bind
+            # to a single panel rather than staying page-global.
+            $ngStr = if ($a.Contains('NavGroup')    -and $a.NavGroup)    { [string]$a.NavGroup }    else { '' }
+            $sgStr = if ($a.Contains('NavSubGroup') -and $a.NavSubGroup) { [string]$a.NavSubGroup } else { '' }
+            "{`"id`":$(ConvertTo-DhJsonString $a.Id),`"severity`":$(ConvertTo-DhJsonString $a.Severity),`"message`":$(ConvertTo-DhJsonString $a.Message),`"icon`":$(ConvertTo-DhJsonString $a.Icon),`"dismissible`":$dismissStr,`"action`":$actionJson,`"navGroup`":$(ConvertTo-DhJsonString $ngStr),`"navSubGroup`":$(ConvertTo-DhJsonString $sgStr)}"
+        }) -join ','
+        $alertsConfigJson = "[$alertItems]"
+    }
+
     # ---- Inject config into JS engine --------------------------------------------
     $js = (Get-DhJsContent) -replace '/\*%%TABLES_CONFIG%%\*/\[\]',  $tablesConfigJson
     $js = $js               -replace '/\*%%SUMMARY_CONFIG%%\*/\[\]', $summaryConfigJson
     $js = $js               -replace '/\*%%BLOCKS_CONFIG%%\*/\[\]',  $blocksConfigJson
+    $js = $js               -replace '/\*%%ALERTS_CONFIG%%\*/\[\]',  $alertsConfigJson
 
     # ---- Build theme style tag (light primary, dark alternate, always embedded) --
     $primaryCss    = Get-DhThemeCss -Theme $theme
@@ -358,6 +690,19 @@ function Export-DhDashboard {
         $infoFieldsHtml = "<div class=`"info-fields-grid`">`n            $fieldItems`n          </div>"
     }
 
+    # ---- Summary container shell ------------------------------------------------
+    # When -Collapsible was passed to Add-DhSummary, emit data-* attributes that
+    # the JS engine reads to wrap the tile strip in a collapsible header.
+    $summaryOpts = if ($Report.Contains('SummaryOptions')) { $Report.SummaryOptions } else { $null }
+    if ($summaryOpts -and $summaryOpts.Collapsible) {
+        $sTitleAttr = [System.Web.HttpUtility]::HtmlEncode([string]$summaryOpts.Title)
+        $sIconAttr  = if ($summaryOpts.Icon) { [System.Web.HttpUtility]::HtmlEncode([string]$summaryOpts.Icon) } else { '' }
+        $sOpenAttr  = if ($summaryOpts.DefaultOpen) { 'true' } else { 'false' }
+        $summaryContainerHtml = "<div class=`"report-summary`" id=`"report-summary`" data-collapsible=`"true`" data-title=`"$sTitleAttr`" data-icon=`"$sIconAttr`" data-default-open=`"$sOpenAttr`"></div>"
+    } else {
+        $summaryContainerHtml = '<div class="report-summary" id="report-summary"></div>'
+    }
+
     # ---- Table section shells ---------------------------------------------------
     $tableSections = if ($Report.Tables.Count -gt 0) {
         Build-DhTableSections -Tables $Report.Tables
@@ -377,6 +722,12 @@ function Export-DhDashboard {
         }) -join "`n"
     }
 
+    # ---- Auto-refresh meta tag (v1.4.2 — -AutoRefresh on New-DhDashboard) ----
+    $autoRefreshTag = ''
+    if ($Report.Contains('AutoRefreshSec') -and [int]$Report.AutoRefreshSec -ge 1) {
+        $autoRefreshTag = "  <meta http-equiv=`"refresh`" content=`"$([int]$Report.AutoRefreshSec)`">"
+    }
+
     # ---- Assemble HTML ----------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
@@ -386,6 +737,7 @@ function Export-DhDashboard {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="DashHtml PowerShell Module v$moduleVersion">
   <meta name="report-theme" content="$themeFamily">
+$autoRefreshTag
   <title>$([System.Web.HttpUtility]::HtmlEncode($Report.Title))</title>
 $themeStyleTag
   <!-- Export libraries (cdnjs - internet required for XLSX/PDF export) -->
@@ -428,7 +780,8 @@ $themeStyleTag
   </nav>
 
   <main class="report-body">
-    <div class="report-summary" id="report-summary"></div>
+    <div class="report-alerts" id="report-alerts"></div>
+    $summaryContainerHtml
 $blockSectionsHtml
 $tableSections
   </main>

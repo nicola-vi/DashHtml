@@ -50,7 +50,7 @@ function Add-DhHtmlBlock {
         [string] $Title   = '',
         [string] $Icon    = '',
         [Parameter(Mandatory)] [string] $Content,
-        [ValidateSet('info','warn','danger','ok','neutral')]
+        [ValidateSet('info','warn','danger','ok','nodata','neutral')]
         [string] $Style   = 'info',
         [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
         [string] $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
