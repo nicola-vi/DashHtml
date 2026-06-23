@@ -87,6 +87,10 @@ function Add-DhStatusGrid {
         [ValidateRange(1, 100000)]
         [int]    $MaxCells = 2000,
 
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -170,6 +174,8 @@ function Add-DhStatusGrid {
         CellSize    = $CellSize
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhStatusGrid: '$Id' ($($rowList.Count) rows × $($colList.Count) cols, $(@($normCells).Count) cells)."
 }

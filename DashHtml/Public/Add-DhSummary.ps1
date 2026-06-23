@@ -145,11 +145,13 @@ function Add-DhSummary {
             if ($hasT -and $hasU) {
                 throw "Add-DhSummary: tile '$($t.Label)' — Action must specify EITHER 'TableId' OR 'Url', not both."
             }
+            # v1.5.3 — scheme allowlist (same rationale as Add-DhAlertBanner Action.Url).
+            $tileUrl = if ($hasU) { Test-DhSafeActionUrl -Url ([string]$act.Url) -Context "Add-DhSummary: tile '$($t.Label)' Action.Url" } else { '' }
             $t['Action'] = @{
                 Label   = if ($act.Contains('Label'))  { [string]$act.Label }   else { '' }
                 TableId = if ($hasT) { [string]$act.TableId } else { '' }
                 Filter  = if ($act.Contains('Filter')) { [string]$act.Filter }  else { '' }
-                Url     = if ($hasU) { [string]$act.Url }     else { '' }
+                Url     = $tileUrl
             }
         } else {
             $t['Action'] = $null

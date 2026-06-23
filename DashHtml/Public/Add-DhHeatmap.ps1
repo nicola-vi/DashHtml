@@ -117,6 +117,10 @@ function Add-DhHeatmap {
         [ValidateRange(1, 200000)]
         [int]    $MaxCells = 5000,
 
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -213,6 +217,8 @@ function Add-DhHeatmap {
         ShowValues  = [bool]$ShowValues
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhHeatmap: '$Id' ($($rowList.Count) × $($colList.Count), $(@($normCells).Count) cells, scale=$ColorScale)."
 }

@@ -463,12 +463,46 @@ function Get-DhJsContent {
         : '';
 
       /* alert.message may contain inline HTML by design (matches Add-DhHtmlBlock policy) */
-      banner.innerHTML =
+      var bodyHtml =
         '<div class="alert-body">'
         + iconHtml
         + '<span class="alert-message">' + alert.message + '</span>'
-        + '</div>'
-        + '<div class="alert-actions">' + actionHtml + dismissHtml + '</div>';
+        + '</div>';
+      var actionsHtml = '<div class="alert-actions">' + actionHtml + dismissHtml + '</div>';
+
+      if (alert.collapsible) {
+        /* v1.5.1 — wrap the message body in a collapsible header bar.
+           The action + dismiss buttons stay outside the collapse so they
+           remain reachable when the body is folded away. */
+        var isOpen   = alert.defaultOpen !== false;
+        var headTxt  = alert.title || '';
+        var uidA     = alert.id;
+        banner.classList.add('alert-banner-collapsible');
+        banner.innerHTML =
+          '<div class="alert-collapsible-head">'
+          + '<button class="alert-toggle' + (isOpen?' open':'') + '" type="button" '
+          +   'id="atoggle-' + uidA + '" aria-expanded="' + (isOpen?'true':'false') + '">'
+          +   iconHtml
+          +   '<span class="alert-title">' + esc(headTxt) + '</span>'
+          +   '<span class="alert-chevron">' + (isOpen?'▾':'▸') + '</span>'
+          + '</button>'
+          + actionsHtml
+          + '</div>'
+          + '<div class="alert-collapsible-body' + (isOpen?' open':'') + '" id="abody-' + uidA + '">'
+          +   bodyHtml
+          + '</div>';
+        var aToggle = banner.querySelector('#atoggle-' + uidA);
+        var aBody   = banner.querySelector('#abody-' + uidA);
+        var aChev   = banner.querySelector('.alert-chevron');
+        aToggle.addEventListener('click', function () {
+          var open = aBody.classList.toggle('open');
+          aToggle.classList.toggle('open', open);
+          aToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if (aChev) aChev.textContent = open ? '▾' : '▸';
+        });
+      } else {
+        banner.innerHTML = bodyHtml + actionsHtml;
+      }
 
       /* Wire dismiss */
       if (alert.dismissible) {
@@ -780,24 +814,76 @@ function Get-DhJsContent {
   /* =========================================================================
      BLOCKS ENGINE — HTML, Collapsible, FilterCardGrid, BarChart, PieChart
      ========================================================================= */
+
+  /* Block types whose renderer already implements its own collapsible chrome
+     and therefore must NOT be re-wrapped by the central dispatcher. */
+  var _SELF_COLLAPSIBLE = { 'collapsible': true, 'summarystrip': true };
+
+  /* wrapCollapsibleBlock — if block.collapsible is true (and the block type
+     does not implement its own chrome), transform the outer block container
+     into a collapsible-section, build the toggle / body / inner-content
+     structure, and return the inner element + a cloned block with title/icon
+     cleared so the inner renderer does not double-render the heading. */
+  function wrapCollapsibleBlock(outer, block) {
+    if (_SELF_COLLAPSIBLE[block.blockType]) return { container: outer, block: block };
+    if (!block.collapsible) return { container: outer, block: block };
+
+    var isOpen = block.defaultOpen !== false;
+    var title  = block.title || '';
+    var icon   = block.icon  || '';
+    var uid    = block.id;
+
+    outer.className = 'collapsible-section block-collapsible';
+    var iconHtml = icon ? '<span class="collapsible-icon">'+esc(icon)+'</span> ' : '';
+    outer.innerHTML =
+      '<div class="collapsible-toggle'+(isOpen?' open':'')+'" id="ctoggle-'+uid+'">'+
+        '<div class="collapsible-toggle-left">'+
+          '<span class="collapsible-title">'+iconHtml+esc(title)+'</span>'+
+        '</div>'+
+        '<span class="collapsible-chevron">'+(isOpen?'▾':'▸')+'</span>'+
+      '</div>'+
+      '<div class="collapsible-body'+(isOpen?' open':'')+'" id="cbody-'+uid+'">'+
+        '<div class="collapsible-inner block-collapsible-inner" id="cinner-'+uid+'"></div>'+
+      '</div>';
+
+    var toggle = outer.querySelector('#ctoggle-'+uid);
+    var body   = outer.querySelector('#cbody-'+uid);
+    var chev   = outer.querySelector('.collapsible-chevron');
+    toggle.addEventListener('click', function () {
+      var open = body.classList.toggle('open');
+      toggle.classList.toggle('open', open);
+      chev.textContent = open ? '▾' : '▸';
+    });
+
+    /* Clone block, strip title + icon so the inner renderer doesn't repeat them */
+    var innerBlock = {};
+    for (var k in block) { if (Object.prototype.hasOwnProperty.call(block, k)) innerBlock[k] = block[k]; }
+    innerBlock.title = '';
+    innerBlock.icon  = '';
+    return { container: outer.querySelector('#cinner-'+uid), block: innerBlock };
+  }
+
   function renderBlocks() {
     BLOCKS_CONFIG.forEach(function (block) {
-      var container = document.getElementById('block-'+block.id);
-      if (!container) return;
-      switch (block.blockType) {
-        case 'html':           renderHtmlBlock(container, block); break;
-        case 'collapsible':    renderCollapsible(container, block); break;
-        case 'filtercardgrid': renderFilterCardGrid(container, block); break;
-        case 'barchart':       renderBarChart(container, block); break;
-        case 'piechart':       renderPieChart(container, block); break;
-        case 'bullet':         renderBullet(container, block); break;
-        case 'linechart':      renderLineChart(container, block); break;
-        case 'eventfeed':      renderEventFeed(container, block); break;
-        case 'statusgrid':     renderStatusGrid(container, block); break;
-        case 'summarystrip':   renderSummaryStrip(container, block); break;
-        case 'tabs':           renderTabs(container, block); break;
-        case 'heatmap':        renderHeatmap(container, block); break;
-        case 'topologymap':    renderTopologyMap(container, block); break;
+      var outer = document.getElementById('block-'+block.id);
+      if (!outer) return;
+      var w         = wrapCollapsibleBlock(outer, block);
+      var container = w.container;
+      var b         = w.block;
+      switch (b.blockType) {
+        case 'html':           renderHtmlBlock(container, b); break;
+        case 'collapsible':    renderCollapsible(container, b); break;
+        case 'filtercardgrid': renderFilterCardGrid(container, b); break;
+        case 'barchart':       renderBarChart(container, b); break;
+        case 'piechart':       renderPieChart(container, b); break;
+        case 'bullet':         renderBullet(container, b); break;
+        case 'linechart':      renderLineChart(container, b); break;
+        case 'eventfeed':      renderEventFeed(container, b); break;
+        case 'statusgrid':     renderStatusGrid(container, b); break;
+        case 'summarystrip':   renderSummaryStrip(container, b); break;
+        case 'tabs':           renderTabs(container, b); break;
+        case 'heatmap':        renderHeatmap(container, b); break;
+        case 'topologymap':    renderTopologyMap(container, b); break;
       }
     });
   }
@@ -1462,6 +1548,46 @@ function Get-DhJsContent {
         combined width. No force-directed layout; no Reingold-Tilford. Good
         enough for the spec's "≲ 50 nodes" target (AD Forest→Domain→DC,
         vCenter→Cluster→Host, etc.). */
+  /* v1.5.2 — shared canvas for text measurement (created lazily) */
+  var _topoMeasureCanvas = null;
+  function _topoMeasureText(txt, fontCss) {
+    if (!_topoMeasureCanvas) _topoMeasureCanvas = document.createElement('canvas');
+    var ctx = _topoMeasureCanvas.getContext('2d');
+    ctx.font = fontCss;
+    return ctx.measureText(txt || '').width;
+  }
+
+  /* v1.5.2 — shared HTML tooltip overlay for topology nodes. Lives outside the
+     SVG (browsers don't honour ::after / ::before on SVG elements) and is
+     created on first use. */
+  var _topoTooltipEl = null;
+  function _topoEnsureTooltip() {
+    if (_topoTooltipEl) return _topoTooltipEl;
+    _topoTooltipEl = document.createElement('div');
+    _topoTooltipEl.className = 'topo-tooltip';
+    _topoTooltipEl.setAttribute('role', 'tooltip');
+    _topoTooltipEl.style.display = 'none';
+    document.body.appendChild(_topoTooltipEl);
+    return _topoTooltipEl;
+  }
+  function _topoShowTooltip(text, evt) {
+    if (!text) return;
+    var tip = _topoEnsureTooltip();
+    tip.textContent = text;
+    tip.style.display = 'block';
+    /* Position above the cursor, snap inside the viewport */
+    var x = evt.clientX + 12;
+    var y = evt.clientY + 16;
+    var rect = tip.getBoundingClientRect();
+    if (x + rect.width  > window.innerWidth)  x = window.innerWidth  - rect.width  - 6;
+    if (y + rect.height > window.innerHeight) y = evt.clientY - rect.height - 8;
+    tip.style.left = x + 'px';
+    tip.style.top  = y + 'px';
+  }
+  function _topoHideTooltip() {
+    if (_topoTooltipEl) _topoTooltipEl.style.display = 'none';
+  }
+
   function renderTopologyMap(container, block) {
     container.className = 'topology-map-section';
     var nodes = block.nodes || [];
@@ -1489,6 +1615,37 @@ function Get-DhJsContent {
 
     var NW = block.nodeWidth  || 140;
     var NH = block.nodeHeight || 44;
+
+    /* v1.5.2 — Auto-fit NodeWidth to the widest label across all nodes.
+       Sample the actual font from the container so themes match. The
+       "slot" maths below depend on a single global NW, so we take the max
+       across the whole tree rather than per-level (per-level would break
+       parent-centring). */
+    if (block.autoFitWidth) {
+      var probe = document.createElement('span');
+      probe.style.visibility = 'hidden';
+      probe.style.position   = 'absolute';
+      probe.className        = 'topo-node-body';
+      container.appendChild(probe);
+      var sampleFont = window.getComputedStyle(probe).font || '600 13px sans-serif';
+      container.removeChild(probe);
+
+      /* Padding(8+8) + icon(~22 if any) + label + badge(~16 padding + width)
+         + gap allowances. Mirrors the .topo-node-body flex children. */
+      var maxFit = block.autoFitMaxWidth || 360;
+      var hardMin = NW;
+      var widest  = hardMin;
+      nodes.forEach(function (n) {
+        var labelW = _topoMeasureText(n.label || '', sampleFont);
+        var badgeW = n.badge ? _topoMeasureText(n.badge, sampleFont) + 18 : 0;
+        var iconW  = n.icon  ? 22 : 0;
+        var gaps   = (iconW ? 6 : 0) + (badgeW ? 6 : 0);
+        var needed = 16 /*horiz padding*/ + iconW + labelW + badgeW + gaps + 8 /*safety*/;
+        if (needed > widest) widest = needed;
+      });
+      NW = Math.min(Math.ceil(widest), maxFit);
+    }
+
     var direction = (block.direction || 'vertical').toLowerCase();
     var horizontal = (direction === 'horizontal');
     /* Slot = node + outer gap; depth gap = vertical spacing between levels */
@@ -1664,6 +1821,24 @@ function Get-DhJsContent {
           URLState.save();
         }
       });
+    });
+
+    /* v1.5.2 — styled tooltip. Falls back to the node's full label when no
+       explicit Tooltip was supplied, so truncated FQDN labels still surface
+       on hover. Skips nodes that have no useful text to show. */
+    container.querySelectorAll('.topo-node').forEach(function (el) {
+      var rect = el.querySelector('.topo-node-rect');
+      var customTip = rect ? rect.getAttribute('data-tooltip') : '';
+      var nid       = el.getAttribute('data-node-id');
+      var nodeObj   = nid ? byId[nid] : null;
+      var fallback  = nodeObj ? (nodeObj.label || '') : '';
+      var tipText   = customTip || fallback;
+      if (!tipText) return;
+      el.addEventListener('mouseenter', function (e) { _topoShowTooltip(tipText, e); });
+      el.addEventListener('mousemove',  function (e) { _topoShowTooltip(tipText, e); });
+      el.addEventListener('mouseleave', _topoHideTooltip);
+      el.addEventListener('focusin',    function (e) { _topoShowTooltip(tipText, e); });
+      el.addEventListener('focusout',   _topoHideTooltip);
     });
   }
 
@@ -2040,6 +2215,25 @@ function Get-DhJsContent {
     var hdr = document.querySelector('.report-header');
     var nav = document.getElementById('report-nav');
     if (hdr && nav) { nav.style.top = hdr.offsetHeight + 'px'; }
+  }
+
+  /* v1.5.1 — Wire the per-table collapsible toggle. Each Add-DhTable
+     section that opted into -Collapsible emits a header button and a
+     wrapped .table-section-body; this binds the click handler. */
+  function initTableCollapsibles() {
+    var toggles = document.querySelectorAll('.table-section-toggle');
+    toggles.forEach(function (btn) {
+      var bodyId = btn.id.replace(/^tsect-toggle-/, 'tsect-body-');
+      var body   = document.getElementById(bodyId);
+      var chev   = btn.querySelector('.table-section-chevron');
+      if (!body) return;
+      btn.addEventListener('click', function () {
+        var open = body.classList.toggle('open');
+        btn.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (chev) chev.innerHTML = open ? '&#9662;' : '&#9656;';
+      });
+    });
   }
 
   function initNav() {
@@ -3040,6 +3234,7 @@ function Get-DhJsContent {
     window.addEventListener('resize', syncNavTop);
     initThemeToggle();
     initDensityToggle();
+    initTableCollapsibles();
 
     /* Alert banners — initNav() has now exposed window._showPanel,
        and engines[] exists, so action buttons can navigate + filter. */

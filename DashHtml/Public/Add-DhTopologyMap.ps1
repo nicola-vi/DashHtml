@@ -89,6 +89,18 @@ function Add-DhTopologyMap {
         [ValidateRange(1, 1000)]
         [int]    $MaxNodes = 200,
 
+        # v1.5.2 — auto-fit node width: the JS renderer measures the widest
+        # label (label + icon + badge + padding) and grows NodeWidth to fit,
+        # capped at -AutoFitMaxWidth. Avoids the truncated-FQDN problem on
+        # default 140 px boxes.
+        [switch] $AutoFitWidth,
+        [ValidateRange(140, 600)]
+        [int]    $AutoFitMaxWidth = 360,
+
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -182,8 +194,12 @@ function Add-DhTopologyMap {
         Direction   = $Direction
         NodeWidth   = $NodeWidth
         NodeHeight  = $NodeHeight
+        AutoFitWidth    = [bool]$AutoFitWidth.IsPresent
+        AutoFitMaxWidth = $AutoFitMaxWidth
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
 
     $rootCount = @($normNodes | Where-Object { -not $_.Parent }).Count

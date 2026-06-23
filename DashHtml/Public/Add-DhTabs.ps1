@@ -23,6 +23,14 @@ function Add-DhTabs {
         is still to wrap the block in -NavGroup / -NavSubGroup and use the
         page-level nav; Add-DhTabs is intentionally limited to inline HTML.
 
+        SECURITY: per-tab Content is injected into the DOM via innerHTML.
+        Never pass untrusted external data (AD attributes, ticket titles, log
+        lines, anything supplied by an actor outside your trust boundary) into
+        Content without HTML-encoding it first with
+        [System.Web.HttpUtility]::HtmlEncode(). Same policy as
+        Add-DhHtmlBlock, Add-DhAlertBanner -Message, and Add-DhCollapsible
+        -Content.
+
     .PARAMETER Report
         Dashboard object from New-DhDashboard.
 
@@ -67,6 +75,10 @@ ntlm.fallback=disabled</pre>' }
         [string] $Id,
         [string] $Title = '',
         [Parameter(Mandatory)] [object[]] $Tabs,
+
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
 
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
@@ -120,6 +132,8 @@ ntlm.fallback=disabled</pre>' }
         Tabs        = @($normTabs)
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhTabs: '$Id' ($($normTabs.Count) tab(s))."
 }

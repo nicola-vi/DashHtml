@@ -284,9 +284,12 @@ function Export-DhDashboard {
         $blockItems = ($Report.Blocks | ForEach-Object {
             $b = $_
             $bt = ConvertTo-DhJsonString $b.BlockType
+            # v1.5.1 — central Collapsible / DefaultOpen flags shared by every block emit
+            $bCollStr = if ($b.Contains('Collapsible')) { ([bool]$b.Collapsible).ToString().ToLower() } else { 'false' }
+            $bDoStr   = if ($b.Contains('DefaultOpen')) { ([bool]$b.DefaultOpen).ToString().ToLower() } else { 'true'  }
             switch ($b.BlockType) {
                 'html' {
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"icon`":$(ConvertTo-DhJsonString $b.Icon),`"content`":$(ConvertTo-DhJsonString $b.Content),`"style`":$(ConvertTo-DhJsonString $b.Style)}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"icon`":$(ConvertTo-DhJsonString $b.Icon),`"content`":$(ConvertTo-DhJsonString $b.Content),`"style`":$(ConvertTo-DhJsonString $b.Style),`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'collapsible' {
                     $cardsJson = ($b.Cards | ForEach-Object {
@@ -308,7 +311,7 @@ function Export-DhDashboard {
                     }) -join ','
                     $mf  = $b.MultiFilter.ToString().ToLower()
                     $sc  = $b.ShowCount.ToString().ToLower()
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"targetTableId`":$(ConvertTo-DhJsonString $b.TargetTableId),`"filterField`":$(ConvertTo-DhJsonString $b.FilterField),`"multiFilter`":$mf,`"showCount`":$sc,`"cards`":[$fcJson]}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"targetTableId`":$(ConvertTo-DhJsonString $b.TargetTableId),`"filterField`":$(ConvertTo-DhJsonString $b.FilterField),`"multiFilter`":$mf,`"showCount`":$sc,`"cards`":[$fcJson],`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'barchart' {
                     $spStr = $b.ShowPercent.ToString().ToLower()
@@ -318,7 +321,7 @@ function Export-DhDashboard {
                     $stStr   = if ($b.Contains('Stacked'))     { ([bool]$b.Stacked).ToString().ToLower() } else { 'false' }
                     $sfStr   = if ($b.Contains('SeriesField') -and $b.SeriesField) { [string]$b.SeriesField } else { '' }
                     $stacked = ",`"stacked`":$stStr,`"seriesField`":$(ConvertTo-DhJsonString $sfStr)"
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr$stacked}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr$stacked,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'heatmap' {
                     # v1.5 — rows × columns matrix with sequential / diverging colour scale.
@@ -334,7 +337,7 @@ function Export-DhDashboard {
                     $minJ  = if ($null -ne $b.Min) { [string]$b.Min } else { 'null' }
                     $maxJ  = if ($null -ne $b.Max) { [string]$b.Max } else { 'null' }
                     $svStr = ([bool]$b.ShowValues).ToString().ToLower()
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJ],`"columns`":[$columnsJ],`"cells`":[$cellsJ],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"colorScale`":$(ConvertTo-DhJsonString $b.ColorScale),`"min`":$minJ,`"max`":$maxJ,`"unit`":$(ConvertTo-DhJsonString $b.Unit),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize),`"showValues`":$svStr}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJ],`"columns`":[$columnsJ],`"cells`":[$cellsJ],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"colorScale`":$(ConvertTo-DhJsonString $b.ColorScale),`"min`":$minJ,`"max`":$maxJ,`"unit`":$(ConvertTo-DhJsonString $b.Unit),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize),`"showValues`":$svStr,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'tabs' {
                     # v1.5 — inline tabbed content block.
@@ -346,7 +349,7 @@ function Export-DhDashboard {
                             "{`"title`":$(ConvertTo-DhJsonString $tb.Title),`"content`":$(ConvertTo-DhJsonString $tb.Content),`"icon`":$(ConvertTo-DhJsonString $tb.Icon),`"active`":$actStr}"
                         }) -join ','
                     }
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tabs`":[$tabsJson]}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tabs`":[$tabsJson],`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'topologymap' {
                     # v1.5 — parent/child tree visualisation. Each node carries its
@@ -360,7 +363,9 @@ function Export-DhDashboard {
                             "{`"id`":$(ConvertTo-DhJsonString $tn.Id),`"label`":$(ConvertTo-DhJsonString $tn.Label),`"parent`":$(ConvertTo-DhJsonString $tn.Parent),`"status`":$(ConvertTo-DhJsonString $tn.Status),`"icon`":$(ConvertTo-DhJsonString $tn.Icon),`"badge`":$(ConvertTo-DhJsonString $tn.Badge),`"tooltip`":$(ConvertTo-DhJsonString $tn.Tooltip),`"linkTableId`":$(ConvertTo-DhJsonString $tn.LinkTableId),`"linkFilter`":$(ConvertTo-DhJsonString $tn.LinkFilter)}"
                         }) -join ','
                     }
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"nodes`":[$nodesJson],`"direction`":$(ConvertTo-DhJsonString $b.Direction),`"nodeWidth`":$($b.NodeWidth),`"nodeHeight`":$($b.NodeHeight)}"
+                    $afStr  = if ($b.Contains('AutoFitWidth')) { ([bool]$b.AutoFitWidth).ToString().ToLower() } else { 'false' }
+                    $afMaxV = if ($b.Contains('AutoFitMaxWidth') -and $b.AutoFitMaxWidth) { [string]$b.AutoFitMaxWidth } else { '360' }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"nodes`":[$nodesJson],`"direction`":$(ConvertTo-DhJsonString $b.Direction),`"nodeWidth`":$($b.NodeWidth),`"nodeHeight`":$($b.NodeHeight),`"autoFitWidth`":$afStr,`"autoFitMaxWidth`":$afMaxV,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'statusgrid' {
                     # v1.4 F5 — rows × columns RAG matrix.
@@ -373,7 +378,7 @@ function Export-DhDashboard {
                             "{`"row`":$(ConvertTo-DhJsonString $cell.Row),`"column`":$(ConvertTo-DhJsonString $cell.Column),`"status`":$(ConvertTo-DhJsonString $cell.Status),`"tooltip`":$(ConvertTo-DhJsonString $cell.Tooltip),`"linkTableId`":$(ConvertTo-DhJsonString $cell.LinkTableId),`"linkFilter`":$(ConvertTo-DhJsonString $cell.LinkFilter)}"
                         }) -join ','
                     }
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJson],`"columns`":[$columnsJson],`"cells`":[$cellsJson],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize)}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJson],`"columns`":[$columnsJson],`"cells`":[$cellsJson],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize),`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'summarystrip' {
                     # v1.4.1 F-multi-summary — per-NavGroup KPI strip emitted as
@@ -467,7 +472,7 @@ function Export-DhDashboard {
                         }) -join ','
                     }
                     $sdStr = $b.SortDescending.ToString().ToLower()
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"events`":[$eventsJson],`"maxItems`":$($b.MaxItems),`"groupBy`":$(ConvertTo-DhJsonString $b.GroupBy),`"sortDescending`":$sdStr}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"events`":[$eventsJson],`"maxItems`":$($b.MaxItems),`"groupBy`":$(ConvertTo-DhJsonString $b.GroupBy),`"sortDescending`":$sdStr,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'linechart' {
                     # v1.4 F9 — pure-SVG line / area chart with optional target line.
@@ -495,7 +500,7 @@ function Export-DhDashboard {
                     $yUnitStr  = ConvertTo-DhJsonString ([string]$b.YAxisUnit)
                     $slStr     = $b.ShowLegend.ToString().ToLower()
                     $sgStr     = $b.ShowGrid.ToString().ToLower()
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"xAxis`":[$xAxisJson],`"series`":[$seriesJson],`"filled`":$filledStr,`"targetLine`":$tlStr,`"targetLabel`":$tlLabel,`"yAxisMin`":$yMinStr,`"yAxisMax`":$yMaxStr,`"yAxisUnit`":$yUnitStr,`"showLegend`":$slStr,`"showGrid`":$sgStr,`"height`":$($b.Height)}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"xAxis`":[$xAxisJson],`"series`":[$seriesJson],`"filled`":$filledStr,`"targetLine`":$tlStr,`"targetLabel`":$tlLabel,`"yAxisMin`":$yMinStr,`"yAxisMax`":$yMaxStr,`"yAxisUnit`":$yUnitStr,`"showLegend`":$slStr,`"showGrid`":$sgStr,`"height`":$($b.Height),`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'bullet' {
                     # v1.4 F10 — each item carries Value/Target/Min/Max/Unit/Class
@@ -519,7 +524,7 @@ function Export-DhDashboard {
                             "{`"label`":$(ConvertTo-DhJsonString $bi.Label),`"value`":$valueJson,`"target`":$targetJson,`"min`":$([string]$bi.Min),`"max`":$([string]$bi.Max),`"unit`":$(ConvertTo-DhJsonString $bi.Unit),`"class`":$(ConvertTo-DhJsonString $bi.Class),`"thresholds`":[$thArr]$rndPart}"
                         }) -join ','
                     }
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"items`":[$itemsJson]}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"items`":[$itemsJson],`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'piechart' {
                     $cfStr = $b.ClickFilters.ToString().ToLower()
@@ -532,7 +537,7 @@ function Export-DhDashboard {
                             "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$($s.Value),`"color`":$(ConvertTo-DhJsonString $s.Color)}"
                         }) -join ','
                     }
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"style`":$(ConvertTo-DhJsonString $b.Style),`"mode`":$(ConvertTo-DhJsonString $b.Mode),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"clickFilters`":$cfStr,`"slices`":[$slicesJson],`"showTotal`":$stStr,`"showLegend`":$slStr}"
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"style`":$(ConvertTo-DhJsonString $b.Style),`"mode`":$(ConvertTo-DhJsonString $b.Mode),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"clickFilters`":$cfStr,`"slices`":[$slicesJson],`"showTotal`":$stStr,`"showLegend`":$slStr,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
             }
         }) -join ','
@@ -553,16 +558,28 @@ function Export-DhDashboard {
             # to a single panel rather than staying page-global.
             $ngStr = if ($a.Contains('NavGroup')    -and $a.NavGroup)    { [string]$a.NavGroup }    else { '' }
             $sgStr = if ($a.Contains('NavSubGroup') -and $a.NavSubGroup) { [string]$a.NavSubGroup } else { '' }
-            "{`"id`":$(ConvertTo-DhJsonString $a.Id),`"severity`":$(ConvertTo-DhJsonString $a.Severity),`"message`":$(ConvertTo-DhJsonString $a.Message),`"icon`":$(ConvertTo-DhJsonString $a.Icon),`"dismissible`":$dismissStr,`"action`":$actionJson,`"navGroup`":$(ConvertTo-DhJsonString $ngStr),`"navSubGroup`":$(ConvertTo-DhJsonString $sgStr)}"
+            # v1.5.1 — collapsible banner chrome
+            $aCollStr  = if ($a.Contains('Collapsible')) { ([bool]$a.Collapsible).ToString().ToLower() } else { 'false' }
+            $aDoStr    = if ($a.Contains('DefaultOpen')) { ([bool]$a.DefaultOpen).ToString().ToLower() } else { 'true'  }
+            $aTitleStr = if ($a.Contains('Title') -and $a.Title) { [string]$a.Title } else { '' }
+            "{`"id`":$(ConvertTo-DhJsonString $a.Id),`"severity`":$(ConvertTo-DhJsonString $a.Severity),`"message`":$(ConvertTo-DhJsonString $a.Message),`"icon`":$(ConvertTo-DhJsonString $a.Icon),`"dismissible`":$dismissStr,`"action`":$actionJson,`"navGroup`":$(ConvertTo-DhJsonString $ngStr),`"navSubGroup`":$(ConvertTo-DhJsonString $sgStr),`"collapsible`":$aCollStr,`"defaultOpen`":$aDoStr,`"title`":$(ConvertTo-DhJsonString $aTitleStr)}"
         }) -join ','
         $alertsConfigJson = "[$alertItems]"
     }
 
     # ---- Inject config into JS engine --------------------------------------------
-    $js = (Get-DhJsContent) -replace '/\*%%TABLES_CONFIG%%\*/\[\]',  $tablesConfigJson
-    $js = $js               -replace '/\*%%SUMMARY_CONFIG%%\*/\[\]', $summaryConfigJson
-    $js = $js               -replace '/\*%%BLOCKS_CONFIG%%\*/\[\]',  $blocksConfigJson
-    $js = $js               -replace '/\*%%ALERTS_CONFIG%%\*/\[\]',  $alertsConfigJson
+    # NB: PowerShell -replace uses .NET regex substitution syntax, where the
+    # REPLACEMENT string treats $&, $', $`, $1.., $+, $_ as backreferences. When
+    # injected JSON happens to contain those sequences (e.g. an event message
+    # containing a SAM account name like "PV04$'..." produces a literal $'),
+    # the substitution silently expands and bloats the file by repeating large
+    # chunks of the template. Use [regex]::Replace with a MatchEvaluator so the
+    # JSON is inserted verbatim.
+    $jsTpl = Get-DhJsContent
+    $js = [regex]::Replace($jsTpl, '/\*%%TABLES_CONFIG%%\*/\[\]',  { param($m) $tablesConfigJson  })
+    $js = [regex]::Replace($js,    '/\*%%SUMMARY_CONFIG%%\*/\[\]', { param($m) $summaryConfigJson })
+    $js = [regex]::Replace($js,    '/\*%%BLOCKS_CONFIG%%\*/\[\]',  { param($m) $blocksConfigJson  })
+    $js = [regex]::Replace($js,    '/\*%%ALERTS_CONFIG%%\*/\[\]',  { param($m) $alertsConfigJson  })
 
     # ---- Build theme style tag (light primary, dark alternate, always embedded) --
     $primaryCss    = Get-DhThemeCss -Theme $theme
@@ -740,12 +757,15 @@ function Export-DhDashboard {
 $autoRefreshTag
   <title>$([System.Web.HttpUtility]::HtmlEncode($Report.Title))</title>
 $themeStyleTag
-  <!-- Export libraries (cdnjs - internet required for XLSX/PDF export) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+  <!-- Export libraries (cdnjs - internet required for XLSX/PDF export).
+       v1.5.3: SRI integrity= attributes pinned so a compromised CDN cannot inject
+       arbitrary script. Hashes are tied to the exact versions below; bumping a
+       library version requires regenerating the matching sha384 base64 digest. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Bridge: jsPDF 2.x UMD exposes window.jspdf.jsPDF but AutoTable looks for window.jsPDF -->
   <script>if(window.jspdf&&window.jspdf.jsPDF&&!window.jsPDF){window.jsPDF=window.jspdf.jsPDF;}</script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 

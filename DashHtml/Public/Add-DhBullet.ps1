@@ -95,6 +95,8 @@ function Add-DhBullet {
         [string] $Id,
         [Parameter(Mandatory)] [string] $Title,
         [Parameter(Mandatory)] [object[]] $Items,
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -211,7 +213,9 @@ function Add-DhBullet {
         Title        = $Title
         Items        = @($normItems)
         NavGroup     = $NavGroup
-        NavSubGroup  = $NavSubGroup
+        NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhBullet: '$Id' ($(@($normItems).Count) row(s))."
 }

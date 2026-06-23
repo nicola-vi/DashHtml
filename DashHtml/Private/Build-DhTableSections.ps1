@@ -23,14 +23,45 @@ function Build-DhTableSections {
             "      <div class=`"charts-container`" id=`"charts-$id`"></div>"
         } else { '' }
 
-        [void]$sb.AppendLine(@"
-    <section class="table-section" id="section-$id"$ngAttr$sgAttr>
+        # v1.5.1 — collapsible chrome for table sections. The outer <section>
+        # stays as the nav target (showSubPanel toggles .panel-active on it),
+        # but a clickable header bar wraps the table content so the user can
+        # fold individual tables away.
+        $collapsible = if ($t.Contains('Collapsible')) { [bool]$t.Collapsible } else { $false }
+        $defaultOpen = if ($t.Contains('DefaultOpen')) { [bool]$t.DefaultOpen } else { $true }
+        $tIcon       = if ($t.Contains('Icon') -and $t.Icon) { [System.Web.HttpUtility]::HtmlEncode($t.Icon) } else { '' }
+        $secCls      = if ($collapsible) { ' table-section-collapsible' } else { '' }
+        $bodyOpenCls = if ($defaultOpen) { ' open' } else { '' }
+        $chev        = if ($defaultOpen) { '&#9662;' } else { '&#9656;' }
+        $iconHtml    = if ($tIcon) { "<span class=`"table-section-icon`">$tIcon</span> " } else { '' }
+
+        if ($collapsible) {
+            $headerHtml = @"
+      <button class="table-section-toggle$bodyOpenCls" id="tsect-toggle-$id" type="button" aria-expanded="$($defaultOpen.ToString().ToLower())">
+        <div class="table-section-header table-section-header-clickable">
+          <h2 class="table-title">$iconHtml$titleEsc</h2>
+$descHtml
+        </div>
+        <span class="table-section-chevron">$chev</span>
+      </button>
+      <div class="table-section-body$bodyOpenCls" id="tsect-body-$id">
+"@
+            $footerHtml = "      </div>"
+        } else {
+            $headerHtml = @"
       <div class="table-section-header">
-        <h2 class="table-title">$titleEsc</h2>
+        <h2 class="table-title">$iconHtml$titleEsc</h2>
 $descHtml
       </div>
+"@
+            $footerHtml = ''
+        }
+
+        [void]$sb.AppendLine(@"
+    <section class="table-section$secCls" id="section-$id"$ngAttr$sgAttr>
+$headerHtml
 $chartsHtml
-      <div class="table-toolbar" id="toolbar-$id">
+      <div class="table-toolbar" id="toolbar-$id"
         <div class="toolbar-left">
           <div class="filter-wrap" id="filter-wrap-$id">
             <span class="filter-icon">&#9906;</span>
@@ -68,6 +99,7 @@ $chartsHtml
         <span class="link-text" id="link-text-$id"></span>
         <button class="link-clear" id="link-clear-$id" title="Remove link filter">&#215;</button>
       </div>
+$footerHtml
     </section>
 "@)
     }

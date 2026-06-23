@@ -154,6 +154,47 @@ body {
   background: linear-gradient(180deg, #151e2b 0%, var(--bg-surface) 100%);
 }
 
+/* v1.5.1 — Per-table collapsible chrome. The clickable toggle replaces the
+   plain header row when -Collapsible $true; the body wrapper folds the
+   toolbar / table / paging when closed. */
+.table-section-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: linear-gradient(180deg, #151e2b 0%, var(--bg-surface) 100%);
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.table-section-toggle .table-section-header-clickable {
+  flex: 1;
+  border-bottom: none;
+  background: transparent;
+}
+.table-section-toggle .table-section-chevron {
+  padding: 0 var(--space-lg);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  transition: color var(--trans-fast);
+}
+.table-section-toggle:hover .table-section-chevron { color: var(--text-primary); }
+.table-section-toggle .table-section-icon { margin-right: 6px; }
+.table-section-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--trans-med);
+}
+.table-section-body.open {
+  max-height: none;
+  overflow: visible;
+}
+/* When collapsed, hide its border + box-shadow halo since there's nothing to surround */
+.table-section-collapsible .table-section-body:not(.open) { border-bottom: none; }
+
 .table-title {
   font-family: var(--font-display);
   font-size: var(--size-lg);
@@ -1265,6 +1306,54 @@ th.th-center   { text-align: center !important; }
 }
 .alert-banner .alert-dismiss-btn:hover { color: var(--text-primary); }
 
+/* v1.5.1 — collapsible alert banner chrome ---------------------------- */
+.alert-banner-collapsible {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.alert-banner-collapsible .alert-collapsible-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.alert-banner-collapsible .alert-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.alert-banner-collapsible .alert-title {
+  font-weight: var(--weight-bold);
+  font-size: var(--size-sm);
+}
+.alert-banner-collapsible .alert-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  transition: color var(--trans-fast);
+}
+.alert-banner-collapsible .alert-toggle:hover .alert-chevron { color: var(--text-primary); }
+.alert-banner-collapsible .alert-collapsible-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--trans-med);
+  padding-top: 0;
+}
+.alert-banner-collapsible .alert-collapsible-body.open {
+  max-height: 600px;
+  padding-top: var(--space-xs);
+}
+
 /* Severity → RAG colours (reuses cell-* tokens for theme alignment) */
 .alert-banner.alert-info     { border-left-color: var(--accent-primary); }
 .alert-banner.alert-ok       { border-left-color: var(--cell-ok-fg);     background: var(--cell-ok-bg);     }
@@ -2174,6 +2263,25 @@ body.theme-forced-dark {
 }
 
 /* Status-driven tint — same palette as cell-* tokens */
+/* v1.5.2 — shared topology tooltip overlay (positioned via JS, lives on <body>) */
+.topo-tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-width: 360px;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-ui);
+  font-size: var(--size-xs);
+  line-height: 1.35;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .topo-status-ok     .topo-node-rect { fill: var(--cell-ok-bg);     stroke: var(--cell-ok-fg); }
 .topo-status-warn   .topo-node-rect { fill: var(--cell-warn-bg);   stroke: var(--cell-warn-fg); }
 .topo-status-danger .topo-node-rect { fill: var(--cell-danger-bg); stroke: var(--cell-danger-fg); }

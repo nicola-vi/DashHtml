@@ -32,6 +32,12 @@ function Add-DhCollapsible {
 
     .PARAMETER Content
         Free-form HTML string (alternative to -Cards).
+        SECURITY: Content is injected via innerHTML. Never pass untrusted
+        external data (AD attributes, log lines, anything supplied by an
+        actor outside your trust boundary) into this parameter without
+        HTML-encoding it first with [System.Web.HttpUtility]::HtmlEncode().
+        Same rule as Add-DhHtmlBlock, Add-DhAlertBanner -Message, and
+        Add-DhTabs per-tab Content.
 
     .EXAMPLE
         # Card grid — any structured metadata (accounts, locations, teams…)

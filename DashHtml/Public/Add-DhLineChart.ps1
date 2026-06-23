@@ -109,6 +109,10 @@ function Add-DhLineChart {
         [ValidateRange(80, 1000)]
         [int]    $Height     = 240,
 
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -171,7 +175,10 @@ function Add-DhLineChart {
             Label = [string]$s['Label']
             Values = @($numVals)
             Class  = if ($s.Contains('Class') -and $s['Class']) { [string]$s['Class'] } else { '' }
-            Color  = if ($s.Contains('Color') -and $s['Color']) { [string]$s['Color'] } else { '' }
+            Color  = if ($s.Contains('Color') -and $s['Color']) {
+                # v1.5.3 — see Add-DhPieChart for rationale (CSS-injection close).
+                [string](Test-DhSafeCssColor -Color ([string]$s['Color']) -Context "Add-DhLineChart: series '$([string]$s['Label'])' Color")
+            } else { '' }
         }
     }
 
@@ -203,6 +210,8 @@ function Add-DhLineChart {
         Height      = $Height
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhLineChart: '$Id' ($($normSeries.Count) series, $($xAxisOut.Count) X-points$(if ($Filled) { ', filled' })$(if ($tlNum) { ', target=$tlNum' }))."
 }

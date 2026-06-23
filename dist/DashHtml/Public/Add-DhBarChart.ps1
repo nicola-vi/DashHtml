@@ -66,6 +66,8 @@ function Add-DhBarChart {
         [switch] $ClickFilters,
         [switch] $Stacked,
         [string] $SeriesField    = '',
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
         [string] $NavGroup       = '',   # primary nav group label (enables two-tier nav)
         [string] $NavSubGroup    = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
@@ -101,7 +103,9 @@ function Add-DhBarChart {
         Stacked      = [bool]$isStacked
         SeriesField  = $SeriesField
         NavGroup     = $NavGroup
-        NavSubGroup  = $NavSubGroup
+        NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhBarChart: '$Id' from table '$TableId' field '$Field' (top $TopN)$(if ($isStacked) { " stacked by '$SeriesField'" })."
 }

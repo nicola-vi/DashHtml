@@ -1,7 +1,7 @@
 @{
     # Module identity
     RootModule        = 'DashHtml.psm1'
-    ModuleVersion     = '1.5.0'
+    ModuleVersion     = '1.5.3'
     GUID              = '3f8e9a2c-1d4b-47f5-8c6e-0a5d2b9f3e71'
     Author            = 'DashHtml Contributors'
     CompanyName       = 'DashHtml Contributors'
@@ -42,6 +42,12 @@
             LicenseUri   = 'https://github.com/nicola-vi/DashHtml/blob/main/LICENSE'
             ProjectUri   = 'https://github.com/nicola-vi/DashHtml'
             ReleaseNotes = @'
+1.5.3 — Security hardening. Closes three concrete vectors flagged in the v1.5.2 audit, no script changes required for any caller passing well-formed colours and URLs. Add-DhPieChart slice Color and Add-DhLineChart series Color are now validated against an allowlist of CSS colour shapes (#hex, rgb/rgba/hsl/hsla, var(--token), CSS named colours) before being interpolated into inline style="background: ...", closing the CSS-injection vector reachable when a caller piped untrusted data into a colour field. Add-DhAlertBanner -Action and Add-DhSummary tile Action validate the Url scheme (http/https/mailto/tel/#) so a javascript: URL can no longer reach window.open() and execute in the dashboard origin. The three cdnjs <script> tags now carry SRI integrity="sha384-..." attributes pinned to the bundled library versions, so a compromised CDN cannot inject arbitrary script. ConvertTo-DhJsonString also escapes U+2028 / U+2029 as their explicit \u JSON sequence. Help text on Add-DhTabs, Add-DhAlertBanner, and Add-DhCollapsible spells out the raw-HTML / never-pass-untrusted-data contract previously only documented on Add-DhHtmlBlock. 14 new Pester tests cover each new validator (322 total).
+
+1.5.2 — Topology map usability: Add-DhTopologyMap now accepts -AutoFitWidth (and -AutoFitMaxWidth, default 360 px). When set, the JS renderer measures the widest label / icon / badge combination across all nodes via a hidden canvas and grows NodeWidth so FQDN labels no longer truncate. Topology nodes also get a real styled tooltip on hover — the explicit Tooltip value when supplied, otherwise the full Label — replacing the OS-default title attribute. The tooltip is a single body-level overlay positioned via JS, so it works on SVG nodes (CSS pseudo-elements do not render on SVG elements). No script changes required; pass -AutoFitWidth to opt in.
+
+1.5.1 — Collapsible chrome across every cmdlet. New -Collapsible / -DefaultOpen parameters (default $true, matching Add-DhSummary) on Add-DhBarChart, Add-DhBullet, Add-DhEventFeed, Add-DhFilterCard, Add-DhHeatmap, Add-DhHtmlBlock, Add-DhLineChart, Add-DhPieChart, Add-DhStatusGrid, Add-DhTabs, Add-DhTopologyMap, Add-DhAlertBanner, and Add-DhTable. Add-DhTable additionally accepts -Icon for the new clickable header. Existing dashboards immediately get folding headers; pass -Collapsible:$false per call to restore the flat 1.5.0 look. Implementation centralises the wrap in a single JS dispatcher (wrapCollapsibleBlock) so renderers stay untouched; tables and alert banners get tailored wraps because of their distinct pipelines.
+
 1.5.0 — Tier A widgets: inline tabs, 2-D heatmaps, topology trees.
 
 New cmdlets:

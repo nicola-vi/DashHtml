@@ -125,7 +125,9 @@ function Add-DhPieChart {
         [bool]     $ShowLegend   = $true,
 
         # Nav
-        [string]   $NavGroup     = '',
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+        [string] $NavGroup     = '',
         [string]   $NavSubGroup  = ''
     )
 
@@ -180,7 +182,12 @@ function Add-DhPieChart {
             $normSlices += @{
                 Label = [string]$s.Label
                 Value = $val
-                Color = if ($s.Contains('Color')) { [string]$s.Color } else { '' }
+                Color = if ($s.Contains('Color')) {
+                    # v1.5.3 — Colour is interpolated into inline style="background:…" by the JS
+                    # renderer. esc() only HTML-encodes, leaving CSS metacharacters intact, so we
+                    # restrict the accepted shapes here to close the CSS-injection vector.
+                    [string](Test-DhSafeCssColor -Color ([string]$s.Color) -Context "Add-DhPieChart: slice '$([string]$s.Label)' Color")
+                } else { '' }
             }
         }
     }
@@ -203,7 +210,9 @@ function Add-DhPieChart {
         ShowTotal    = $ShowTotal
         ShowLegend   = $ShowLegend
         NavGroup     = $NavGroup
-        NavSubGroup  = $NavSubGroup
+        NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
 
     Write-Verbose ("Add-DhPieChart: '$Id' (style=$Style, mode=" +

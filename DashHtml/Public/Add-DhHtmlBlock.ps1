@@ -52,6 +52,8 @@ function Add-DhHtmlBlock {
         [Parameter(Mandatory)] [string] $Content,
         [ValidateSet('info','warn','danger','ok','nodata','neutral')]
         [string] $Style   = 'info',
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
         [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
         [string] $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
@@ -69,6 +71,8 @@ function Add-DhHtmlBlock {
         Style     = $Style
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhHtmlBlock: Added HTML block '$Id' (style: $Style)."
 }

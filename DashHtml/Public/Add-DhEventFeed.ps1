@@ -80,6 +80,10 @@ function Add-DhEventFeed {
 
         [bool]   $SortDescending = $true,
 
+        [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
+
+        [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -129,7 +133,9 @@ function Add-DhEventFeed {
         GroupBy        = $GroupBy.ToLowerInvariant()
         SortDescending = [bool]$SortDescending
         NavGroup       = $NavGroup
-        NavSubGroup    = $NavSubGroup
+        NavSubGroup = $NavSubGroup
+        Collapsible = $Collapsible
+        DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhEventFeed: '$Id' ($($normEvents.Count) event(s), max=$MaxItems, groupBy=$GroupBy)."
 }

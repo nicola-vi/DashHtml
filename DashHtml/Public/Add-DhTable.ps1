@@ -139,6 +139,9 @@ function Add-DhTable {
         [switch]    $MultiSelect,
         [string]    $Description    = '',
         [string]    $ExportFileName = '',   # custom filename for CSV/XLSX/PDF download
+        [bool]      $Collapsible    = $true,    # v1.5.1 — wrap the section in a collapsible header (chevron + click-to-toggle)
+        [bool]      $DefaultOpen    = $true,    # v1.5.1 — whether the table body starts expanded (only used when -Collapsible is $true)
+        [string]    $Icon           = '',       # v1.5.1 — optional emoji / unicode glyph shown in the collapsible header
         [string]    $NavGroup       = '',   # primary nav group label (enables two-tier nav)
         [string]    $NavSubGroup    = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
@@ -260,6 +263,9 @@ function Add-DhTable {
         ExportFileName = $ExportFileName
         NavGroup       = $NavGroup
         NavSubGroup    = $NavSubGroup
+        Collapsible    = $Collapsible
+        DefaultOpen    = $DefaultOpen
+        Icon           = $Icon
     })
 
     Write-Verbose "Add-DhTable: '$TableId' — $(@($normData).Count) rows, $(@($normCols).Count) cols, $(@($normCharts).Count) charts."

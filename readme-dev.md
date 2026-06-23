@@ -2,7 +2,7 @@
 
 > **Audience:** An LLM-based coding assistant (or a developer in a hurry) that needs to use DashHtml correctly without reading the full README. Pass this file as context at the start of a session to skip the discovery phase.
 
-> **Module version this file describes:** **1.5.0** (2026-05-25)
+> **Module version this file describes:** **1.5.3** (2026-06-20)
 
 ---
 
@@ -45,7 +45,7 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 | | `Add-DhBullet` | Actual-vs-target with performance bands. Canonical SLA / headroom visualisation. |
 | **2-D grids** *(v1.5)* | `Add-DhStatusGrid` | Rows × columns **RAG** matrix (categorical). Services × regions, hosts × probes. |
 | | `Add-DhHeatmap` *(v1.5)* | Rows × columns **numeric** matrix with sequential / diverging colour scale. Time-of-day load, percentile distributions, deviation from target. |
-| **Trees** *(v1.5)* | `Add-DhTopologyMap` *(v1.5)* | Parent-child tree (AD Forest→Domain→DC, vCenter→Cluster→Host). Recursive subtree-width SVG layout; cycle detection. |
+| **Trees** *(v1.5)* | `Add-DhTopologyMap` *(v1.5)* | Parent-child tree (AD Forest→Domain→DC, vCenter→Cluster→Host). Recursive subtree-width SVG layout; cycle detection. **v1.5.2:** `-AutoFitWidth` measures the widest label and grows `NodeWidth` so FQDN labels stop truncating; every node also gets a styled hover tooltip (falls back to the full `Label`). |
 | **Events / alerts** | `Add-DhEventFeed` | Chronological severity-tagged log. Pair with KPI tiles as Row-5 audit trail. |
 | | `Add-DhAlertBanner` | Top-of-page strip for *current* conditions. Dismissible, with optional Action button. v1.4.2: `-NavGroup` / `-NavSubGroup` bind to a single panel. |
 | **Layout** | `Add-DhTabs` *(v1.5)* | Inline tabbed content block. Local pivot inside one block; distinct from `-NavGroup` (page-level). |
@@ -375,6 +375,30 @@ Add-DhTopologyMap -Report $report -Id 'ad-forest' -Title 'AD Forest' `
 ```
 `Parent=$null` marks a root (multiple roots OK — forest layout). Cycles throw. Each node can carry `Status` (paints the box via RAG palette), `Icon`, `Badge`, `Tooltip`, and `LinkTableId`/`LinkFilter` for drill-down.
 
+**v1.5.2 — wide-fan trees with long labels.** Default `NodeWidth=140` truncates FQDN labels once icon + badge eat into the box. Two combined tools fix it:
+
+- `-AutoFitWidth` measures the widest label / icon / badge combination via a hidden `<canvas>` and grows `NodeWidth` to fit (capped by `-AutoFitMaxWidth`, default `360`).
+- `-Direction 'horizontal'` puts depth on the X axis so wide bottom rows stack vertically instead of competing for horizontal space.
+- Every node now gets a **styled hover tooltip** (single body-level overlay positioned by JS — CSS pseudo-elements don't render on SVG). When `Tooltip` is omitted, the full `Label` is used as fallback, so truncation never hides identifying info.
+
+**Idiom for wide-fan trees** — introduce intermediate "category" nodes between the parent and its homogeneous leaves so the tree reads as an architecture diagram rather than a row of badges:
+
+```powershell
+# 1 farm → 1 site → 4 categories → many leaves
+Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
+    -Direction 'horizontal' -NodeWidth 220 -AutoFitWidth `
+    -Nodes @(
+        @{ Id='farm';     Label='CAI-DC';                     Parent=$null;     Status='ok'; Icon='🏗️'; Badge='Farm' }
+        @{ Id='site';     Label='EGSI-RAS-BRK01';             Parent='farm';    Status='ok'; Icon='🌐';  Badge='Site' }
+        @{ Id='cat-brk';  Label='Brokers';                    Parent='site';    Status='ok'; Icon='🔀';  Badge='2'    }
+        @{ Id='cat-gw';   Label='Gateways';                   Parent='site';    Status='ok'; Icon='🛡️'; Badge='2'    }
+        @{ Id='cat-pool'; Label='RDS Host Pools';             Parent='site';    Status='ok'; Icon='📦';  Badge='5'    }
+        @{ Id='brk-01';   Label='EGSI-RAS-BRK01.egsi.local';  Parent='cat-brk'; Status='ok'; Icon='🔀';  Badge='Primary'
+           Tooltip='EGSI-RAS-BRK01.egsi.local — role Primary, agent OK'; LinkTableId='brokers' }
+        # … etc.
+    )
+```
+
 ### 7.14 — Inline tabs (v1.5+)
 ```powershell
 Add-DhTabs -Report $report -Id 'fleet' -Title 'Fleet views' -Tabs @(
@@ -419,9 +443,19 @@ Add-DhTabs -Report $report -Id 'fleet' -Title 'Fleet views' -Tabs @(
 
 15. **TopologyMap rejects cycles AND missing parents.** Every node's `Parent` must either be `$null`/`''` (root) or match the `Id` of another supplied node. Self-parents (`Id='a'; Parent='a'`) and cycles (`A→B→A`) both throw at declaration time. Forests (multiple `Parent=$null` roots) are allowed.
 
+15a. **TopologyMap — wide-fan + long labels is the classic bad render** (since 1.5.2). If any single node has more than ~5 children and the children carry FQDN labels (host names, AD object DNs), the default 140 px node width truncates every label. Three fixes, applied together:
+
+   1. `-Direction 'horizontal'` — depth on the X axis, leaves stack vertically.
+   2. `-AutoFitWidth` — JS measures the widest label and grows `NodeWidth` to fit (cap with `-AutoFitMaxWidth`, default `360`).
+   3. **Insert intermediate "category" nodes.** A site with 10 children mixing brokers / gateways / pools / providers reads poorly. Group them under category nodes (`'Brokers'`, `'Gateways'`, `'RDS Host Pools'`, `'VDI Providers'`) — same data, but the tree now looks like a real architecture diagram. Skip a category node when its bucket is empty to avoid dead branches.
+
+   Always set `Tooltip` on leaf nodes to the full identifying string (FQDN + role + status). Even with auto-fit, a hover tooltip is the user's escape hatch when the box can't show everything.
+
 16. **Tabs vs NavGroup — different scopes.** `Add-DhTabs` partitions content **within one block** — the user toggles between local views of the same scope. `-NavGroup` partitions the **whole page** — the user navigates between unrelated dashboards via the top tab bar. Don't try to use Tabs as page-level navigation.
 
 17. **AutoRefresh is a browser `<meta refresh>`, not live data.** `New-DhDashboard -AutoRefresh '5m'` makes the browser reload the same HTML file every 5 minutes. To actually update the data, schedule a job that re-runs your dashboard script slightly more frequently than the refresh interval.
+
+18. **Four cmdlets accept raw HTML — never pipe untrusted data into them.** `Add-DhHtmlBlock -Content`, `Add-DhTabs` per-tab `Content`, `Add-DhCollapsible -Content`, and `Add-DhAlertBanner -Message` are all injected via `innerHTML` by design (so callers can embed lists, links, formatted markup). When the value comes from an external system (AD attribute, ticket title, log line, hostname), HTML-encode it first with `[System.Web.HttpUtility]::HtmlEncode($value)`. Every other text field in the module — table cells, summary labels, topology labels, status grid cells, KPI captions — is HTML-encoded automatically and is safe to pass user data into. (As of **1.5.3** colour values on `Add-DhPieChart` / `Add-DhLineChart` and `Url` fields on `Action` hashtables are validated for you and throw on hostile input; you do not have to sanitise those.)
 
 ---
 
@@ -480,7 +514,7 @@ DashHtml/
 │       ├── ConvertTo-DhJsonString.ps1
 │       └── Build-DhTableSections.ps1
 ├── Tests/
-│   └── DashHtml.Tests.ps1             ← Pester 5; 308 tests at 1.5.0; covers every cmdlet
+│   └── DashHtml.Tests.ps1             ← Pester 5; 322 tests at 1.5.3; covers every cmdlet
 ├── Examples/
 │   ├── AD-Dashboard.ps1               ← Active Directory ops, spec §4.1 layout
 │   ├── vSphere-Dashboard.ps1          ← vSphere ops, spec §4.2 layout
@@ -555,7 +589,7 @@ When writing tests, follow the existing pattern in `Tests/DashHtml.Tests.ps1` �
 - Validation tests (`{ Add-DhX ... bad-input ... } | Should -Throw`)
 - HTML round-trip test (`Should -Match` on the emitted HTML/JSON text)
 
-Tests run quickly (~30 s for 308 tests at 1.5.0). The full suite must always pass before declaring work complete.
+Tests run quickly (~30 s for 322 tests at 1.5.3). The full suite must always pass before declaring work complete.
 
 ---
 
@@ -667,4 +701,4 @@ Export-DhDashboard -Report $report -OutputPath '.\demo.html' -Force -OpenInBrows
 
 ---
 
-*End of dev/AI reference. Module version 1.5.0, generated 2026-05-25.*
+*End of dev/AI reference. Module version 1.5.3, generated 2026-06-20.*
