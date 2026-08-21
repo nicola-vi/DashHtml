@@ -83,14 +83,27 @@ function Add-DhCollapsible {
         [bool]     $DefaultOpen = $true,
         [object[]] $Cards       = @(),
         [string]   $Content     = '',
+        # v1.6.0 — when $false, -Content is HTML-encoded instead of injected raw.
+        # Only affects free-form -Content (the -Cards path is always structured/safe).
+        # Default $true preserves v1.x behaviour; flips to $false in DashHtml 2.0.0.
+        [bool]     $AllowHtml   = $true,
         [ValidateSet('small','normal','large','xlarge','auto')]
         [string]   $CardWidth   = 'normal',  # card grid sizing: small=150-220, normal=200-320 (default), large=280-480, xlarge=360-640, auto=grow to fit
-        [string]   $NavGroup    = '',   # primary nav group label (enables two-tier nav)
+        [ValidateRange(0,12)]
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
+        [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
         [string]   $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if (-not $Report.Contains('Blocks')) {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
+    }
+
+    # Duplicate-Id guard (same rule applied by other block cmdlets)
+    foreach ($existing in $Report.Blocks) {
+        if ($existing.Id -eq $Id) {
+            throw "Add-DhCollapsible: A block with Id '$Id' already exists in this report. Use a unique Id."
+        }
     }
 
     $normCards = foreach ($card in $Cards) {
@@ -120,6 +133,13 @@ function Add-DhCollapsible {
         $c
     }
 
+    # Free-form Content only reaches innerHTML when there are no cards; encode it
+    # per -AllowHtml. Empty content short-circuits (no warning, nothing to encode).
+    $safeContent = if ([string]::IsNullOrEmpty($Content)) { $Content } else {
+        ConvertTo-DhSafeContent -Content $Content -AllowHtml $AllowHtml `
+            -Explicit $PSBoundParameters.ContainsKey('AllowHtml') -Context "Add-DhCollapsible '$Id' -Content"
+    }
+
     $Report.Blocks.Add([ordered]@{
         BlockType   = 'collapsible'
         Id          = $Id
@@ -127,11 +147,12 @@ function Add-DhCollapsible {
         Icon        = $Icon
         DefaultOpen = $DefaultOpen
         Cards       = @($normCards)
-        Content     = $Content
+        Content     = $safeContent
         Badge       = @($normCards).Count
         CardWidth   = $CardWidth
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
     })
     Write-Verbose "Add-DhCollapsible: Added '$Id' ($(@($normCards).Count) cards)."
 }

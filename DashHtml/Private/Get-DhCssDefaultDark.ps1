@@ -16,6 +16,8 @@ function Get-DhCssDefaultDark {
   --bg-thead:         #161e2b;
 
   --accent-primary:   #00c8ff;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #0077cc;
   --accent-danger:    #ff4d6a;
   --accent-warn:      #ffc107;

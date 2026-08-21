@@ -19,10 +19,25 @@
     cmdlet set. Replace the data hashes with output from your real source
     (DCDIAG, RepAdmin, Get-ADReplicationFailure, etc.) when adapting.
 
+.PARAMETER OutputPath
+    Where to write the generated HTML. Defaults to AD-Dashboard.html beside
+    this script.
+
+.PARAMETER OpenInBrowser
+    Open the dashboard in the default browser once generated.
+
 .EXAMPLE
-    PS> .\Examples\AD-Dashboard.ps1
-    Opens an HTML dashboard in the default browser.
+    PS> .\Examples\AD-Dashboard.ps1 -OpenInBrowser
+    Generates the dashboard and opens it in the default browser.
+
+.EXAMPLE
+    PS> .\Examples\AD-Dashboard.ps1 -OutputPath C:\Temp\ad.html
+    Generates the dashboard without opening a browser.
 #>
+param(
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'AD-Dashboard.html'),
+    [switch] $OpenInBrowser
+)
 
 Import-Module "$PSScriptRoot\..\DashHtml\DashHtml.psd1" -Force
 
@@ -254,6 +269,5 @@ Add-DhEventFeed -Report $report -Id 'recent-events' -Title 'Recent events (24h)'
 # ============================================================================
 # Render
 # ============================================================================
-$out = Join-Path $PSScriptRoot 'AD-Dashboard.html'
-Export-DhDashboard -Report $report -OutputPath $out -Force -OpenInBrowser
-Write-Host "Wrote $out"
+Export-DhDashboard -Report $report -OutputPath $OutputPath -Force -OpenInBrowser:$OpenInBrowser
+Write-Host "Wrote $OutputPath"

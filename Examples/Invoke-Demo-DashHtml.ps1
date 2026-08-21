@@ -303,7 +303,7 @@ Add-DhSummary -Report $report -Items @(
 
 # ── HTML blocks — all 5 styles ─────────────────────────────────────────────────
 Add-DhHtmlBlock -Report $report -Id 'block-info' -Title 'How to use this dashboard' `
-    -Icon '📋' -Style 'info' -Content @"
+    -Icon '📋' -Style 'info' -AllowHtml:$true -Content @"
 Navigate using the <strong>top tab bar</strong>. Each group exposes a subnav below.
 <ul style="margin:6px 0 0 16px">
   <li><strong>Infrastructure</strong> — bar charts, filter cards, server/service tables with master→detail drill-down</li>
@@ -317,16 +317,16 @@ Navigate using the <strong>top tab bar</strong>. Each group exposes a subnav bel
 </p>
 "@
 
-Add-DhHtmlBlock -Report $report -Id 'block-warn' -Style 'warn' -Content `
+Add-DhHtmlBlock -Report $report -Id 'block-warn' -Style 'warn' -AllowHtml:$true -Content `
     '<strong>Attention:</strong> 3 servers are in Warning state and 2 are Offline. Review the Infrastructure section for details.'
 
-Add-DhHtmlBlock -Report $report -Id 'block-danger' -Style 'danger' -Content `
+Add-DhHtmlBlock -Report $report -Id 'block-danger' -Style 'danger' -AllowHtml:$true -Content `
     '<strong>Critical:</strong> <em>srv-old-01</em> and <em>srv-old-02</em> are running Windows Server 2016 — end of mainstream support reached. Plan upgrade immediately.'
 
-Add-DhHtmlBlock -Report $report -Id 'block-ok' -Style 'ok' -Content `
+Add-DhHtmlBlock -Report $report -Id 'block-ok' -Style 'ok' -AllowHtml:$true -Content `
     'All primary database services (SQL Server) are healthy. Last backup verified 2026-04-11 03:15.'
 
-Add-DhHtmlBlock -Report $report -Id 'block-neutral' -Style 'neutral' -Content `
+Add-DhHtmlBlock -Report $report -Id 'block-neutral' -Style 'neutral' -AllowHtml:$true -Content `
     "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') &nbsp;|&nbsp; Module: DashHtml &nbsp;|&nbsp; Data is synthetic — for demonstration purposes only."
 
 # ── Collapsible: card-grid mode ────────────────────────────────────────────────
@@ -349,7 +349,7 @@ Add-DhCollapsible -Report $report -Id 'org-cards' `
 
 # ── Collapsible: free-form HTML content mode ───────────────────────────────────
 Add-DhCollapsible -Report $report -Id 'feature-notes' `
-    -Title 'DashHtml — Feature reference' -Icon '📖' -DefaultOpen $false `
+    -Title 'DashHtml — Feature reference' -Icon '📖' -DefaultOpen $false -AllowHtml:$true `
     -Content @"
 <table style="border-collapse:collapse;width:100%;font-size:0.88rem">
   <thead><tr style="background:var(--bg-thead)">

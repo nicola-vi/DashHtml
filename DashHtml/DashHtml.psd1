@@ -1,7 +1,7 @@
 @{
     # Module identity
     RootModule        = 'DashHtml.psm1'
-    ModuleVersion     = '1.5.3'
+    ModuleVersion     = '1.10.4'
     GUID              = '3f8e9a2c-1d4b-47f5-8c6e-0a5d2b9f3e71'
     Author            = 'DashHtml Contributors'
     CompanyName       = 'DashHtml Contributors'
@@ -30,6 +30,7 @@
         'Add-DhTabs'
         'Add-DhHeatmap'
         'Add-DhTopologyMap'
+        'Add-DhGlobalFilter'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
@@ -42,121 +43,21 @@
             LicenseUri   = 'https://github.com/nicola-vi/DashHtml/blob/main/LICENSE'
             ProjectUri   = 'https://github.com/nicola-vi/DashHtml'
             ReleaseNotes = @'
-1.5.3 — Security hardening. Closes three concrete vectors flagged in the v1.5.2 audit, no script changes required for any caller passing well-formed colours and URLs. Add-DhPieChart slice Color and Add-DhLineChart series Color are now validated against an allowlist of CSS colour shapes (#hex, rgb/rgba/hsl/hsla, var(--token), CSS named colours) before being interpolated into inline style="background: ...", closing the CSS-injection vector reachable when a caller piped untrusted data into a colour field. Add-DhAlertBanner -Action and Add-DhSummary tile Action validate the Url scheme (http/https/mailto/tel/#) so a javascript: URL can no longer reach window.open() and execute in the dashboard origin. The three cdnjs <script> tags now carry SRI integrity="sha384-..." attributes pinned to the bundled library versions, so a compromised CDN cannot inject arbitrary script. ConvertTo-DhJsonString also escapes U+2028 / U+2029 as their explicit \u JSON sequence. Help text on Add-DhTabs, Add-DhAlertBanner, and Add-DhCollapsible spells out the raw-HTML / never-pass-untrusted-data contract previously only documented on Add-DhHtmlBlock. 14 new Pester tests cover each new validator (322 total).
+1.10.4 — Performance. Sorting a large table no longer freezes the browser. The sort comparator called String.localeCompare(x, undefined, {sensitivity:''base''}) on EVERY comparison (~270,000 times for a 19,011-row table); passing an options object makes the engine re-resolve collation settings per call, and parseFloat ran O(n log n) times instead of O(n). Measured on a real 19,011-row x 17-column permission audit: clicking a column header blocked the main thread for 5.6 SECONDS. Now 169 ms — about 33x faster. The fix precomputes each row''s sort keys once and reuses a single Intl.Collator. Sort ORDER is unchanged and proven so: 501 randomised cases (partially-numeric strings, case/accent insensitivity, booleans, nulls, sparkline reduction in all four sortBy modes, multi-field sorts with mixed directions, and an all-ties stability check) produce byte-identical ordering against the previous implementation — the spec defines localeCompare(y, loc, opts) as new Intl.Collator(loc, opts).compare(x, y), and Array#sort is stable. Filtering (~250 ms) is unaffected. 397 tests.
 
-1.5.2 — Topology map usability: Add-DhTopologyMap now accepts -AutoFitWidth (and -AutoFitMaxWidth, default 360 px). When set, the JS renderer measures the widest label / icon / badge combination across all nodes via a hidden canvas and grows NodeWidth so FQDN labels no longer truncate. Topology nodes also get a real styled tooltip on hover — the explicit Tooltip value when supplied, otherwise the full Label — replacing the OS-default title attribute. The tooltip is a single body-level overlay positioned via JS, so it works on SVG nodes (CSS pseudo-elements do not render on SVG elements). No script changes required; pass -AutoFitWidth to opt in.
+1.10.3 — Performance. Export-DhDashboard is dramatically faster on large tables: ConvertTo-DhJsonString now short-circuits its nine regex passes with a single IndexOfAny pre-check, since real table data is overwhelmingly plain text that needs no escaping. Measured 1.27 ms -> 0.014 ms per call (90x); a 20,400-cell report exports in 5.2 s instead of 79.7 s (15x), and marginal cost falls from ~2.9 ms to ~0.08 ms per cell (~40x) — a 338,000-cell report drops from ~16 min to ~30 s. Escaping behaviour is unchanged and byte-identical: the nine passes are untouched, only skipped when provably unnecessary. Their ORDER is load-bearing (CR is dropped, not escaped, so '<' CR '/script>' collapses into '</script>' mid-pass and is caught by the '</' rule) — this is now documented and pinned by tests so a future single-regex rewrite cannot reintroduce a script breakout. 392 tests. See CHANGELOG.md for older releases.
 
-1.5.1 — Collapsible chrome across every cmdlet. New -Collapsible / -DefaultOpen parameters (default $true, matching Add-DhSummary) on Add-DhBarChart, Add-DhBullet, Add-DhEventFeed, Add-DhFilterCard, Add-DhHeatmap, Add-DhHtmlBlock, Add-DhLineChart, Add-DhPieChart, Add-DhStatusGrid, Add-DhTabs, Add-DhTopologyMap, Add-DhAlertBanner, and Add-DhTable. Add-DhTable additionally accepts -Icon for the new clickable header. Existing dashboards immediately get folding headers; pass -Collapsible:$false per call to restore the flat 1.5.0 look. Implementation centralises the wrap in a single JS dispatcher (wrapCollapsibleBlock) so renderers stay untouched; tables and alert banners get tailored wraps because of their distinct pipelines.
+1.10.1 — Bug-fix patch (from an internal code review). SECURITY: table cells with CellType='progressbar' now HTML-encode their label value — previously a non-numeric value was injected via innerHTML, an XSS sink that contradicted the "table cells are auto-encoded" guarantee. Also: the duplicate-Id guard now covers Add-DhBarChart / Add-DhCollapsible / Add-DhFilterCard / Add-DhHtmlBlock / Add-DhPieChart (the other 11 block cmdlets already had it); and the table header "select all" checkbox now selects every row of a -Pageable:$false table instead of only the first page. No API changes. 379 tests.
 
-1.5.0 — Tier A widgets: inline tabs, 2-D heatmaps, topology trees.
+1.10.0 — Opt-in 12-column grid layout. Blocks and tables accept -GridSpan (1-12); as soon as one is set, the report body becomes a 12-column CSS grid and each element spans the requested columns (unspanned elements stay full-width). Put two half-width charts side by side with -GridSpan 6, three-across with -GridSpan 4, etc. Collapses to a single column below 900px. Fully non-breaking: a dashboard with no -GridSpan is byte-identical to 1.9.0 (sequential flow). 372 tests.
 
-New cmdlets:
-  * Add-DhTabs         - Inline tabbed content block. Local pivot within one
-                         section of the dashboard flow (distinct from NavGroup
-                         which partitions the whole page). Full W3C tabs
-                         accessibility pattern (role=tablist / tab / tabpanel,
-                         arrow-key navigation, focus-visible outline).
-  * Add-DhHeatmap      - Rows × Columns matrix with a sequential or diverging
-                         numeric colour scale. Distinct from Add-DhStatusGrid
-                         (categorical RAG). -ColorScale 'sequential' | 'diverging',
-                         -Min / -Max auto-fit, -Unit suffix on values, -ShowValues
-                         to render the number inside each cell. Defaults to a
-                         5000-cell ceiling with a soft 1000-cell warning.
-  * Add-DhTopologyMap  - Parent-child tree visualisation (AD Forest → Domain → DC,
-                         vCenter → Cluster → Host, network device hierarchies, etc.).
-                         Recursive subtree-width layout — simple tidy tree, no
-                         force-directed graph. Cycles rejected; missing parents
-                         throw. Per-node Status / Icon / Badge / Tooltip /
-                         LinkTableId / LinkFilter for click-to-jump navigation.
-                         -Direction 'vertical' (default) or 'horizontal'.
+1.9.0 — Global filters. New Add-DhGlobalFilter cmdlet adds a page-level control (a facet dropdown, or a from/to date range) to a filter bar above the report body. Changing it re-filters EVERY table that has the named field at once, and charts derived from those tables re-aggregate; tables without the field are unaffected. Multiple global filters combine with AND, and selections persist in the URL hash. Non-breaking — dashboards with no global filter are byte-unchanged. 365 tests.
 
-Behaviour unchanged for everything else; fully backward compatible at the
-API level. 308 Pester tests pass (up from 282 at 1.4.2).
+1.8.0 — Internal refactor, no functional change. The ~3,400-line dashboard runtime JavaScript (previously one here-string in Get-DhJsContent.ps1) is now authored across five cohesive fragment files — Get-DhJsCore / Get-DhJsBlocks / Get-DhJsNav / Get-DhJsTable / Get-DhJsBoot — concatenated by Get-DhJsContent. The assembled output is byte-for-byte identical to 1.7.0 (verified); generated dashboards are unchanged. Purely a maintainability improvement. 355 tests.
 
-------------------------------------------------------------------------------
-1.4.2 — Small UX wins.
+1.7.0 — UX & performance. (1) Interactive topology maps: Add-DhTopologyMap now renders in a fixed viewport with drag-to-pan, wheel-zoom, a zoom/reset toolbar, and a +/- toggle on every parent node to collapse its subtree. Default on; pass -Interactive:$false for the pre-1.7.0 static view. (2) Accessibility: honours prefers-reduced-motion, adds aria-sort + keyboard operation to sortable table headers, an aria-live result-count region, and a focus ring on sortable headers. (3) Large tables: -Pageable:$false now renders ALL rows (previously it wrongly showed only the first page) and virtualises the DOM above 150 rows so "show all" stays fast. Also fixes Add-DhTabs throwing on a single tab. Non-breaking. 355 tests.
 
-Added:
-  * Add-DhAlertBanner -NavGroup / -NavSubGroup — per-panel banners.
-    Without the params, banners remain page-global as in 1.4.x.
-  * Add-DhSummary per-tile Action=@{TableId?;Filter?;Url?;Label?} — the whole
-    tile becomes clickable, navigating to a registered table (with optional
-    pre-filter) or opening an external URL. Same shape as the AlertBanner
-    -Action. Adds .tile-clickable styling + keyboard activation (Enter/Space).
-  * New-DhDashboard -AutoRefresh '30s' / '5m' / '1h' / '300' — emits a
-    <meta http-equiv="refresh"> in <head>. Useful for wall-display ops
-    dashboards. Omit / pass '' to disable (default).
-  * Native hover tooltips (title="...") on pie slices and bar chart bars —
-    label / count / percentage shown on hover. No JS library, browser-native.
-
-282 Pester tests pass (up from 266 at 1.4.1).
-
-------------------------------------------------------------------------------
-1.4.1 — Per-NavGroup summary strips + JS hoist fix.
-
-Added:
-  * Add-DhSummary now accepts -NavGroup / -NavSubGroup / -Id, so each panel
-    in a two-tier nav can have its own KPI strip. Without -NavGroup, the
-    legacy top-of-page singleton behaviour is preserved. Multiple per-group
-    strips can coexist alongside one global strip.
-  * New example: Examples/Multi-Panel-Dashboard.ps1 — focused showcase of the
-    multi-summary feature.
-  * Invoke-Demo-DashHtml.ps1 moved to Examples/ and refreshed to exercise the
-    full v1.4 widget set (banner, gauge, bignumber, bullet, line, pie, status
-    grid, event feed, sparkline cells, per-group summary).
-
-Fixed:
-  * JS hoist: pickThresholdClass / classToAccent / classToAccentBg and the
-    tile-builder helpers (buildTile, buildStandardTile, buildBignumberTile,
-    buildGaugeTile, tileFormatValue, tileDeltaHtml, tileSparklineHtml) were
-    nested inside renderSummary() and therefore unreachable from the bullet
-    and line-chart renderers at runtime. The latent ReferenceError didn't
-    surface in the Pester tests (which match emitted HTML text rather than
-    executing the JS), but a browser would have thrown when rendering those
-    blocks. All helpers are now at module scope and reused everywhere.
-
-266 Pester tests pass (up from 257 at 1.4.0).
-
-------------------------------------------------------------------------------
-1.4.0 — KPI & Dashboard Primitives. Major widget expansion driven by the
-IT-infrastructure KPI dashboard specification.
-
-New cmdlets:
-  * Add-DhStatusGrid   - rows x columns RAG matrix (services x regions etc.)
-  * Add-DhAlertBanner  - top-of-page dismissible alert strip
-  * Add-DhEventFeed    - chronological severity-tagged audit trail
-  * Add-DhPieChart     - standalone pie / donut block
-  * Add-DhBullet       - actual-vs-target with performance bands
-  * Add-DhLineChart    - line / area chart with axes, multi-series, optional
-                         dashed target / threshold annotation line
-
-Add-DhSummary tile upgrades:
-  * Inline sparklines (line / area / bars) below the value
-  * Trend & delta indicators (Previous baseline, auto direction, TrendIsGood
-    inversion for "lower is better" metrics, percent / absolute / both)
-  * Style="bignumber"  hero metric, full-width, large typography, optional Caption
-  * Style="gauge"      semicircle SVG with threshold-coloured arc + central readout
-
-Cross-cutting:
-  * Unified -Rag parameter (@{ Green; Amber; Red; NoData }) accepted on summary
-    items, gauge tiles, bullet items, and table columns; replaces or supplements
-    the legacy Thresholds=@(...) array shape.
-  * New Rag theme family using the Office/Excel-compatible RAG palette
-    (#375623 / #7F4B00 / #9C0006 / #595959) for strict-parity reports.
-  * Fourth cell-nodata state added across all six themes.
-
-Other:
-  * Add-DhBarChart gains -Stacked + -SeriesField for multi-series breakdowns.
-  * Add-DhTable column CellType="sparkline" with SortBy reduction (last / avg /
-    max / min / sum) and SparklineStyle.
-  * Two example scripts (Examples/AD-Dashboard.ps1, Examples/vSphere-Dashboard.ps1)
-    mirror the spec's reference layouts.
-  * Bug fix: locale-sensitive [double]::TryParse calls in v1.4 normalisers now
-    use InvariantCulture; protects decimal values on locales like it-IT where
-    the period is a thousands separator.
-
-Fully backward compatible at the API level. 257 Pester tests pass (up from 116
-at the start of v1.4 work).
+Full version history: https://github.com/nicola-vi/DashHtml/blob/main/CHANGELOG.md
 '@
         }
     }

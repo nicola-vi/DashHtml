@@ -97,9 +97,20 @@ function Add-DhTopologyMap {
         [ValidateRange(140, 600)]
         [int]    $AutoFitMaxWidth = 360,
 
+        # v1.7.0 — interactive pan / zoom / collapse. Default $true: the tree
+        # renders in a fixed-height viewport with drag-to-pan, wheel-zoom, a
+        # zoom/reset toolbar, and a +/- toggle on every parent node to fold its
+        # subtree. Pass -Interactive:$false for the pre-1.7.0 static
+        # scale-to-fit rendering (no toolbar, no collapse).
+        [bool]   $Interactive = $true,
+
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
 
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
+        [ValidateRange(0,12)]
+
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
@@ -196,8 +207,10 @@ function Add-DhTopologyMap {
         NodeHeight  = $NodeHeight
         AutoFitWidth    = [bool]$AutoFitWidth.IsPresent
         AutoFitMaxWidth = $AutoFitMaxWidth
+        Interactive     = $Interactive
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })

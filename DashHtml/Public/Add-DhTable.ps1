@@ -142,6 +142,8 @@ function Add-DhTable {
         [bool]      $Collapsible    = $true,    # v1.5.1 — wrap the section in a collapsible header (chevron + click-to-toggle)
         [bool]      $DefaultOpen    = $true,    # v1.5.1 — whether the table body starts expanded (only used when -Collapsible is $true)
         [string]    $Icon           = '',       # v1.5.1 — optional emoji / unicode glyph shown in the collapsible header
+        [ValidateRange(0,12)]
+        [int]       $GridSpan       = 0,        # v1.10.0 — columns (1-12) to span in a -report-grid layout; 0 = default flow
         [string]    $NavGroup       = '',   # primary nav group label (enables two-tier nav)
         [string]    $NavSubGroup    = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
@@ -263,6 +265,7 @@ function Add-DhTable {
         ExportFileName = $ExportFileName
         NavGroup       = $NavGroup
         NavSubGroup    = $NavSubGroup
+        GridSpan       = $GridSpan
         Collapsible    = $Collapsible
         DefaultOpen    = $DefaultOpen
         Icon           = $Icon

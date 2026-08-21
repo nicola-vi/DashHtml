@@ -113,6 +113,10 @@ function Add-DhLineChart {
 
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
 
+        [ValidateRange(0,12)]
+
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
+
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
     )
@@ -210,6 +214,7 @@ function Add-DhLineChart {
         Height      = $Height
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })

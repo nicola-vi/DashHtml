@@ -16,6 +16,8 @@ function Get-DhCssDefaultLight {
   --bg-thead:         #EEF2F7;
 
   --accent-primary:   #0088BB;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #005F8A;
   --accent-danger:    #CC2200;
   --accent-warn:      #C87000;

@@ -52,8 +52,14 @@ function Add-DhHtmlBlock {
         [Parameter(Mandatory)] [string] $Content,
         [ValidateSet('info','warn','danger','ok','nodata','neutral')]
         [string] $Style   = 'info',
+        # v1.6.0 — when $false, -Content is HTML-encoded (rendered as literal text)
+        # instead of injected as raw markup. Default $true preserves v1.x behaviour.
+        # The default flips to $false in DashHtml 2.0.0. See ConvertTo-DhSafeContent.
+        [bool]   $AllowHtml   = $true,
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+        [ValidateRange(0,12)]
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
         [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
         [string] $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
@@ -62,15 +68,26 @@ function Add-DhHtmlBlock {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
     }
 
+    # Duplicate-Id guard (same rule applied by other block cmdlets)
+    foreach ($existing in $Report.Blocks) {
+        if ($existing.Id -eq $Id) {
+            throw "Add-DhHtmlBlock: A block with Id '$Id' already exists in this report. Use a unique Id."
+        }
+    }
+
+    $safeContent = ConvertTo-DhSafeContent -Content $Content -AllowHtml $AllowHtml `
+        -Explicit $PSBoundParameters.ContainsKey('AllowHtml') -Context "Add-DhHtmlBlock '$Id' -Content"
+
     $Report.Blocks.Add([ordered]@{
         BlockType = 'html'
         Id        = $Id
         Title     = $Title
         Icon      = $Icon
-        Content   = $Content
+        Content   = $safeContent
         Style     = $Style
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })

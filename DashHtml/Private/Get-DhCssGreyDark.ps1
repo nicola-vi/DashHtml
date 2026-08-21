@@ -18,6 +18,8 @@ function Get-DhCssGreyDark {
   --bg-thead:         #2D2D2D;
 
   --accent-primary:   #78909C;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #546E7A;
   --accent-danger:    #EF5350;
   --accent-warn:      #FFB300;

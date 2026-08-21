@@ -18,10 +18,25 @@
     All data is SYNTHETIC. Replace with output from Get-VM / Get-VMHost /
     Get-Datastore / Get-VIEvent when adapting to a real environment.
 
+.PARAMETER OutputPath
+    Where to write the generated HTML. Defaults to vSphere-Dashboard.html
+    beside this script.
+
+.PARAMETER OpenInBrowser
+    Open the dashboard in the default browser once generated.
+
 .EXAMPLE
-    PS> .\Examples\vSphere-Dashboard.ps1
-    Opens an HTML dashboard in the default browser.
+    PS> .\Examples\vSphere-Dashboard.ps1 -OpenInBrowser
+    Generates the dashboard and opens it in the default browser.
+
+.EXAMPLE
+    PS> .\Examples\vSphere-Dashboard.ps1 -OutputPath C:\Temp\vsphere.html
+    Generates the dashboard without opening a browser.
 #>
+param(
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'vSphere-Dashboard.html'),
+    [switch] $OpenInBrowser
+)
 
 Import-Module "$PSScriptRoot\..\DashHtml\DashHtml.psd1" -Force
 
@@ -285,6 +300,5 @@ Add-DhEventFeed -Report $report -Id 'vcenter-events' -Title 'vCenter events (24h
 # ============================================================================
 # Render
 # ============================================================================
-$out = Join-Path $PSScriptRoot 'vSphere-Dashboard.html'
-Export-DhDashboard -Report $report -OutputPath $out -Force -OpenInBrowser
-Write-Host "Wrote $out"
+Export-DhDashboard -Report $report -OutputPath $OutputPath -Force -OpenInBrowser:$OpenInBrowser
+Write-Host "Wrote $OutputPath"

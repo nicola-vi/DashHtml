@@ -18,6 +18,8 @@ function Get-DhCssAzureLight {
   --bg-thead:         #F3F2F1;
 
   --accent-primary:   #0078D4;
+
+  --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #106EBE;
   --accent-danger:    #A4262C;
   --accent-warn:      #BC4B09;

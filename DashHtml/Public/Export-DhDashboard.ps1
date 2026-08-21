@@ -365,7 +365,8 @@ function Export-DhDashboard {
                     }
                     $afStr  = if ($b.Contains('AutoFitWidth')) { ([bool]$b.AutoFitWidth).ToString().ToLower() } else { 'false' }
                     $afMaxV = if ($b.Contains('AutoFitMaxWidth') -and $b.AutoFitMaxWidth) { [string]$b.AutoFitMaxWidth } else { '360' }
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"nodes`":[$nodesJson],`"direction`":$(ConvertTo-DhJsonString $b.Direction),`"nodeWidth`":$($b.NodeWidth),`"nodeHeight`":$($b.NodeHeight),`"autoFitWidth`":$afStr,`"autoFitMaxWidth`":$afMaxV,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
+                    $intStr = if ($b.Contains('Interactive')) { ([bool]$b.Interactive).ToString().ToLower() } else { 'true' }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"nodes`":[$nodesJson],`"direction`":$(ConvertTo-DhJsonString $b.Direction),`"nodeWidth`":$($b.NodeWidth),`"nodeHeight`":$($b.NodeHeight),`"autoFitWidth`":$afStr,`"autoFitMaxWidth`":$afMaxV,`"interactive`":$intStr,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'statusgrid' {
                     # v1.4 F5 — rows × columns RAG matrix.
@@ -575,11 +576,25 @@ function Export-DhDashboard {
     # the substitution silently expands and bloats the file by repeating large
     # chunks of the template. Use [regex]::Replace with a MatchEvaluator so the
     # JSON is inserted verbatim.
+    # ---- Build global-filter JSON (v1.9.0) ----------------------------------------
+    $globalFilterJson = '[]'
+    if ($Report.Contains('GlobalFilters') -and $Report.GlobalFilters.Count -gt 0) {
+        $gfItems = ($Report.GlobalFilters | ForEach-Object {
+            $g = $_
+            $valsJson = if ($g.Values -and @($g.Values).Count -gt 0) {
+                '[' + ((@($g.Values) | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ',') + ']'
+            } else { '[]' }
+            "{`"field`":$(ConvertTo-DhJsonString $g.Field),`"label`":$(ConvertTo-DhJsonString $g.Label),`"type`":$(ConvertTo-DhJsonString $g.Type),`"values`":$valsJson,`"placeholder`":$(ConvertTo-DhJsonString $g.Placeholder)}"
+        }) -join ','
+        $globalFilterJson = "[$gfItems]"
+    }
+
     $jsTpl = Get-DhJsContent
     $js = [regex]::Replace($jsTpl, '/\*%%TABLES_CONFIG%%\*/\[\]',  { param($m) $tablesConfigJson  })
     $js = [regex]::Replace($js,    '/\*%%SUMMARY_CONFIG%%\*/\[\]', { param($m) $summaryConfigJson })
     $js = [regex]::Replace($js,    '/\*%%BLOCKS_CONFIG%%\*/\[\]',  { param($m) $blocksConfigJson  })
     $js = [regex]::Replace($js,    '/\*%%ALERTS_CONFIG%%\*/\[\]',  { param($m) $alertsConfigJson  })
+    $js = [regex]::Replace($js,    '/\*%%GLOBALFILTER_CONFIG%%\*/\[\]', { param($m) $globalFilterJson })
 
     # ---- Build theme style tag (light primary, dark alternate, always embedded) --
     $primaryCss    = Get-DhThemeCss -Theme $theme
@@ -735,9 +750,22 @@ function Export-DhDashboard {
             $bSg        = if ($b.Contains('NavSubGroup') -and $b.NavSubGroup) { $b.NavSubGroup } else { '' }
             $bSgAttr    = if ($bSg) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bSg))`"" } else { '' }
             $bActive    = if (-not $bNg) { ' panel-active' } else { '' }
-            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr$bSgAttr><div id=`"block-$($b.Id)`"></div></div>"
+            $bSpanAttr  = if ($b.Contains('GridSpan') -and $b.GridSpan -ge 1 -and $b.GridSpan -le 12) { " style=`"grid-column:span $($b.GridSpan)`"" } else { '' }
+            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr$bSgAttr$bSpanAttr><div id=`"block-$($b.Id)`"></div></div>"
         }) -join "`n"
     }
+
+    # ---- 12-column grid layout (v1.10.0) ----------------------------------------
+    # Opt-in: the report body becomes a 12-column CSS grid only when at least one
+    # block or table declares -GridSpan. Otherwise the sequential flow is unchanged.
+    $useGrid = $false
+    if ($Report.Contains('Blocks')) {
+        foreach ($b in $Report.Blocks) { if ($b.Contains('GridSpan') -and $b.GridSpan -ge 1 -and $b.GridSpan -le 12) { $useGrid = $true; break } }
+    }
+    if (-not $useGrid -and $Report.Tables) {
+        foreach ($t in $Report.Tables) { if ($t.Contains('GridSpan') -and $t.GridSpan -ge 1 -and $t.GridSpan -le 12) { $useGrid = $true; break } }
+    }
+    $bodyClass = if ($useGrid) { 'report-body report-grid' } else { 'report-body' }
 
     # ---- Auto-refresh meta tag (v1.4.2 — -AutoRefresh on New-DhDashboard) ----
     $autoRefreshTag = ''
@@ -799,8 +827,9 @@ $themeStyleTag
     $subnavHtml
   </nav>
 
-  <main class="report-body">
+  <main class="$bodyClass">
     <div class="report-alerts" id="report-alerts"></div>
+    <div class="global-filter-bar" id="global-filter-bar" role="region" aria-label="Global filters" style="display:none"></div>
     $summaryContainerHtml
 $blockSectionsHtml
 $tableSections

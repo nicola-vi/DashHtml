@@ -29,6 +29,8 @@ function Get-DhCssRagLight {
   --bg-thead:         #F2F2F2;
 
   --accent-primary:   #595959;
+
+  --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #404040;
   --accent-danger:    #9C0006;
   --accent-warn:      #7F4B00;

@@ -91,3 +91,82 @@ function Test-DhSafeActionUrl {
 
     throw "$Context : '$Url' uses a scheme that is not allowed. Action Url must start with http:, https:, mailto:, tel:, or '#'."
 }
+
+
+function Test-DhLooksLikeHtml {
+    <#
+    .SYNOPSIS
+        Heuristic — does this string appear to contain HTML markup?
+
+    .DESCRIPTION
+        Used only to decide whether to emit the -AllowHtml deprecation warning.
+        Deliberately conservative: matches an opening tag (`<div`, `</p`, `<!--`)
+        or a named/numeric HTML entity (`&amp;`, `&#39;`, `&#x2F;`). False
+        positives here just produce an extra (harmless) warning; they never
+        change rendering. Not a security control — the actual encoding decision
+        is driven purely by the caller's -AllowHtml value.
+    #>
+    param([string] $s)
+    if ([string]::IsNullOrEmpty($s)) { return $false }
+    return ($s -match '<[a-zA-Z/!]') -or ($s -match '&(#[0-9]+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);')
+}
+
+
+function ConvertTo-DhSafeContent {
+    <#
+    .SYNOPSIS
+        Apply the -AllowHtml policy to a raw-HTML content string.
+
+    .DESCRIPTION
+        Four cmdlets inject caller-supplied content into the DOM via innerHTML:
+        Add-DhHtmlBlock (-Content), Add-DhTabs (per-tab Content), Add-DhCollapsible
+        (-Content), and Add-DhAlertBanner (-Message). Each routes its content
+        through this helper so the -AllowHtml behaviour and the 2.0.0 deprecation
+        warning are defined in exactly one place.
+
+        Behaviour:
+          -AllowHtml $false  -> the content is HTML-encoded (rendered as literal
+                                text). Use for untrusted / external data.
+          -AllowHtml $true   -> the content is returned verbatim (raw markup).
+                                This is the v1.x default. If the caller did NOT
+                                pass -AllowHtml explicitly AND the content looks
+                                like HTML, a one-time-per-call deprecation warning
+                                is emitted noting that the default flips to $false
+                                in DashHtml 2.0.0.
+
+        Encoding uses [System.Net.WebUtility]::HtmlEncode — always available in
+        .NET (PowerShell 7) with no assembly load, and it encodes < > & " ' .
+
+    .PARAMETER Content
+        The raw content string.
+
+    .PARAMETER AllowHtml
+        The resolved value of the cmdlet's -AllowHtml parameter.
+
+    .PARAMETER Explicit
+        $true when the caller passed -AllowHtml explicitly (i.e.
+        $PSBoundParameters.ContainsKey('AllowHtml')). Suppresses the deprecation
+        warning — an explicit choice is never nagged.
+
+    .PARAMETER Context
+        Caller identifier used in the warning message (e.g. "Add-DhHtmlBlock 'intro'").
+    #>
+    param(
+        [string] $Content,
+        [bool]   $AllowHtml,
+        [bool]   $Explicit,
+        [string] $Context = 'content'
+    )
+
+    if (-not $AllowHtml) {
+        return [System.Net.WebUtility]::HtmlEncode($Content)
+    }
+
+    if (-not $Explicit -and (Test-DhLooksLikeHtml $Content)) {
+        Write-Warning ("$Context : content contains HTML and is rendered as raw markup. " +
+            "DashHtml 2.0.0 will change the -AllowHtml default to `$false (HTML-encoded). " +
+            "Pass -AllowHtml:`$true to keep raw markup, or -AllowHtml:`$false to encode " +
+            "untrusted data now (recommended for any externally-sourced content).")
+    }
+    return $Content
+}

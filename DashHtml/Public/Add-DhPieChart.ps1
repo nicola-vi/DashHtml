@@ -127,6 +127,8 @@ function Add-DhPieChart {
         # Nav
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+        [ValidateRange(0,12)]
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
         [string] $NavGroup     = '',
         [string]   $NavSubGroup  = ''
     )
@@ -196,6 +198,13 @@ function Add-DhPieChart {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
     }
 
+    # Duplicate-Id guard (same rule applied by other block cmdlets)
+    foreach ($existing in $Report.Blocks) {
+        if ($existing.Id -eq $Id) {
+            throw "Add-DhPieChart: A block with Id '$Id' already exists in this report. Use a unique Id."
+        }
+    }
+
     $Report.Blocks.Add([ordered]@{
         BlockType    = 'piechart'
         Id           = $Id
@@ -211,6 +220,7 @@ function Add-DhPieChart {
         ShowLegend   = $ShowLegend
         NavGroup     = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })

@@ -18,9 +18,23 @@
     Open the dashboard, switch between the three group tabs in the nav bar,
     and watch the per-panel strip change while the global strip stays put.
 
+.PARAMETER OutputPath
+    Where to write the generated HTML. Defaults to Multi-Panel-Dashboard.html
+    beside this script.
+
+.PARAMETER OpenInBrowser
+    Open the dashboard in the default browser once generated.
+
 .EXAMPLE
-    PS> .\Examples\Multi-Panel-Dashboard.ps1
+    PS> .\Examples\Multi-Panel-Dashboard.ps1 -OpenInBrowser
+
+.EXAMPLE
+    PS> .\Examples\Multi-Panel-Dashboard.ps1 -OutputPath C:\Temp\panels.html
 #>
+param(
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'Multi-Panel-Dashboard.html'),
+    [switch] $OpenInBrowser
+)
 
 Import-Module "$PSScriptRoot\..\DashHtml\DashHtml.psd1" -Force
 
@@ -151,6 +165,5 @@ Add-DhLineChart -Report $report -Id 'finance-revenue-trend' `
     -NavGroup 'Finance'
 
 # ============================================================================
-$out = Join-Path $PSScriptRoot 'Multi-Panel-Dashboard.html'
-Export-DhDashboard -Report $report -OutputPath $out -Force -OpenInBrowser
-Write-Host "Wrote $out"
+Export-DhDashboard -Report $report -OutputPath $OutputPath -Force -OpenInBrowser:$OpenInBrowser
+Write-Host "Wrote $OutputPath"

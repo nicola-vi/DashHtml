@@ -114,7 +114,7 @@ $rawHtml = @'
 }</pre>
 '@
 
-Add-DhTabs -Report $report -Id 'fleet-views' -Title 'Fleet — Views' -Tabs @(
+Add-DhTabs -Report $report -Id 'fleet-views' -Title 'Fleet — Views' -AllowHtml:$true -Tabs @(
     @{ Title='Overview';     Icon='O'; Content=$overviewHtml; Active=$true }
     @{ Title='Per-host';     Icon='H'; Content=$detailHtml }
     @{ Title='Raw payload';  Icon='R'; Content=$rawHtml }

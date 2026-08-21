@@ -90,8 +90,34 @@ $cmdMeta = [ordered]@{
     'Add-DhFilterCard'   = @{ Tag = 'FILTER'; Color = '#d2a8ff'; Group = 'Content Blocks'  }
     'Add-DhHtmlBlock'    = @{ Tag = 'HTML';   Color = '#d2a8ff'; Group = 'Content Blocks'  }
     'Add-DhCollapsible'  = @{ Tag = 'COLL';   Color = '#d2a8ff'; Group = 'Content Blocks'  }
+    'Add-DhGlobalFilter' = @{ Tag = 'GLOBAL'; Color = '#3fb950'; Group = 'Linking'         }   # v1.9
     'Set-DhTableLink'    = @{ Tag = 'LINK';   Color = '#3fb950'; Group = 'Linking'         }
 }
+
+# ── Reconcile the curated list above against what the module ACTUALLY exports ──
+# $cmdMeta only supplies PRESENTATION (tag / colour / sidebar group). The set of
+# cmdlets to document is taken from the live module, so a newly added Public
+# cmdlet can never again be silently omitted from the reference (Add-DhGlobalFilter
+# shipped in 1.9.0 and was missing here until 1.10.4).
+$exportedCmds = @((Get-Module DashHtml).ExportedFunctions.Keys | Sort-Object)
+
+# Curated order first (nice grouping), then anything exported but undocumented.
+$cmdOrder = [System.Collections.Generic.List[string]]::new()
+foreach ($k in $cmdMeta.Keys) {
+    if ($exportedCmds -contains $k) { [void]$cmdOrder.Add($k) }
+    else { Write-Warning "Build-DhReference: '$k' is described here but is NOT exported by the module - skipping." }
+}
+$undocumented = @($exportedCmds | Where-Object { $_ -notin $cmdMeta.Keys })
+foreach ($k in $undocumented) {
+    Write-Warning "Build-DhReference: '$k' is exported but has no entry in `$cmdMeta - documenting it with default styling. Add one to control its tag/colour/group."
+    $cmdMeta[$k] = @{ Tag = 'NEW'; Color = '#d2a8ff'; Group = 'Content Blocks' }
+    [void]$cmdOrder.Add($k)
+}
+Write-Host "  Documenting $($cmdOrder.Count) of $($exportedCmds.Count) exported cmdlets" -ForegroundColor DarkGray
+
+# Theme families, read from the live ValidateSet rather than hardcoded.
+$themeFamilies = @((Get-Command New-DhDashboard).Parameters['Theme'].Attributes |
+                   Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }).ValidValues
 
 # Common parameters that PowerShell injects — skip them in the docs
 $skipParams = [System.Collections.Generic.HashSet[string]]::new(
@@ -398,7 +424,7 @@ Write-Host "  Generating sections..." -ForegroundColor Cyan
 $allSections    = [System.Text.StringBuilder]::new()
 $sidebarGroups  = [ordered]@{}  # group label → list of cmdlet names
 
-foreach ($cmdName in $cmdMeta.Keys) {
+foreach ($cmdName in $cmdOrder) {
     $meta  = $cmdMeta[$cmdName]
     $group = $meta.Group
     if (-not $sidebarGroups.Contains($group)) {
@@ -428,7 +454,7 @@ foreach ($group in $sidebarGroups.Keys) {
 
 # ── QUICK REFERENCE GRID ──────────────────────────────────────────────────────
 $qrGridHtml = [System.Text.StringBuilder]::new()
-foreach ($cn in $cmdMeta.Keys) {
+foreach ($cn in $cmdOrder) {
     $m       = $cmdMeta[$cn]
     $synopsis = (Get-Help $cn -ErrorAction SilentlyContinue).Synopsis
     if ($synopsis) { $synopsis = $synopsis.Trim() }
@@ -866,8 +892,8 @@ $($sidebarNavHtml.ToString())
     <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles (with sparklines, deltas, big-number and gauge styles), line / area / pie / bullet / stacked-bar charts, RAG status matrix, event feeds, alert banners, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Six theme families (including the v1.4 `Rag` family with the Office/Excel palette), embedded light/dark variants, no external dependencies at viewing time.</p>
     <div class="module-badges">
       <span class="badge badge-blue">PowerShell 7.0+</span>
-      <span class="badge badge-green">$($cmdMeta.Count) exported functions</span>
-      <span class="badge badge-purple">5 theme families</span>
+      <span class="badge badge-green">$($exportedCmds.Count) exported functions</span>
+      <span class="badge badge-purple">$($themeFamilies.Count) theme families</span>
       <span class="badge badge-orange">MIT License</span>
     </div>
   </div>
@@ -1076,3 +1102,4 @@ Write-Host "  Done: $outFile  ($sizeKb KB)" -ForegroundColor Green
 if ($Open) {
     Start-Process $outFile
 }
+

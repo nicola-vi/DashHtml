@@ -1,11 +1,19 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-    Install.ps1 — installs DashHtml into the PowerShell module path.
+    Install.ps1 — installs DashHtml (and the optional DashHtml.Design companion)
+    into the PowerShell module path.
 
 .DESCRIPTION
-    Copies the module into a properly versioned directory:
+    Copies each module into a properly versioned directory:
         <ModulesRoot>\DashHtml\<Version>\
+        <ModulesRoot>\DashHtml.Design\<Version>\
+
+    The two modules are versioned and installed independently. By default BOTH
+    are installed when the companion is present in the repo (or in dist\ after a
+    build); use -SkipDesign for the core only, or -DesignOnly for the companion
+    only. The core is always installed first — DashHtml.Design reads the core
+    module's cmdlet metadata at runtime.
 
     Scope behaviour mirrors Install-Module:
       • Default when running non-elevated : CurrentUser  (no admin required)
@@ -22,34 +30,59 @@
     CurrentUser (default for non-elevated) or AllUsers (default when elevated).
 
 .PARAMETER Source
-    Path to the module directory to install.
+    Path to the CORE module directory to install.
     Defaults to .\dist\DashHtml if built, otherwise .\DashHtml.
+
+.PARAMETER DesignSource
+    Path to the DashHtml.Design module directory.
+    Defaults to .\dist\DashHtml.Design if built, otherwise .\DashHtml.Design.
+
+.PARAMETER SkipDesign
+    Install the core module only; ignore DashHtml.Design.
+
+.PARAMETER DesignOnly
+    Install DashHtml.Design only; leave the core module untouched.
 
 .PARAMETER Force
     Overwrite an existing installation of the same version.
 
 .PARAMETER Uninstall
-    Remove all installed versions of DashHtml for the chosen scope.
+    Remove all installed versions for the chosen scope (both modules by default;
+    honours -SkipDesign / -DesignOnly).
 
 .EXAMPLE
     .\Install.ps1
     .\Install.ps1 -Scope AllUsers -Force
-    .\Install.ps1 -Scope CurrentUser
+    .\Install.ps1 -SkipDesign
+    .\Install.ps1 -DesignOnly -Force
     .\Install.ps1 -Uninstall
     .\Install.ps1 -Source '.\DashHtml' -Force
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [ValidateSet('CurrentUser', 'AllUsers')]
-    [string] $Scope    = '',        # empty = auto-detect from elevation
+    [string] $Scope        = '',        # empty = auto-detect from elevation
 
-    [string] $Source   = '',
+    [string] $Source       = '',
+    [string] $DesignSource = '',
+    [switch] $SkipDesign,
+    [switch] $DesignOnly,
     [switch] $Force,
     [switch] $Uninstall
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($SkipDesign -and $DesignOnly) {
+    throw "-SkipDesign and -DesignOnly are mutually exclusive."
+}
+
+$CoreName   = 'DashHtml'
+$DesignName = 'DashHtml.Design'
+
+$doCore   = -not $DesignOnly
+$doDesign = -not $SkipDesign
 
 # ── Banner ──────────────────────────────────────────────────────────────────
 Write-Host ''
@@ -128,109 +161,173 @@ function Get-ModuleRoot {
 
 $moduleRoot = Get-ModuleRoot -ScopeArg $Scope
 
-# ── Resolve source ───────────────────────────────────────────────────────────
-if (-not $Source) {
-    $dist    = Join-Path $PSScriptRoot 'dist\DashHtml'
-    $src     = Join-Path $PSScriptRoot 'DashHtml'
-    $distPsd = Join-Path $dist 'DashHtml.psd1'
-    $srcPsd  = Join-Path $src  'DashHtml.psd1'
+# ── Resolve a module's source directory ──────────────────────────────────────
+function Resolve-DhSource {
+    <#
+        Explicit path wins (and must contain the manifest). Otherwise prefer a
+        built dist\<Module>\, then the in-repo .\<Module>\. Returns $null when
+        the module isn't present anywhere — the caller decides whether that is
+        fatal (core) or just a skip (companion).
+    #>
+    param([string] $ModuleName, [string] $Explicit)
 
-    if ((Test-Path $dist) -and (Test-Path $distPsd)) {
-        $Source = $dist
-    } elseif (Test-Path $srcPsd) {
-        $Source = $src
-        if (Test-Path $dist) {
-            Write-Warning "dist\DashHtml exists but has no manifest - falling back to .\DashHtml"
+    if ($Explicit) {
+        if (-not (Test-Path $Explicit)) { throw "Source directory not found: '$Explicit'" }
+        if (-not (Test-Path (Join-Path $Explicit "$ModuleName.psd1"))) {
+            throw "No $ModuleName.psd1 found in '$Explicit'."
         }
+        return (Resolve-Path $Explicit).Path
+    }
+
+    $dist = Join-Path (Join-Path $PSScriptRoot 'dist') $ModuleName
+    $src  = Join-Path $PSScriptRoot $ModuleName
+
+    if ((Test-Path $dist) -and (Test-Path (Join-Path $dist "$ModuleName.psd1"))) { return $dist }
+    if (Test-Path (Join-Path $src "$ModuleName.psd1")) {
+        if (Test-Path $dist) {
+            Write-Warning "dist\$ModuleName exists but has no manifest - falling back to .\$ModuleName"
+        }
+        return $src
+    }
+    return $null
+}
+
+# ── Install one module ───────────────────────────────────────────────────────
+function Install-DhModule {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [string] $ModuleName,
+        [string] $SourceDir,
+        [string] $ModulesRoot,
+        [switch] $ForceOverwrite
+    )
+
+    $psdFile  = Join-Path $SourceDir "$ModuleName.psd1"
+    $manifest = Import-PowerShellDataFile $psdFile
+    $version  = $manifest.ModuleVersion
+
+    $installBase = Join-Path $ModulesRoot $ModuleName
+    $installDest = Join-Path $installBase $version
+
+    Write-Host "  Module  : $ModuleName  v$version" -ForegroundColor Cyan
+    Write-Host "  Source  : $SourceDir"             -ForegroundColor DarkGray
+    Write-Host "  Target  : $installDest"           -ForegroundColor DarkGray
+
+    if (Test-Path $installDest) {
+        if ($ForceOverwrite) {
+            Remove-Item $installDest -Recurse -Force
+            Write-Host "  Removed existing v$version installation." -ForegroundColor DarkGray
+        } else {
+            Write-Warning "$ModuleName v$version is already installed at '$installDest'."
+            Write-Warning "Use -Force to reinstall, or -Uninstall to remove all versions."
+            Write-Host ''
+            return $false
+        }
+    }
+
+    if ($PSCmdlet.ShouldProcess($installDest, 'Copy module files')) {
+        New-Item -ItemType Directory -Path $installDest -Force | Out-Null
+        Copy-Item -Path (Join-Path $SourceDir '*') -Destination $installDest -Recurse -Force
+        $copied = (Get-ChildItem $installDest -Recurse -File).Count
+        Write-Host "  Copied $copied files to: $installDest" -ForegroundColor Green
     } else {
-        throw "Cannot find DashHtml.psd1 in '$dist' or '$src'. Run .\Build.ps1 first."
+        Write-Host ''
+        return $false
+    }
+
+    # ── Verify ──
+    Write-Host "  Verifying import..." -ForegroundColor DarkGray
+    Remove-Module $ModuleName -ErrorAction SilentlyContinue
+    try {
+        $imported = Import-Module $ModuleName -RequiredVersion $version -PassThru -ErrorAction Stop
+        $cmdNames = ($imported.ExportedFunctions.Keys | Sort-Object) -join ', '
+        Write-Host "  Import OK - $($imported.ExportedFunctions.Count) cmdlets: $cmdNames" -ForegroundColor Green
+    }
+    catch {
+        Write-Warning "Import verification failed: $_"
+        Write-Warning "Files are installed but the module may not load correctly."
+        Write-Host ''
+        return $false
+    }
+
+    Write-Host "  $ModuleName v$version installed ($Scope)." -ForegroundColor Cyan
+    Write-Host ''
+    return $true
+}
+
+# ── Uninstall one module ─────────────────────────────────────────────────────
+function Uninstall-DhModule {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string] $ModuleName, [string] $ModulesRoot)
+
+    $installBase = Join-Path $ModulesRoot $ModuleName
+    if (-not (Test-Path $installBase)) {
+        Write-Warning "$ModuleName not found at '$installBase' for scope '$Scope' - nothing to uninstall."
+        return
+    }
+    if ($PSCmdlet.ShouldProcess($installBase, 'Remove module directory tree')) {
+        Remove-Module $ModuleName -ErrorAction SilentlyContinue
+        Remove-Item $installBase -Recurse -Force
+        Write-Host "  Uninstalled: $installBase" -ForegroundColor Yellow
     }
 }
 
-if (-not (Test-Path $Source)) {
-    throw "Source directory not found: '$Source'"
+# ── Resolve sources ──────────────────────────────────────────────────────────
+$coreSource = $null
+if ($doCore) {
+    $coreSource = Resolve-DhSource -ModuleName $CoreName -Explicit $Source
+    if (-not $coreSource) {
+        throw ("Cannot find $CoreName.psd1 in '.\dist\$CoreName' or '.\$CoreName'. Run .\Build.ps1 first.")
+    }
 }
 
-$psdFile = Join-Path $Source 'DashHtml.psd1'
-if (-not (Test-Path $psdFile)) {
-    throw "No DashHtml.psd1 found in '$Source'."
+$designSourceResolved = $null
+if ($doDesign) {
+    $designSourceResolved = Resolve-DhSource -ModuleName $DesignName -Explicit $DesignSource
+    if (-not $designSourceResolved) {
+        if ($DesignOnly -or $DesignSource) {
+            throw ("Cannot find $DesignName.psd1 in '.\dist\$DesignName' or '.\$DesignName'.")
+        }
+        # Companion simply isn't in this checkout — carry on with the core.
+        Write-Host "  $DesignName not found - installing the core module only." -ForegroundColor DarkGray
+        $doDesign = $false
+    }
 }
 
-$manifest = Import-PowerShellDataFile $psdFile
-$version  = $manifest.ModuleVersion
-$modName  = 'DashHtml'
-
-# Install target: <root>\DashHtml\<version>\
-$installBase = Join-Path $moduleRoot $modName
-$installDest = Join-Path $installBase $version
-
-Write-Host "  Module  : $modName  v$version" -ForegroundColor Cyan
-Write-Host "  Source  : $Source"              -ForegroundColor DarkGray
-Write-Host "  Target  : $installDest"         -ForegroundColor DarkGray
 Write-Host ''
 
 # ── Uninstall ────────────────────────────────────────────────────────────────
 if ($Uninstall) {
-    if (Test-Path $installBase) {
-        if ($PSCmdlet.ShouldProcess($installBase, 'Remove module directory tree')) {
-            Remove-Item $installBase -Recurse -Force
-            Write-Host "  Uninstalled: $installBase" -ForegroundColor Yellow
-
-            # Also remove from current session
-            Remove-Module $modName -ErrorAction SilentlyContinue
-        }
-    } else {
-        Write-Warning "Module not found at '$installBase' for scope '$Scope' - nothing to uninstall."
-    }
+    # Companion first: it depends on the core at runtime.
+    if ($doDesign -or $DesignOnly) { Uninstall-DhModule -ModuleName $DesignName -ModulesRoot $moduleRoot }
+    if ($doCore)                   { Uninstall-DhModule -ModuleName $CoreName   -ModulesRoot $moduleRoot }
     Write-Host ''
     return
 }
 
-# ── Check for existing install ───────────────────────────────────────────────
-if (Test-Path $installDest) {
-    if ($Force) {
-        Remove-Item $installDest -Recurse -Force
-        Write-Host "  Removed existing v$version installation." -ForegroundColor DarkGray
-    } else {
-        Write-Warning "v$version is already installed at '$installDest'."
-        Write-Warning "Use -Force to reinstall, or -Uninstall to remove all versions."
-        Write-Host ''
-        return
-    }
+# ── Install (core first — the companion reads its cmdlet metadata) ───────────
+$installedAny = $false
+if ($doCore) {
+    if (Install-DhModule -ModuleName $CoreName -SourceDir $coreSource `
+            -ModulesRoot $moduleRoot -ForceOverwrite:$Force) { $installedAny = $true }
+}
+if ($doDesign) {
+    if (Install-DhModule -ModuleName $DesignName -SourceDir $designSourceResolved `
+            -ModulesRoot $moduleRoot -ForceOverwrite:$Force) { $installedAny = $true }
 }
 
-# ── Copy files ───────────────────────────────────────────────────────────────
-if ($PSCmdlet.ShouldProcess($installDest, 'Copy module files')) {
-    New-Item -ItemType Directory -Path $installDest -Force | Out-Null
-    Copy-Item -Path (Join-Path $Source '*') -Destination $installDest -Recurse -Force
+if (-not $installedAny) { return }
 
-    # Count copied files for confirmation
-    $copied = (Get-ChildItem $installDest -Recurse -File).Count
-    Write-Host "  Copied $copied files to: $installDest" -ForegroundColor Green
-}
-
-# ── Verify ───────────────────────────────────────────────────────────────────
-Write-Host "  Verifying import..." -ForegroundColor DarkGray
-Remove-Module $modName -ErrorAction SilentlyContinue
-
-try {
-    $importedMod = Import-Module $modName -RequiredVersion $version -PassThru -ErrorAction Stop
-    $cmdCount    = $importedMod.ExportedFunctions.Count
-    $cmdNames    = ($importedMod.ExportedFunctions.Keys | Sort-Object) -join ', '
-    Write-Host "  Import OK — $cmdCount cmdlets: $cmdNames" -ForegroundColor Green
-}
-catch {
-    Write-Warning "Import verification failed: $_"
-    Write-Warning "Files are installed but the module may not load correctly."
-    Write-Host ''
-    return
-}
-
-Write-Host ''
-Write-Host "  DashHtml v$version installed ($Scope)." -ForegroundColor Cyan
-Write-Host ''
+# ── Usage ────────────────────────────────────────────────────────────────────
 Write-Host '  Usage:' -ForegroundColor White
-Write-Host "    Import-Module DashHtml" -ForegroundColor DarkGray
-Write-Host "    Get-Command -Module DashHtml" -ForegroundColor DarkGray
-Write-Host "    Get-Help New-DhDashboard -Full" -ForegroundColor DarkGray
+if ($doCore) {
+    Write-Host "    Import-Module DashHtml" -ForegroundColor DarkGray
+    Write-Host "    Get-Command -Module DashHtml" -ForegroundColor DarkGray
+    Write-Host "    Get-Help New-DhDashboard -Full" -ForegroundColor DarkGray
+}
+if ($doDesign) {
+    Write-Host "    Import-Module DashHtml.Design" -ForegroundColor DarkGray
+    Write-Host "    ConvertFrom-DhYaml -Path layout.yaml -OutFile build.ps1" -ForegroundColor DarkGray
+    Write-Host "    `$report | ConvertTo-DhYaml -OutFile layout.yaml" -ForegroundColor DarkGray
+}
 Write-Host ''

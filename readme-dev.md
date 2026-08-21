@@ -2,7 +2,7 @@
 
 > **Audience:** An LLM-based coding assistant (or a developer in a hurry) that needs to use DashHtml correctly without reading the full README. Pass this file as context at the start of a session to skip the discovery phase.
 
-> **Module version this file describes:** **1.5.3** (2026-06-20)
+> **Module version this file describes:** **1.10.4** (2026-08-07)
 
 ---
 
@@ -29,7 +29,7 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 
 ---
 
-## 2 — Cmdlet cheat sheet (18 cmdlets, grouped by role)
+## 2 — Cmdlet cheat sheet (20 cmdlets, grouped by role)
 
 | Group | Cmdlet | Use when… |
 |---|---|---|
@@ -49,6 +49,7 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 | **Events / alerts** | `Add-DhEventFeed` | Chronological severity-tagged log. Pair with KPI tiles as Row-5 audit trail. |
 | | `Add-DhAlertBanner` | Top-of-page strip for *current* conditions. Dismissible, with optional Action button. v1.4.2: `-NavGroup` / `-NavSubGroup` bind to a single panel. |
 | **Layout** | `Add-DhTabs` *(v1.5)* | Inline tabbed content block. Local pivot inside one block; distinct from `-NavGroup` (page-level). |
+| **Global filter** *(v1.9)* | `Add-DhGlobalFilter` | Page-level facet dropdown or from/to date range in a bar above the body. Re-filters EVERY table that has the field at once; charts re-aggregate; AND-combined; persists in URL. Tables lacking the field are unaffected. |
 | | `Add-DhFilterCard` | Clickable filter card grid; single or multi-select; filters a target table. |
 | | `Add-DhHtmlBlock` | Free-form HTML in one of 6 RAG-coloured styles. |
 | | `Add-DhCollapsible` | Collapsible card grid or free-form content. |
@@ -435,7 +436,7 @@ Add-DhTabs -Report $report -Id 'fleet' -Title 'Fleet views' -Tabs @(
 
 11. **Locale-safe number parsing.** v1.4 cmdlets all parse via `InvariantCulture` (regression fix from v1.4.0 — `it-IT` was treating `92330.25` as `9233025`). When extending the module, never use `[double]::TryParse([string], [ref])` without explicitly passing `InvariantCulture`.
 
-12. **JS helpers are module-scope (v1.4.1+).** When extending the embedded JS in `Get-DhJsContent.ps1`, put new helpers at module scope (not nested inside `renderSummary` or similar) so cross-block renderers can call them. The bullet + line chart renderers used to silently break because of nested helpers — fixed in 1.4.1.
+12. **JS helpers are module-scope (v1.4.1+).** When extending the embedded JS, put new helpers at module scope (not nested inside `renderSummary` or similar) so cross-block renderers can call them. The bullet + line chart renderers used to silently break because of nested helpers — fixed in 1.4.1. **Since 1.8.0** the runtime JS is split across `Get-DhJsCore/Blocks/Nav/Table/Boot.ps1` (concatenated by `Get-DhJsContent`) — it is still ONE shared scope after assembly, so a helper defined in `Get-DhJsCore` is callable from `Get-DhJsBlocks`, etc. Put new block renderers in `Get-DhJsBlocks.ps1`.
 
 13. **Banners can be per-panel since v1.4.2.** `Add-DhAlertBanner -NavGroup '...' [-NavSubGroup '...']` binds the banner to a single panel. Without those params, the banner stays page-global (the legacy default). Bound banners disappear when their group is not active.
 
@@ -455,7 +456,25 @@ Add-DhTabs -Report $report -Id 'fleet' -Title 'Fleet views' -Tabs @(
 
 17. **AutoRefresh is a browser `<meta refresh>`, not live data.** `New-DhDashboard -AutoRefresh '5m'` makes the browser reload the same HTML file every 5 minutes. To actually update the data, schedule a job that re-runs your dashboard script slightly more frequently than the refresh interval.
 
-18. **Four cmdlets accept raw HTML — never pipe untrusted data into them.** `Add-DhHtmlBlock -Content`, `Add-DhTabs` per-tab `Content`, `Add-DhCollapsible -Content`, and `Add-DhAlertBanner -Message` are all injected via `innerHTML` by design (so callers can embed lists, links, formatted markup). When the value comes from an external system (AD attribute, ticket title, log line, hostname), HTML-encode it first with `[System.Web.HttpUtility]::HtmlEncode($value)`. Every other text field in the module — table cells, summary labels, topology labels, status grid cells, KPI captions — is HTML-encoded automatically and is safe to pass user data into. (As of **1.5.3** colour values on `Add-DhPieChart` / `Add-DhLineChart` and `Url` fields on `Action` hashtables are validated for you and throw on hostile input; you do not have to sanitise those.)
+18. **Four cmdlets accept raw HTML — use `-AllowHtml:$false` for untrusted data.** `Add-DhHtmlBlock -Content`, `Add-DhTabs` per-tab `Content`, `Add-DhCollapsible -Content`, and `Add-DhAlertBanner -Message` are injected via `innerHTML` by design (so callers can embed lists, links, formatted markup). Since **1.6.0** each takes an `-AllowHtml` switch:
+    - `-AllowHtml:$true` (**current default**) — raw markup, as in v1.x. Use for HTML you authored.
+    - `-AllowHtml:$false` — the cmdlet HTML-encodes the content for you (`[System.Net.WebUtility]::HtmlEncode`). Use for any externally-sourced value (AD attribute, ticket title, log line, hostname).
+
+    If you pass HTML-looking content without an explicit `-AllowHtml`, a **deprecation warning** fires: the default flips to `$false` (encode) in **2.0.0**. Silence it by choosing a value explicitly. The encode/warn logic is centralised in the private helper `ConvertTo-DhSafeContent` (+ `Test-DhLooksLikeHtml`) — all four cmdlets route through it. Every other text field in the module — table cells, summary labels, topology labels, status grid cells, KPI captions — is HTML-encoded automatically and is safe to pass user data into. (As of **1.5.3** colour values on `Add-DhPieChart` / `Add-DhLineChart` and `Url` fields on `Action` hashtables are validated for you and throw on hostile input; you do not have to sanitise those.)
+
+19. **`-Pageable:$false` shows ALL rows (since 1.7.0), and virtualises above 150.** Before 1.7.0 a non-pageable table wrongly rendered only the first `pageSize` (15) rows with no way to reach the rest. Now it renders every filtered row. For large data this is windowed: only the rows near the scroll viewport are in the DOM, inside a `max-height:70vh` sticky-header scroll container (`.table-virtual`). The **default paginated path is unchanged** and never virtualises — DOM rows are always capped at `pageSize`. If you relied on `-Pageable:$false` truncating to 15 rows (you shouldn't have — it was a bug), set an explicit small `-PageSize` with paging instead.
+
+20. **Topology is interactive by default (since 1.7.0).** `Add-DhTopologyMap` renders pan/zoom/collapse in a fixed viewport. Pass `-Interactive:$false` for the old static scale-to-fit (e.g. for print). The renderer auto-fits via `ResizeObserver` and stops auto-fitting once the user pans/zooms — important because topology often lives in a `-NavGroup` panel that is `display:none` (zero width) until its tab is shown; the observer fires and fits when it becomes visible.
+
+21. **Global filters do NOT reach summary tiles (since 1.9.0).** `Add-DhGlobalFilter` re-filters tables and table-derived charts (`GlobalFilter.matchRow` runs in each `TableEngine._getFiltered`). It does **not** touch `Add-DhSummary` KPI tiles — those are computed once from the full dataset and never re-aggregate. If a user wants filter-reactive KPIs, drive them from a filtered table or scope them per panel with `Add-DhSummary -NavGroup`. This is a known limitation, documented in the 1.10.1 CHANGELOG.
+
+22. **`CellType='progressbar'` label is HTML-encoded (fixed 1.10.1).** All table cell types now escape user values; before 1.10.1 the progressbar label was an unescaped `innerHTML` XSS sink. Every table cell is safe to pass user data into — you do not need to pre-encode.
+
+23. **CSV / XLSX / PDF export always covers the FULL filtered set**, never just the visible page or the virtualised window. `_exportRows()` returns `_getFiltered()` (all rows matching the active filters, in sort order), so a user looking at page 1 of 20 — or a virtualised window of 40 rows — still downloads every matching row. The PDF header prints `Rows: N` as a cue. This is intentional; if you want a page-limited export, filter the data first. (Since 1.10.2 the XLSX sheet name is sanitised — `: \ / ? * [ ]` stripped, blank → `Sheet1` — so a table title with those characters no longer makes the Excel export silently fail.)
+
+24. **`ConvertTo-DhJsonString`: the order of the escape passes is load-bearing — do NOT fold them into one regex.** Carriage return is *dropped*, not escaped. So `'<' CR '/script>'` only collapses into a literal `</script>` **partway through** escaping, and is then caught by the `</` → `<\/` pass that runs after the CR pass. Verified: ``"a<`r/script>b"`` → `"a<\/script>b"`. A single regex over the *original* string never sees that `</` and would emit it raw — a script breakout. The nine passes look redundant and are the obvious thing to "optimise"; they are not. Since 1.10.3 they are *skipped* (not merged) via an `IndexOfAny` fast path when the string provably needs no escaping — that is the safe way to make this faster, and it already bought ~40× on the marginal cost of `Export-DhDashboard`. Same reasoning rules out `ConvertTo-Json` / `System.Text.Json`, which also drop the `</` and U+2028/29 handling.
+
+25. **Never pass an options object to `localeCompare` inside a comparator (fixed 1.10.4).** `String.localeCompare(x, undefined, {sensitivity:'base'})` makes the engine **re-resolve collation settings on every call**. In the table sort comparator that ran ~270,000 times for a 19,011-row table and blocked the main thread for **5.6 seconds** on a single header click. Build **one** `Intl.Collator` and reuse `collator.compare` — measured ~15× on its own, ~33× combined with precomputing sort keys outside the comparator (`parseFloat` was also running O(n log n) times instead of O(n)). Ordering is safe to preserve across the swap because the spec defines `localeCompare(y, loc, opts)` as `new Intl.Collator(loc, opts).compare(x, y)`, and `Array#sort` is stable. Note this class of bug is **invisible to functional tests** — the slow code sorted perfectly correctly — so it is pinned at source level in the Pester suite instead.
 
 ---
 
@@ -504,7 +523,12 @@ DashHtml/
 │   │   ├── Add-DhHtmlBlock.ps1
 │   │   └── Add-DhCollapsible.ps1
 │   └── Private/                       ← internal helpers
-│       ├── Get-DhJsContent.ps1        ← ALL embedded JS lives here (~2400 lines)
+│       ├── Get-DhJsContent.ps1        ← assembler: concatenates the JS fragments below
+│       ├── Get-DhJsCore.ps1           ← JS: config/state/URL/format/threshold/theme/tiles/alerts
+│       ├── Get-DhJsBlocks.ps1         ← JS: every block renderer (charts, grids, topology, tabs…)
+│       ├── Get-DhJsNav.ps1            ← JS: two/three-tier navigation
+│       ├── Get-DhJsTable.ps1          ← JS: the TableEngine (sort/filter/page/virtualise/export)
+│       ├── Get-DhJsBoot.ps1           ← JS: DOMContentLoaded bootstrap
 │       ├── Get-DhCssBase.ps1          ← structural CSS shared by every theme
 │       ├── Get-DhCssDefaultLight.ps1  ← per-theme :root variables (light)
 │       ├── Get-DhCssDefaultDark.ps1   ← per-theme :root variables (dark)
@@ -514,7 +538,7 @@ DashHtml/
 │       ├── ConvertTo-DhJsonString.ps1
 │       └── Build-DhTableSections.ps1
 ├── Tests/
-│   └── DashHtml.Tests.ps1             ← Pester 5; 322 tests at 1.5.3; covers every cmdlet
+│   └── DashHtml.Tests.ps1             ← Pester 5; 397 tests at 1.10.4; covers every cmdlet + Examples smoke test
 ├── Examples/
 │   ├── AD-Dashboard.ps1               ← Active Directory ops, spec §4.1 layout
 │   ├── vSphere-Dashboard.ps1          ← vSphere ops, spec §4.2 layout
@@ -545,7 +569,7 @@ The recurring pattern for a new block-type cmdlet:
 1. **Create `Public/Add-DhX.ps1`** with `param`, validation, and a final `$Report.Blocks.Add([ordered]@{ BlockType='xxx'; Id=...; ... })`.
 2. **Add the cmdlet name to `FunctionsToExport`** in `DashHtml/DashHtml.psd1`.
 3. **In `Export-DhDashboard.ps1`**, find the `switch ($b.BlockType)` and add a new `'xxx'` case that serialises the block hashtable to JSON.
-4. **In `Private/Get-DhJsContent.ps1`**, add a `case 'xxx': renderX(container, block); break;` in the `switch (block.blockType)` inside `renderBlocks()`, and define the `renderX` function at **module scope** (not nested).
+4. **In `Private/Get-DhJsBlocks.ps1`**, add a `case 'xxx': renderX(container, block); break;` in the `switch (block.blockType)` inside `renderBlocks()`, and define the `renderX` function at **module scope** (not nested). (Since 1.8.0 the block renderers live in this fragment; shared helpers are in `Get-DhJsCore.ps1`.)
 5. **Add CSS** to `Private/Get-DhCssBase.ps1`. Reuse existing tokens: `--cell-ok-fg` / `--cell-warn-fg` / `--cell-danger-fg` / `--cell-nodata-fg` for RAG colouring, `--chart-1`..`--chart-8` for categorical colours, `--accent-primary` for the brand accent.
 6. **Write Pester tests** in `Tests/DashHtml.Tests.ps1` — at minimum, validation paths + a smoke test that checks the emitted HTML.
 
@@ -589,7 +613,7 @@ When writing tests, follow the existing pattern in `Tests/DashHtml.Tests.ps1` �
 - Validation tests (`{ Add-DhX ... bad-input ... } | Should -Throw`)
 - HTML round-trip test (`Should -Match` on the emitted HTML/JSON text)
 
-Tests run quickly (~30 s for 322 tests at 1.5.3). The full suite must always pass before declaring work complete.
+Tests run quickly (~30 s for 397 tests at 1.10.4; the Examples smoke test adds ~20 s of subprocess runs). The full suite must always pass before declaring work complete.
 
 ---
 
@@ -701,4 +725,12 @@ Export-DhDashboard -Report $report -OutputPath '.\demo.html' -Force -OpenInBrows
 
 ---
 
-*End of dev/AI reference. Module version 1.5.3, generated 2026-06-20.*
+*End of dev/AI reference. Module version 1.10.4, generated 2026-08-07.*
+
+
+
+
+
+
+
+

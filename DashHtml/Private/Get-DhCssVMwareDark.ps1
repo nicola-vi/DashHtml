@@ -24,6 +24,8 @@ function Get-DhCssVMwareDark {
   --bg-thead:         #2A3750;
 
   --accent-primary:   #00C49A;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #00B388;
   --accent-danger:    #E74C3C;
   --accent-warn:      #F39C12;

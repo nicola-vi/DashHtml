@@ -18,6 +18,8 @@ function Get-DhCssGreyLight {
   --bg-thead:         #E0E0E0;
 
   --accent-primary:   #546E7A;
+
+  --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #37474F;
   --accent-danger:    #C62828;
   --accent-warn:      #E65100;

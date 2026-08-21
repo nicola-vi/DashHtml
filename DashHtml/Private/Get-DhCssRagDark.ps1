@@ -27,6 +27,8 @@ function Get-DhCssRagDark {
   --bg-thead:         #1F1F1F;
 
   --accent-primary:   #A6A6A6;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #BFBFBF;
   --accent-danger:    #FF7E7E;
   --accent-warn:      #FFD966;

@@ -69,12 +69,21 @@ function Add-DhFilterCard {
         [bool]     $ShowCount   = $true,
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+        [ValidateRange(0,12)]
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
         [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
         [string]   $NavSubGroup = ''    # optional second-level group under NavGroup (enables three-tier nav)
     )
 
     if (-not $Report.Contains('Blocks')) {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
+    }
+
+    # Duplicate-Id guard (same rule applied by other block cmdlets)
+    foreach ($existing in $Report.Blocks) {
+        if ($existing.Id -eq $Id) {
+            throw "Add-DhFilterCard: A block with Id '$Id' already exists in this report. Use a unique Id."
+        }
     }
 
     if ($Report.Tables -and -not ($Report.Tables | Where-Object { $_.Id -eq $TargetTableId })) {
@@ -100,6 +109,7 @@ function Add-DhFilterCard {
         ShowCount     = $ShowCount
         NavGroup      = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })

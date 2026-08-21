@@ -20,6 +20,8 @@ function Get-DhCssCompanyLight {
   --bg-thead:         #F5F5F5;
 
   --accent-primary:   #BE0036;
+
+  --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #8C0031;
   --accent-danger:    #BE0036;
   --accent-warn:      #E05000;

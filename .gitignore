@@ -22,3 +22,6 @@ TestResults*.xml
 
 # Claude Code session data
 .claude/
+
+# Local file backups (kept out of the published module and the repo)
+Backups/

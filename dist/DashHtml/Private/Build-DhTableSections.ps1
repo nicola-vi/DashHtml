@@ -34,6 +34,8 @@ function Build-DhTableSections {
         $bodyOpenCls = if ($defaultOpen) { ' open' } else { '' }
         $chev        = if ($defaultOpen) { '&#9662;' } else { '&#9656;' }
         $iconHtml    = if ($tIcon) { "<span class=`"table-section-icon`">$tIcon</span> " } else { '' }
+        # v1.10.0 — 12-column grid span (only meaningful when the body is .report-grid)
+        $spanAttr    = if ($t.Contains('GridSpan') -and $t.GridSpan -ge 1 -and $t.GridSpan -le 12) { " style=`"grid-column:span $($t.GridSpan)`"" } else { '' }
 
         if ($collapsible) {
             $headerHtml = @"
@@ -58,7 +60,7 @@ $descHtml
         }
 
         [void]$sb.AppendLine(@"
-    <section class="table-section$secCls" id="section-$id"$ngAttr$sgAttr>
+    <section class="table-section$secCls" id="section-$id"$ngAttr$sgAttr$spanAttr>
 $headerHtml
 $chartsHtml
       <div class="table-toolbar" id="toolbar-$id"
@@ -70,7 +72,7 @@ $chartsHtml
           </div>
         </div>
         <div class="toolbar-right">
-          <span class="table-info" id="info-$id"></span>
+          <span class="table-info" id="info-$id" role="status" aria-live="polite" aria-atomic="true"></span>
           <label class="pagesize-label">
             Rows
             <select class="pagesize-select" id="pagesize-$id"></select>

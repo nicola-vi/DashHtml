@@ -94,6 +94,11 @@ function Add-DhAlertBanner {
         [switch]    $Dismissible,
         [hashtable] $Action   = $null,
 
+        # v1.6.0 — when $false, -Message is HTML-encoded (rendered as literal text)
+        # instead of injected as raw markup. Default $true preserves v1.x behaviour;
+        # the default flips to $false in DashHtml 2.0.0. See ConvertTo-DhSafeContent.
+        [bool]      $AllowHtml = $true,
+
         # v1.5.1 — collapsible banner chrome. Defaults to $true (matches the
         # rest of v1.5.1). The banner's message + icon + action button live
         # inside a clickable header bar. -Title controls the header text;
@@ -160,10 +165,14 @@ function Add-DhAlertBanner {
                          default    { 'Alert'    }
                      } }
 
+    # v1.6.0 — apply the -AllowHtml policy to the raw-HTML message.
+    $safeMessage = ConvertTo-DhSafeContent -Content $Message -AllowHtml $AllowHtml `
+        -Explicit $PSBoundParameters.ContainsKey('AllowHtml') -Context "Add-DhAlertBanner '$Id' -Message"
+
     $banner = [ordered]@{
         Id          = $Id
         Severity    = $Severity
-        Message     = $Message
+        Message     = $safeMessage
         Icon        = $Icon
         Dismissible = [bool]$Dismissible
         Action      = $normAction

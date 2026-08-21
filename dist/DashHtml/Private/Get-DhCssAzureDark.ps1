@@ -18,6 +18,8 @@ function Get-DhCssAzureDark {
   --bg-thead:         #2D2C2B;
 
   --accent-primary:   #479EF5;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #2886DE;
   --accent-danger:    #FC5F5F;
   --accent-warn:      #FCE100;

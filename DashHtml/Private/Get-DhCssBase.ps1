@@ -9,6 +9,19 @@ function Get-DhCssBase {
    --------------------------------------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* v1.7.0 — a11y: honour the OS "reduce motion" preference. Neutralises every
+   transition + animation (collapsible expand, hover lifts, sort-icon spins,
+   topology pan easing) while preserving the final rendered state, and disables
+   smooth-scroll. Users with vestibular sensitivity get a still, instant UI. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
@@ -130,6 +143,26 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
+}
+
+/* v1.10.0 — opt-in 12-column grid layout. Active only when a block or table
+   declares -GridSpan (Export adds .report-grid). Each spanned section carries
+   an inline  grid-column: span N ; sections without a span default to full
+   width. Page chrome (alerts, filter bar, summary) is always full width. */
+.report-body.report-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-lg);
+  align-items: start;
+}
+.report-grid > .block-section,
+.report-grid > .table-section { grid-column: 1 / -1; }   /* default: full row unless an inline span overrides */
+.report-grid > #report-alerts,
+.report-grid > #global-filter-bar,
+.report-grid > #report-summary { grid-column: 1 / -1; }
+@media (max-width: 900px) {
+  .report-body.report-grid { grid-template-columns: 1fr; }
+  .report-body.report-grid > * { grid-column: 1 / -1 !important; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -410,6 +443,21 @@ body {
   z-index: auto;
 }
 
+/* v1.7.0 — virtualised (non-pageable, large) tables scroll inside a bounded
+   viewport with a sticky header; the JS only renders the visible row window. */
+.table-wrapper.table-virtual {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.table-wrapper.table-virtual thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-thead);
+}
+.data-table tbody tr.virt-spacer:hover { background: transparent !important; box-shadow: none !important; }
+.data-table tbody tr.virt-spacer td { padding: 0 !important; border: 0 !important; }
+
 .data-table thead th {
   padding: 10px var(--space-md);
   text-align: left;
@@ -431,6 +479,11 @@ body {
 .data-table thead th.sortable:hover {
   color: var(--text-accent);
   background: var(--bg-row-hover);
+}
+/* v1.7.0 — a11y: keyboard focus ring on sortable headers (they are tabindex=0) */
+.data-table thead th.sortable:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
 }
 
 .data-table thead th.sorted { color: var(--accent-primary); }
@@ -872,7 +925,7 @@ td.no-data {
 }
 .subgroup-pill.subgroup-active {
   background: var(--accent-primary);
-  color: var(--accent-primary-fg);
+  color: var(--accent-primary-fg, #fff);   /* fallback kept for safety; all themes define it since 1.10.2 */
   border-color: var(--accent-primary);
 }
 
@@ -1238,6 +1291,56 @@ th.th-center   { text-align: center !important; }
   padding: var(--space-lg) 0 0 0;
 }
 .report-alerts:empty { display: none; padding: 0; }
+
+/* v1.9.0 — global filter bar (page-level facet / date-range controls) */
+.global-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.gf-control { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.gf-label {
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+.gf-select, .gf-date {
+  font: inherit;
+  font-size: var(--size-sm);
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+}
+.gf-select:focus-visible, .gf-date:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+.gf-date-sep { color: var(--text-muted); padding: 0 2px; }
+.gf-clear {
+  margin-left: auto;
+  font: inherit;
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background var(--trans-fast), color var(--trans-fast);
+}
+.gf-clear:hover { background: var(--bg-row-hover); color: var(--text-primary); }
+.gf-clear:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 
 .alert-banner {
   display: flex;
@@ -2214,6 +2317,64 @@ body.theme-forced-dark {
   overflow: auto;        /* large topologies scroll rather than overflow the page */
 }
 .topology-map-svg { display: block; }
+
+/* v1.7.0 — interactive topology (pan / zoom / collapse) --------------------- */
+.topology-map-inner.topo-interactive {
+  overflow: hidden;                 /* content is panned inside a fixed viewport */
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px) 0 0 / 22px 22px;
+  cursor: grab;
+}
+.topology-map-inner.topo-interactive.topo-panning { cursor: grabbing; }
+.topology-map-inner.topo-interactive .topology-map-svg { height: 100%; }
+
+.topology-map-toolbar {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+.topo-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--trans-fast), border-color var(--trans-fast);
+}
+.topo-btn:hover        { background: var(--bg-row-hover); border-color: var(--border-strong); }
+.topo-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+
+/* Collapse/expand toggle badge on parent nodes */
+.topo-toggle { cursor: pointer; }
+.topo-toggle-bg {
+  fill: var(--bg-surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.25;
+  transition: fill var(--trans-fast), stroke var(--trans-fast);
+}
+.topo-toggle:hover .topo-toggle-bg { fill: var(--bg-row-hover); stroke: var(--accent-primary); }
+.topo-toggle:focus-visible { outline: none; }
+.topo-toggle:focus-visible .topo-toggle-bg { stroke: var(--accent-primary); stroke-width: 2; }
+.topo-toggle-sign {
+  fill: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+  pointer-events: none;
+  user-select: none;
+}
+.topo-toggle-collapsed .topo-toggle-bg { fill: var(--accent-primary); }
+.topo-toggle-collapsed .topo-toggle-sign { fill: var(--accent-primary-fg, #fff); }
 
 /* Node rectangle — base look */
 .topo-node-rect {

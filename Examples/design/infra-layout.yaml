@@ -1,0 +1,46 @@
+# -------------------------------------------------------------------------
+#  Example DashHtml layout — hand-written, declarative.
+#
+#  Turn it into a runnable build script with:
+#     Import-Module DashHtml, DashHtml.Design
+#     ConvertFrom-DhYaml -Path infra-layout.yaml -OutFile build-infra.ps1 -OutputPath infra.html
+#     .\build-infra.ps1
+#
+#  Because the table carries inline `data`, the generated script is runnable
+#  as-is (no TODO to fill in). Swap `data:` for `dataFile: servers.csv` to
+#  bind a CSV at build time instead.
+# -------------------------------------------------------------------------
+title: Infrastructure
+subtitle: Production estate
+theme: Azure
+navTitle: Infra
+
+summary:
+  items:
+    - { Label: Hosts, Value: 3 }
+    - { Label: Prod,  Value: 2 }
+    - { Label: Dev,   Value: 1 }
+
+tables:
+  - id: srv
+    title: Servers
+    gridSpan: 8
+    columns:
+      - { Field: Name, Label: Host }
+      - { Field: Env,  Label: Environment }
+      - { Field: CPU,  Label: CPU %, CellType: progressbar }
+    data:
+      - { Name: web01, Env: Prod, CPU: 42 }
+      - { Name: web02, Env: Prod, CPU: 88 }
+      - { Name: dev01, Env: Dev,  CPU: 17 }
+
+blocks:
+  - type: barchart
+    id: byEnv
+    tableId: srv
+    field: Env
+    title: Hosts by environment
+    showPercent: true
+
+globalFilters:
+  - { field: Env, label: Environment, type: facet }

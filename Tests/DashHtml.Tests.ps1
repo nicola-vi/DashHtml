@@ -2762,6 +2762,18 @@ Describe 'Add-DhTabs' {
         $report['Blocks'][0].Tabs[1].Active | Should -Be $true
     }
 
+    It 'Accepts a single tab and auto-activates it (regression: scalar $normTabs)' {
+        # A one-element -Tabs previously made $normTabs a scalar hashtable, so the
+        # "no tab active -> activate first" step did $normTabs[0] on a scalar and
+        # threw. @(...) around the build loop fixes it.
+        { Add-DhTabs -Report $report -Id 't-single' -Tabs @(
+            @{ Title = 'Solo'; Content = '<p>only tab</p>' }
+        ) -WarningAction SilentlyContinue } | Should -Not -Throw
+        $block = $report['Blocks'] | Where-Object Id -eq 't-single'
+        @($block.Tabs).Count       | Should -Be 1
+        $block.Tabs[0].Active       | Should -Be $true
+    }
+
     It 'Throws when a tab is missing Title' {
         $bad = @(@{ Content = 'no title' })
         { Add-DhTabs -Report $report -Id 't1' -Title 'X' -Tabs $bad } | Should -Throw
@@ -3096,6 +3108,106 @@ Describe 'Security: Add-DhSummary tile Action.Url scheme validation' {
     }
 }
 
+Describe 'Security: -AllowHtml policy on raw-HTML sinks' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'allowhtml' -Theme 'Default'
+    }
+
+    # -- Add-DhHtmlBlock ----------------------------------------------------
+    Context 'Add-DhHtmlBlock -Content' {
+        It 'stores raw HTML by default (AllowHtml defaults to $true)' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h1' -Content '<b>x</b>' -WarningAction SilentlyContinue
+            $script:report.Blocks[0].Content | Should -BeExactly '<b>x</b>'
+        }
+        It 'HTML-encodes the content when -AllowHtml:$false' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h2' -Content '<script>alert(1)</script>' -AllowHtml:$false
+            $script:report.Blocks[0].Content | Should -BeExactly '&lt;script&gt;alert(1)&lt;/script&gt;'
+        }
+        It 'keeps raw markup when -AllowHtml:$true is explicit' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h3' -Content '<i>y</i>' -AllowHtml:$true
+            $script:report.Blocks[0].Content | Should -BeExactly '<i>y</i>'
+        }
+        It 'warns when content looks like HTML and -AllowHtml not passed' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h4' -Content '<div>z</div>' -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -BeGreaterThan 0
+            [string]$w | Should -Match '2\.0\.0'
+        }
+        It 'does NOT warn for plain-text content' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h5' -Content 'plain text only' -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -Be 0
+        }
+        It 'does NOT warn when -AllowHtml:$true is explicit' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h6' -Content '<span>q</span>' -AllowHtml:$true -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -Be 0
+        }
+        It 'does NOT warn when -AllowHtml:$false (content is being encoded anyway)' {
+            Add-DhHtmlBlock -Report $script:report -Id 'h7' -Content '<span>q</span>' -AllowHtml:$false -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -Be 0
+        }
+    }
+
+    # -- Add-DhAlertBanner --------------------------------------------------
+    Context 'Add-DhAlertBanner -Message' {
+        It 'encodes the message when -AllowHtml:$false' {
+            Add-DhAlertBanner -Report $script:report -Id 'a1' -Severity 'info' -Message '<img src=x onerror=alert(1)>' -AllowHtml:$false
+            $script:report.AlertBanners[0].Message | Should -BeExactly '&lt;img src=x onerror=alert(1)&gt;'
+        }
+        It 'keeps raw message by default' {
+            Add-DhAlertBanner -Report $script:report -Id 'a2' -Severity 'info' -Message '<b>hot</b>' -WarningAction SilentlyContinue
+            $script:report.AlertBanners[0].Message | Should -BeExactly '<b>hot</b>'
+        }
+    }
+
+    # -- Add-DhCollapsible --------------------------------------------------
+    Context 'Add-DhCollapsible -Content' {
+        It 'encodes free-form content when -AllowHtml:$false' {
+            Add-DhCollapsible -Report $script:report -Id 'c1' -Title 'T' -Content '<p>raw</p>' -AllowHtml:$false
+            ($script:report.Blocks | Where-Object Id -eq 'c1').Content | Should -BeExactly '&lt;p&gt;raw&lt;/p&gt;'
+        }
+        It 'does not warn or alter when Content is empty (card mode)' {
+            Add-DhCollapsible -Report $script:report -Id 'c2' -Title 'T' -Cards @(
+                @{ Title='Card'; Fields=@(@{ Label='k'; Value='v' }) }
+            ) -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -Be 0
+        }
+    }
+
+    # -- Add-DhTabs ---------------------------------------------------------
+    Context 'Add-DhTabs per-tab Content' {
+        It 'encodes each tab content when -AllowHtml:$false' {
+            Add-DhTabs -Report $script:report -Id 't1' -Tabs @(
+                @{ Title='Raw'; Content='<h2>hi</h2>' }
+            ) -AllowHtml:$false
+            $tabsBlock = $script:report.Blocks | Where-Object Id -eq 't1'
+            $tabsBlock.Tabs[0].Content | Should -BeExactly '&lt;h2&gt;hi&lt;/h2&gt;'
+        }
+        It 'keeps raw tab content by default' {
+            Add-DhTabs -Report $script:report -Id 't2' -Tabs @(
+                @{ Title='Raw'; Content='<h2>hi</h2>' }
+            ) -WarningAction SilentlyContinue
+            $tabsBlock = $script:report.Blocks | Where-Object Id -eq 't2'
+            $tabsBlock.Tabs[0].Content | Should -BeExactly '<h2>hi</h2>'
+        }
+    }
+
+    # -- End-to-end: encoded content survives to the rendered HTML ----------
+    Context 'end-to-end render' {
+        It 'an encoded payload appears escaped (not executable) in the exported HTML' {
+            Add-DhHtmlBlock -Report $script:report -Id 'e2e' -Content '<script>evil()</script>' -AllowHtml:$false
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_allowhtml_$([guid]::NewGuid().ToString('N')).html")
+            try {
+                Export-DhDashboard -Report $script:report -OutputPath $tmp -Force | Out-Null
+                $html = Get-Content -LiteralPath $tmp -Raw
+                # The block config must carry the escaped form, never the raw <script>evil()</script>.
+                $html | Should -Match 'evil\(\)'                       # payload text is present
+                $html | Should -Not -Match '<script>evil\(\)</script>' # but never as a live tag
+            } finally {
+                if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+            }
+        }
+    }
+}
+
 Describe 'Security: ConvertTo-DhJsonString line/paragraph separator escaping' {
     # ConvertTo-DhJsonString is a Private helper (not exported), and InModuleScope
     # fails when a previously installed copy of DashHtml is also loaded in the
@@ -3130,6 +3242,117 @@ Describe 'Security: ConvertTo-DhJsonString line/paragraph separator escaping' {
     }
 }
 
+Describe 'Security: ConvertTo-DhJsonString escaping survives the 1.10.3 fast path' {
+    # 1.10.3 added an IndexOfAny pre-check that skips the nine regex passes when a
+    # string contains nothing to escape. These cases pin every rule the fast path
+    # must NOT bypass. Driven through table cell data (the hot serialisation loop)
+    # rather than InModuleScope, for the same reason as the U+2028 suite above.
+    BeforeAll {
+        $script:srcHtmlEsc = $null
+        try {
+            $rpt = New-DhDashboard -Title 'esc' -Theme 'Default'
+            Add-DhTable -Report $rpt -TableId 'esc' -Title 'Esc' -Data @(
+                [ordered]@{
+                    Plain    = 'plain_ascii_value'
+                    Script   = 'a</script>b'
+                    # CR is DROPPED, not escaped, so '<' CR '/' collapses to '</'
+                    # DURING escaping and must still be caught by the '</' rule.
+                    CrSplice = "x<$([char]13)/script>y"
+                    Lt       = 'a<b'
+                    Bslash   = 'a\b'
+                    Quote    = 'a"b'
+                    Tab      = "a$([char]9)b"
+                    Lf       = "a$([char]10)b"
+                    Ctrl     = "a$([char]1)b"
+                }
+            )
+            $tmpPath = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_esc_test_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rpt -OutputPath $tmpPath -Force | Out-Null
+            $script:srcHtmlEsc = Get-Content -LiteralPath $tmpPath -Raw
+            Remove-Item -LiteralPath $tmpPath -Force -ErrorAction SilentlyContinue
+        } catch {
+            $script:srcHtmlEsc = "ERROR: $($_.ToString())"
+        }
+    }
+
+    It 'passes a plain string through the fast path unaltered' {
+        $script:srcHtmlEsc | Should -Match 'plain_ascii_value'
+    }
+
+    # NB: no angle brackets in It names - Pester 5 parses <...> as a -ForEach template token.
+    It 'escapes a closing script tag so it cannot terminate the enclosing block' {
+        $script:srcHtmlEsc | Should -Match 'a<\\/script>b'
+        $script:srcHtmlEsc -match ([regex]::Escape('a</script>b')) | Should -BeFalse
+    }
+
+    It 'still catches a closing script tag spliced together by the dropped CR (pass order)' {
+        # Regression guard: folding the nine passes into one regex over the
+        # ORIGINAL string would miss this and emit a live </script>.
+        $script:srcHtmlEsc | Should -Match 'x<\\/script>y'
+        $script:srcHtmlEsc -match ([regex]::Escape('x</script>y')) | Should -BeFalse
+    }
+
+    It 'leaves a lone < untouched' {
+        $script:srcHtmlEsc | Should -Match '"a<b"'
+    }
+
+    It 'escapes backslash, double-quote, tab, newline and C0 controls' {
+        $script:srcHtmlEsc | Should -Match 'a\\\\b'      # a\b   -> a\\b
+        $script:srcHtmlEsc | Should -Match 'a\\"b'       # a"b   -> a\"b
+        $script:srcHtmlEsc | Should -Match 'a\\tb'       # tab   -> \t
+        $script:srcHtmlEsc | Should -Match 'a\\nb'       # LF    -> \n
+        $script:srcHtmlEsc | Should -Match 'a\\u0001b'   # C0 -> 6-char \uXXXX
+    }
+}
+
+Describe 'Performance: table sort comparator does not re-resolve collation per comparison' {
+    # 1.10.4. The sort comparator used to call
+    #   String(av).localeCompare(String(bv), undefined, {sensitivity:'base'})
+    # on EVERY comparison (~n log n). Passing an options object makes the engine
+    # resolve collation settings per call: measured 5.6 s of blocked main thread
+    # to sort a 19,011-row column, vs 169 ms after the fix (~33x).
+    # These assertions pin the shape of the fix, since the cost is invisible to
+    # any functional test - the old code sorted correctly, just glacially.
+    BeforeAll {
+        $script:jsTable = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\DashHtml\Private\Get-DhJsTable.ps1') -Raw
+    }
+
+    It 'builds a single reusable Intl.Collator' {
+        $script:jsTable | Should -Match 'new Intl\.Collator\(undefined,\s*\{sensitivity:''base''\}\)'
+    }
+
+    It 'does not call localeCompare with an options object inside the comparator' {
+        # Strip block comments first: the note above the fix legitimately quotes
+        # the old call shape, and would otherwise count as a hit.
+        $code = [regex]::Replace($script:jsTable, '/\*.*?\*/', '', 'Singleline')
+        $hits = [regex]::Matches($code, '\.localeCompare\([^)]*sensitivity')
+        # Exactly one survivor: the fallback used only when Intl.Collator is absent.
+        $hits.Count | Should -Be 1
+    }
+
+    It 'precomputes sort keys outside the comparator (decorate/sort/undecorate)' {
+        $script:jsTable | Should -Match 'dec\[di\]\s*=\s*\{r:row'
+        $script:jsTable | Should -Match 'ks\[fi\]=String\(v\)'
+    }
+
+    It 'still reduces sparkline columns before comparing' {
+        $script:jsTable | Should -Match "cellType === 'sparkline'"
+        $script:jsTable | Should -Match 'sparkReduce\(v, col\.sortBy\)'
+    }
+
+    It 'sorts a multi-column table end to end without error' {
+        $rows = 1..200 | ForEach-Object {
+            [pscustomobject]@{ Name = "srv$(200 - $_)"; Num = ($_ % 37); Txt = @('alpha','Beta','gamma')[$_ % 3] }
+        }
+        $r = New-DhDashboard -Title 'sortcheck'
+        Add-DhTable -Report $r -TableId 'sc' -Title 'SC' -Data $rows
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ("dh_sort_$([guid]::NewGuid().ToString('N')).html")
+        { Export-DhDashboard -Report $r -OutputPath $tmp -Force } | Should -Not -Throw
+        (Get-Content $tmp -Raw) | Should -Match 'new Intl\.Collator'
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Describe 'Security: exported HTML pins CDN scripts with SRI' {
     # Build the rendered HTML once at discovery time. Pester 5 runs Discovery and
     # Run in separate phases; computing the export in BeforeAll keeps the It body
@@ -3155,5 +3378,370 @@ Describe 'Security: exported HTML pins CDN scripts with SRI' {
     }
     It 'pins jspdf-autotable with sha384 SRI' {
         $script:srcHtmlSri | Should -Match 'jspdf\.plugin\.autotable\.min\.js" integrity="sha384-'
+    }
+}
+
+# ============================================================================
+#  v1.7.0 — P2 UX / perf features
+# ============================================================================
+
+Describe 'Topology: -Interactive parameter' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'topo' -Theme 'Default'
+        $script:nodes = @(
+            @{ Id='r'; Label='root'; Parent=$null }
+            @{ Id='a'; Label='a'; Parent='r' }
+            @{ Id='b'; Label='b'; Parent='r' }
+        )
+    }
+    It 'defaults Interactive to $true and emits interactive:true' {
+        Add-DhTopologyMap -Report $script:report -Id 'topo' -Title 'T' -Nodes $script:nodes
+        ($script:report.Blocks | Where-Object Id -eq 'topo').Interactive | Should -BeTrue
+    }
+    It 'honours -Interactive:$false' {
+        Add-DhTopologyMap -Report $script:report -Id 'topo' -Title 'T' -Nodes $script:nodes -Interactive:$false
+        ($script:report.Blocks | Where-Object Id -eq 'topo').Interactive | Should -BeFalse
+    }
+    It 'emits the interactive flag + pan/zoom/collapse JS in the exported HTML' {
+        Add-DhTopologyMap -Report $script:report -Id 'topo' -Title 'T' -Nodes $script:nodes
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_topo_$([guid]::NewGuid().ToString('N')).html")
+        try {
+            Export-DhDashboard -Report $script:report -OutputPath $tmp -Force | Out-Null
+            $html = Get-Content -LiteralPath $tmp -Raw
+            $html | Should -Match '"interactive":true'
+            $html | Should -Match 'topology-map-toolbar'
+            $html | Should -Match 'topo-toggle'
+            $html | Should -Match 'function computeLayout'
+        } finally { if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+    }
+}
+
+Describe 'Table: non-pageable renders all rows + virtualisation' {
+    BeforeEach { $script:report = New-DhDashboard -Title 'virt' -Theme 'Default' }
+    It 'emits pageable:false for -Pageable:$false' {
+        Add-DhTable -Report $script:report -TableId 't' -Title 'T' `
+            -Data @(1..50 | ForEach-Object { [pscustomobject]@{ N=$_ } }) -Pageable:$false
+        ($script:report.Tables | Where-Object Id -eq 't').Pageable | Should -BeFalse
+    }
+    It 'includes the virtualisation engine + threshold in the exported HTML' {
+        Add-DhTable -Report $script:report -TableId 't' -Title 'T' `
+            -Data @(1..300 | ForEach-Object { [pscustomobject]@{ N=$_; Name="h$_" } }) -Pageable:$false
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_virt_$([guid]::NewGuid().ToString('N')).html")
+        try {
+            Export-DhDashboard -Report $script:report -OutputPath $tmp -Force | Out-Null
+            $html = Get-Content -LiteralPath $tmp -Raw
+            $html | Should -Match '_renderVirtual'
+            $html | Should -Match 'VIRTUALISE_ABOVE'
+            $html | Should -Match 'table-virtual'
+            $html | Should -Match '_buildRow'
+        } finally { if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+    }
+}
+
+Describe 'Accessibility: reduced-motion + ARIA in exported HTML' {
+    BeforeAll {
+        $script:a11yHtml = $null
+        try {
+            $rpt = New-DhDashboard -Title 'a11y' -Theme 'Default'
+            Add-DhTable -Report $rpt -TableId 't' -Title 'T' -Data @(
+                [pscustomobject]@{ Name='a'; V=1 }, [pscustomobject]@{ Name='b'; V=2 }
+            )
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_a11y_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rpt -OutputPath $tmp -Force | Out-Null
+            $script:a11yHtml = Get-Content -LiteralPath $tmp -Raw
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        } catch { $script:a11yHtml = "ERROR: $($_.ToString())" }
+    }
+    It 'honours prefers-reduced-motion' { $script:a11yHtml | Should -Match '@media \(prefers-reduced-motion: reduce\)' }
+    It 'marks the result-count region aria-live'  { $script:a11yHtml | Should -Match 'aria-live="polite"' }
+    It 'sets aria-sort on sortable headers (JS)'   { $script:a11yHtml | Should -Match 'aria-sort' }
+    It 'makes sortable headers keyboard-operable'  { $script:a11yHtml | Should -Match 'th\.tabIndex=0' }
+    It 'gives sortable headers a focus ring'       { $script:a11yHtml | Should -Match 'th\.sortable:focus-visible' }
+}
+
+# ============================================================================
+#  v1.9.0 — Add-DhGlobalFilter (page-level filter bus)
+# ============================================================================
+
+Describe 'Add-DhGlobalFilter' {
+    BeforeEach { $script:report = New-DhDashboard -Title 'gf' -Theme 'Default' }
+
+    It 'adds a facet filter with defaults' {
+        Add-DhGlobalFilter -Report $script:report -Field 'Env'
+        $gf = $script:report.GlobalFilters[0]
+        $gf.Field | Should -Be 'Env'
+        $gf.Label | Should -Be 'Env'          # defaults to Field
+        $gf.Type  | Should -Be 'facet'
+    }
+    It 'accepts a daterange type and explicit label' {
+        Add-DhGlobalFilter -Report $script:report -Field 'Created' -Label 'Created on' -Type daterange
+        $gf = $script:report.GlobalFilters[0]
+        $gf.Type  | Should -Be 'daterange'
+        $gf.Label | Should -Be 'Created on'
+    }
+    It 'stores explicit facet values in order' {
+        Add-DhGlobalFilter -Report $script:report -Field 'Tier' -Values 'Gold','Silver','Bronze'
+        ($script:report.GlobalFilters[0].Values -join ',') | Should -Be 'Gold,Silver,Bronze'
+    }
+    It 'rejects a duplicate field' {
+        Add-DhGlobalFilter -Report $script:report -Field 'Env'
+        { Add-DhGlobalFilter -Report $script:report -Field 'Env' } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+
+    Context 'exported HTML wiring' {
+        BeforeAll {
+            $rpt = New-DhDashboard -Title 'gf-e2e' -Theme 'Default'
+            Add-DhTable -Report $rpt -TableId 'srv' -Title 'Servers' -Data @(
+                [pscustomobject]@{ Host='a'; Env='Prod' }, [pscustomobject]@{ Host='b'; Env='Dev' }
+            )
+            Add-DhGlobalFilter -Report $rpt -Field 'Env' -Label 'Environment'
+            Add-DhGlobalFilter -Report $rpt -Field 'Created' -Type daterange
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_gf_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rpt -OutputPath $tmp -Force | Out-Null
+            $script:gfHtml = Get-Content -LiteralPath $tmp -Raw
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        }
+        It 'renders the filter-bar container'      { $script:gfHtml | Should -Match 'id="global-filter-bar"' }
+        It 'emits the global-filter config'         { $script:gfHtml | Should -Match '"field":"Env"' }
+        It 'emits the daterange control'            { $script:gfHtml | Should -Match '"type":"daterange"' }
+        It 'includes the GlobalFilter bus'          { $script:gfHtml | Should -Match 'var GlobalFilter =' }
+        It 'wires the filter stage into _getFiltered' { $script:gfHtml | Should -Match 'GlobalFilter\.matchRow' }
+        It 'substitutes the config placeholder'     { $script:gfHtml | Should -Not -Match '%%GLOBALFILTER_CONFIG%%' }
+    }
+}
+
+# ============================================================================
+#  v1.10.0 — 12-column grid layout (opt-in -GridSpan)
+# ============================================================================
+
+Describe '12-column grid layout' {
+    It 'stores GridSpan on a block' {
+        $r = New-DhDashboard -Title 'g' -Theme 'Default'
+        Add-DhHtmlBlock -Report $r -Id 'b' -Content 'x' -GridSpan 6 -AllowHtml:$false
+        ($r.Blocks | Where-Object Id -eq 'b').GridSpan | Should -Be 6
+    }
+    It 'stores GridSpan on a table' {
+        $r = New-DhDashboard -Title 'g' -Theme 'Default'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{N=1}) -GridSpan 4
+        ($r.Tables | Where-Object Id -eq 't').GridSpan | Should -Be 4
+    }
+    It 'rejects a span outside 0-12' {
+        $r = New-DhDashboard -Title 'g' -Theme 'Default'
+        { Add-DhHtmlBlock -Report $r -Id 'b' -Content 'x' -GridSpan 20 -AllowHtml:$false } | Should -Throw
+    }
+
+    Context 'exported HTML' {
+        BeforeAll {
+            $rg = New-DhDashboard -Title 'grid' -Theme 'Default'
+            Add-DhTable -Report $rg -TableId 't' -Title 'T' -Data @([pscustomobject]@{N=1})
+            Add-DhHtmlBlock -Report $rg -Id 'l' -Content 'left'  -GridSpan 6 -AllowHtml:$false
+            Add-DhHtmlBlock -Report $rg -Id 'r' -Content 'right' -GridSpan 6 -AllowHtml:$false
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_grid_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rg -OutputPath $tmp -Force | Out-Null
+            $script:gridHtml = Get-Content -LiteralPath $tmp -Raw
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+
+            $rf = New-DhDashboard -Title 'flow' -Theme 'Default'
+            Add-DhTable -Report $rf -TableId 't' -Title 'T' -Data @([pscustomobject]@{N=1})
+            $tmp2 = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_flow_$([guid]::NewGuid().ToString('N')).html")
+            Export-DhDashboard -Report $rf -OutputPath $tmp2 -Force | Out-Null
+            $script:flowHtml = Get-Content -LiteralPath $tmp2 -Raw
+            Remove-Item $tmp2 -Force -ErrorAction SilentlyContinue
+        }
+        It 'activates the grid body class when a span is set' { $script:gridHtml | Should -Match 'class="report-body report-grid"' }
+        It 'emits the inline grid-column span'                { $script:gridHtml | Should -Match 'grid-column:span 6' }
+        It 'includes the 12-column grid CSS'                  { $script:gridHtml | Should -Match 'repeat\(12, minmax' }
+        It 'leaves a no-span dashboard in flow layout'        {
+            $script:flowHtml | Should -Match 'class="report-body"'
+            $script:flowHtml | Should -Not -Match 'report-body report-grid'
+        }
+    }
+}
+
+# ============================================================================
+#  v1.10.1 — review fixes (H1 progressbar XSS, M2 dup-Id, M3 select-all)
+# ============================================================================
+
+Describe 'Security: progressbar cell value is escaped (H1)' {
+    It 'wraps the progress label value in esc() in the runtime JS' {
+        $r = New-DhDashboard -Title 'pb' -Theme 'Default'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' `
+            -Data @([pscustomobject]@{ Name='a'; Load='<img src=x onerror=alert(1)>' }) `
+            -Columns @( @{ Field='Name'; Label='Name' }, @{ Field='Load'; Label='Load'; CellType='progressbar' } )
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_pb_$([guid]::NewGuid().ToString('N')).html")
+        try {
+            Export-DhDashboard -Report $r -OutputPath $tmp -Force | Out-Null
+            $html = Get-Content -LiteralPath $tmp -Raw
+            # The progressbar renderer must escape the label: the JS builds it with
+            # +esc(dispVal)+ , never the raw +dispVal+ (which was the XSS sink).
+            $html | Should -Match '\+esc\(dispVal\)\+'
+            $html | Should -Not -Match '\+dispVal\+'
+        } finally { if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+    }
+}
+
+Describe 'Duplicate-Id guard on all block cmdlets (M2)' {
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'dup' -Theme 'Default'
+        Add-DhTable -Report $script:report -TableId 'tbl' -Title 'T' -Data @([pscustomobject]@{ X=1 })
+    }
+    It 'Add-DhBarChart throws on a duplicate block Id' {
+        Add-DhBarChart -Report $script:report -Id 'd' -Title 'A' -TableId 'tbl' -Field 'X'
+        { Add-DhBarChart -Report $script:report -Id 'd' -Title 'B' -TableId 'tbl' -Field 'X' } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+    It 'Add-DhCollapsible throws on a duplicate block Id' {
+        Add-DhCollapsible -Report $script:report -Id 'd' -Title 'A' -Content 'x' -AllowHtml:$false
+        { Add-DhCollapsible -Report $script:report -Id 'd' -Title 'B' -Content 'y' -AllowHtml:$false } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+    It 'Add-DhFilterCard throws on a duplicate block Id' {
+        Add-DhFilterCard -Report $script:report -Id 'd' -Title 'A' -TargetTableId 'tbl' -FilterField 'X' -Cards @(@{Label='a';Value='a'})
+        { Add-DhFilterCard -Report $script:report -Id 'd' -Title 'B' -TargetTableId 'tbl' -FilterField 'X' -Cards @(@{Label='b';Value='b'}) } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+    It 'Add-DhHtmlBlock throws on a duplicate block Id' {
+        Add-DhHtmlBlock -Report $script:report -Id 'd' -Content 'x' -AllowHtml:$false
+        { Add-DhHtmlBlock -Report $script:report -Id 'd' -Content 'y' -AllowHtml:$false } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+    It 'Add-DhPieChart throws on a duplicate block Id' {
+        Add-DhPieChart -Report $script:report -Id 'd' -Title 'A' -Slices @(@{Label='a';Value=1})
+        { Add-DhPieChart -Report $script:report -Id 'd' -Title 'B' -Slices @(@{Label='b';Value=1}) } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+}
+
+Describe 'Select-all covers all rows when non-pageable (M3)' {
+    It 'emits the pageable-aware select-all branch (whole set when not pageable)' {
+        $r = New-DhDashboard -Title 'sel' -Theme 'Default'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -MultiSelect -Pageable:$false `
+            -Data @(1..40 | ForEach-Object { [pscustomobject]@{ N=$_ } })
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_sel_$([guid]::NewGuid().ToString('N')).html")
+        try {
+            Export-DhDashboard -Report $r -OutputPath $tmp -Force | Out-Null
+            $html = Get-Content -LiteralPath $tmp -Raw
+            # The select-all handler now branches on self.pageable; a non-pageable
+            # table selects the whole filtered set rather than slicing by pageSize.
+            $html | Should -Match 'var pageRows=self\.pageable'
+        } finally { if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+    }
+}
+
+# ============================================================================
+#  v1.10.2 — review fixes (L1 accent-fg contrast, L3 Excel sheet name)
+# ============================================================================
+
+Describe 'Themes define --accent-primary-fg (L1)' {
+    It '<Theme> exports HTML that defines --accent-primary-fg' -ForEach @(
+        @{ Theme = 'Default' }, @{ Theme = 'Azure' }, @{ Theme = 'VMware' },
+        @{ Theme = 'Grey' }, @{ Theme = 'Company' }, @{ Theme = 'Rag' }
+    ) {
+        $r = New-DhDashboard -Title 'th' -Theme $Theme
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ N=1 })
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_th_$([guid]::NewGuid().ToString('N')).html")
+        try {
+            Export-DhDashboard -Report $r -OutputPath $tmp -Force | Out-Null
+            # Both the light (primary) and dark (alternate) embedded theme blocks
+            # must define the token so the subgroup-pill / topo-toggle text is readable.
+            (Get-Content -LiteralPath $tmp -Raw) | Should -Match '--accent-primary-fg:'
+        } finally { if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+    }
+    It 'every theme source file defines --accent-primary-fg' {
+        $themeDir = Join-Path $PSScriptRoot '..' 'DashHtml' 'Private'
+        $files = Get-ChildItem -Path $themeDir -Filter 'Get-DhCss*Light.ps1' -ErrorAction SilentlyContinue
+        $files += Get-ChildItem -Path $themeDir -Filter 'Get-DhCss*Dark.ps1' -ErrorAction SilentlyContinue
+        foreach ($f in $files) {
+            (Get-Content -LiteralPath $f.FullName -Raw) | Should -Match '--accent-primary-fg:' -Because "$($f.Name) must define the token"
+        }
+    }
+}
+
+Describe 'Excel sheet-name sanitisation (L3)' {
+    It 'emits the sheet-name sanitiser in the export JS' {
+        $r = New-DhDashboard -Title 'x' -Theme 'Default'
+        Add-DhTable -Report $r -TableId 't' -Title 'Q1:Q2 / prod [east]' -Data @([pscustomobject]@{ N=1 })
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("dh_xl_$([guid]::NewGuid().ToString('N')).html")
+        try {
+            Export-DhDashboard -Report $r -OutputPath $tmp -Force | Out-Null
+            $html = Get-Content -LiteralPath $tmp -Raw
+            # The invalid-char strip + Sheet1 fallback must be present, and the raw
+            # substring(0,31) call must be gone.
+            $html | Should -Match "replace\(/\[:.*\]/g,' '\)"
+            $html | Should -Match "sheetName='Sheet1'"
+            $html | Should -Not -Match 'book_append_sheet\(wb,ws,this\.title\.substring'
+        } finally { if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+    }
+}
+
+# ============================================================================
+#  v1.5.4 — Examples smoke test
+# ============================================================================
+
+Describe 'Examples: every shipped example script renders valid HTML' {
+    # Each example is executed in its OWN pwsh subprocess rather than dot-sourced
+    # into the test session. Three reasons:
+    #   1. Every example does `Import-Module ...\DashHtml.psd1 -Force`, which
+    #      would collide with the copy this suite already imported (the same
+    #      "Multiple script or manifest modules named 'DashHtml'" failure that
+    #      previously broke the InModuleScope tests).
+    #   2. Examples call Set-StrictMode -Version Latest at file scope.
+    #   3. A subprocess is exactly how a user runs them, so this tests the real
+    #      contract: script in, HTML out, exit 0.
+    # Output goes to a temp dir so the committed Examples\*.html are untouched.
+
+    # Discovery-scoped: drives the -ForEach expansion (evaluated at discovery time).
+    BeforeDiscovery {
+        $exampleDir = Join-Path $PSScriptRoot '..' 'Examples'
+        $exampleCases = @(
+            Get-ChildItem -Path $exampleDir -Filter '*.ps1' -ErrorAction SilentlyContinue |
+                Sort-Object Name |
+                ForEach-Object { @{ Name = $_.Name; FullName = $_.FullName } }
+        )
+    }
+
+    # Run-scoped: available inside It bodies (BeforeDiscovery vars are NOT).
+    BeforeAll {
+        $script:exampleDir   = Join-Path $PSScriptRoot '..' 'Examples'
+        $script:exampleCount = @(Get-ChildItem -Path $script:exampleDir -Filter '*.ps1' -ErrorAction SilentlyContinue).Count
+        $script:smokeDir     = Join-Path ([System.IO.Path]::GetTempPath()) "dh_examples_$([guid]::NewGuid().ToString('N'))"
+        New-Item -ItemType Directory -Path $script:smokeDir -Force | Out-Null
+    }
+
+    AfterAll {
+        if ($script:smokeDir -and (Test-Path -LiteralPath $script:smokeDir)) {
+            Remove-Item -LiteralPath $script:smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'finds at least one example script to test' {
+        $script:exampleCount | Should -BeGreaterThan 0
+    }
+
+    It '<Name> runs clean and emits a well-formed dashboard' -ForEach $exampleCases {
+        $outFile = Join-Path $script:smokeDir ($Name -replace '\.ps1$', '.html')
+
+        # -OpenInBrowser deliberately omitted: all five examples default it to
+        # $false, so no browser window opens during the run.
+        $stderr = & pwsh -NoProfile -NonInteractive -File $FullName -OutputPath $outFile 2>&1
+        $exit   = $LASTEXITCODE
+
+        if ($exit -ne 0) {
+            throw "$Name exited with code $exit`n$($stderr -join "`n")"
+        }
+
+        Test-Path -LiteralPath $outFile | Should -BeTrue -Because "$Name should have written $outFile"
+
+        $html = Get-Content -LiteralPath $outFile -Raw
+        $html.Length | Should -BeGreaterThan 1000 -Because 'a real dashboard is never this small'
+        $html | Should -Match '<!DOCTYPE html>'
+        $html | Should -Match '</html>\s*$'
+        # The JS engine must have had its config placeholders substituted; an
+        # unreplaced /*%%..%%*/ marker means Export-DhDashboard silently no-op'd.
+        $html | Should -Not -Match '%%TABLES_CONFIG%%'
+        $html | Should -Not -Match '%%BLOCKS_CONFIG%%'
+        $html | Should -Not -Match '%%SUMMARY_CONFIG%%'
+        $html | Should -Not -Match '%%ALERTS_CONFIG%%'
     }
 }

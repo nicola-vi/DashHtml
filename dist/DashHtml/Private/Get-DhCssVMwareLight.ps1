@@ -26,6 +26,8 @@ function Get-DhCssVMwareLight {
   --bg-thead:         #F0F0F0;
 
   --accent-primary:   #00B388;
+
+  --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #007D63;
   --accent-danger:    #C0392B;
   --accent-warn:      #E67E22;

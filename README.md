@@ -41,11 +41,29 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 .\Install.ps1 -Force             # Overwrite an existing installation
 ```
 
+`Install.ps1` installs **both** the core `DashHtml` module and the optional
+[`DashHtml.Design`](DashHtml.Design/README.md) companion when the companion is
+present (each into its own versioned folder). The core is always installed
+first — the companion reads its cmdlet metadata at runtime.
+
+```powershell
+.\Install.ps1 -SkipDesign        # core module only
+.\Install.ps1 -DesignOnly        # companion only
+.\Install.ps1 -Uninstall         # remove all versions of both (per scope)
+.\Install.ps1 -Uninstall -DesignOnly   # remove just the companion
+```
+
+It prefers a built `dist\<Module>\` when present and falls back to the in-repo
+source; override either with `-Source` / `-DesignSource`. `-WhatIf` shows exactly
+what would be copied without touching anything.
+
 ### Manual
 
-Copy the `DashHtml/` folder to a directory in `$env:PSModulePath`, under a versioned subfolder:
+Copy each module folder to a directory in `$env:PSModulePath`, under a versioned
+subfolder:
 ```
-<modules-root>\DashHtml\1.5.3\
+<modules-root>\DashHtml\1.10.4\
+<modules-root>\DashHtml.Design\1.0.0\      (optional companion)
 ```
 
 ---
@@ -838,6 +856,16 @@ Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
 
 Cycle detection rejects loops (`A → B → A`); references to unknown parents throw at declaration time.
 
+### Interactive pan / zoom / collapse (1.7.0+)
+
+By default (`-Interactive` = `$true`) the tree renders in a fixed-height viewport you can explore:
+
+- **Drag** the background to pan; **mouse-wheel** to zoom around the cursor; the corner toolbar has **zoom-in / zoom-out / reset-to-fit** buttons.
+- Every **parent node shows a `+/−` toggle** — click (or focus + Enter/Space) to collapse or expand its subtree. Collapsing a branch reflows the remaining tree.
+- The view **auto-fits** to the container on load and re-fits on resize until you pan or zoom, after which it leaves your view alone (the reset button hands control back).
+
+Pass `-Interactive:$false` for the static scale-to-fit rendering (no toolbar, no collapse) — useful for print or when embedding a small fixed tree.
+
 ---
 
 ## Tabs (v1.5+)
@@ -938,6 +966,59 @@ Per-item keys:
 - `Class` — optional value-bar colour override (`'cell-ok'` / `'cell-warn'` / `'cell-danger'` / `'cell-nodata'`). Wins over the auto threshold match.
 - `Rag` — preferred way to declare the bands (see [Unified `-Rag` parameter](#unified--rag-parameter-v14)).
 - `Bands` / `Thresholds` — legacy array shape `@(@{Min;Max;Class})`; `Bands` is an alias for `Thresholds`. `Rag` wins when both are supplied.
+
+---
+
+## Global filters (1.9.0+)
+
+`Add-DhGlobalFilter` puts a control in a bar above the whole report. Changing it re-filters **every table that has the named field at once** — and any chart built from those tables re-aggregates. Tables that don't have the field are left untouched. Multiple global filters combine with **AND**, and the selection is saved in the URL so a shared link or reload keeps it applied.
+
+```powershell
+$rows = Get-Inventory   # objects with Environment, Tier, LastSeen, …
+Add-DhTable -Report $report -TableId 'hosts'  -Title 'Hosts'  -Data $rows
+Add-DhTable -Report $report -TableId 'alerts' -Title 'Alerts' -Data $alertRows  # also has 'Environment'
+
+# One dropdown filters BOTH tables (both have an 'Environment' column)
+Add-DhGlobalFilter -Report $report -Field 'Environment' -Label 'Environment'
+
+# Ordered facet with explicit values
+Add-DhGlobalFilter -Report $report -Field 'Tier' -Values 'Gold','Silver','Bronze'
+
+# A from/to date range over a timestamp column
+Add-DhGlobalFilter -Report $report -Field 'LastSeen' -Label 'Last seen' -Type daterange
+```
+
+- **`-Type facet`** (default) — dropdown of distinct values (auto-derived from the data, or pass `-Values`).
+- **`-Type daterange`** — from/to date inputs; keeps rows whose field parses as a date in the inclusive range.
+- `-Label` sets the visible label (defaults to `-Field`); `-Placeholder` sets the "all" option text.
+
+Distinct from `Add-DhFilterCard` (which filters **one** target table via clickable cards) — a global filter fans out to **all** tables sharing the field.
+
+---
+
+## 12-column grid layout (1.10.0+)
+
+By default blocks and tables stack vertically (one per row). Pass **`-GridSpan <1-12>`** on any block or table to place several side by side: the report body becomes a 12-column grid the moment any element sets a span.
+
+```powershell
+# A wide trend chart beside a narrow donut, then a full-width table below
+Add-DhLineChart -Report $report -Id 'trend' -Title 'CPU (24h)' -GridSpan 8 -XAxis $hrs -Series $s
+Add-DhPieChart  -Report $report -Id 'state' -Title 'By state'  -GridSpan 4 -Slices $slices
+Add-DhTable     -Report $report -TableId 'hosts' -Title 'Hosts' -Data $rows   # no span → full width
+
+# A row of three equal thirds
+Add-DhStatusGrid -Report $report -Id 'g1' -GridSpan 4 ...
+Add-DhStatusGrid -Report $report -Id 'g2' -GridSpan 4 ...
+Add-DhStatusGrid -Report $report -Id 'g3' -GridSpan 4 ...
+```
+
+- `-GridSpan 6` + `-GridSpan 6` → two half-width elements side by side.
+- `-GridSpan 4` ×3 → a row of thirds; `-GridSpan 3` ×4 → quarters.
+- Elements **without** a span default to full width, so you can freely mix.
+- Alert banners, the global filter bar, and the KPI summary strip are always full width.
+- The grid **collapses to a single column below 900 px** for narrow screens.
+
+It's fully opt-in and non-breaking: a dashboard that never sets `-GridSpan` renders exactly as before (sequential flow).
 
 ---
 
@@ -1083,21 +1164,71 @@ $report = New-DhDashboard -Title 'Infrastructure Dashboard' `
 
 ---
 
-## Building and testing
+## Declarative layouts (YAML) — `DashHtml.Design`
+
+An **optional** companion module, [DashHtml.Design](DashHtml.Design/README.md),
+lets you manage a dashboard's *layout* in a declarative YAML/JSON file and
+round-trip between YAML and PowerShell. It is a pure design tool — it makes **no
+changes to this module**.
 
 ```powershell
-# Run tests
+Import-Module DashHtml.Design
+
+# YAML layout  ->  runnable build script  ->  HTML
+ConvertFrom-DhYaml   -Path layout.yaml -OutFile build.ps1 -OutputPath dash.html
+
+# built report  ->  YAML layout (lossless snapshot)
+$report | ConvertTo-DhYaml -OutFile layout.yaml
+
+# existing .ps1  ->  YAML (best-effort static parse)
+ConvertFrom-DhScript -Path build-dashboard.ps1
+```
+
+See the [module README](DashHtml.Design/README.md) and the
+[example](Examples/design/) for the layout schema and full details.
+
+---
+
+## Building and testing
+
+`Build.ps1` produces **two independently publishable modules** — the core
+`DashHtml` and the optional `DashHtml.Design` companion. Each gets its own
+manifest validation, `dist\<Module>\` staging folder, versioned `.zip`, and
+`.nupkg`. They are **versioned separately**.
+
+```powershell
+# Run tests (one suite, covers both modules)
 Invoke-Pester .\Tests -Output Detailed
 
-# Build (validate + test + stage dist/ + zip)
+# Build both (validate + lint + test + stage dist/ + zip)
 .\Build.ps1
 
-# Build and bump patch version
+# Bump the CORE patch version
 .\Build.ps1 -BumpVersion
 
-# Build without running tests
-.\Build.ps1 -SkipTests
+# Bump the COMPANION patch version (independent of the core)
+.\Build.ps1 -BumpDesignVersion
+
+# Pack a .nupkg per module for publishing
+.\Build.ps1 -NuGet
+
+# Core module only; skip the companion entirely
+.\Build.ps1 -SkipDesign
+
+# Fast local iteration
+.\Build.ps1 -SkipTests -SkipLint
 ```
+
+Artifacts land in `dist\`:
+
+```
+dist\DashHtml\                   dist\DashHtml.Design\
+dist\DashHtml-v1.10.4.zip        dist\DashHtml.Design-v1.0.0.zip
+dist\DashHtml.1.10.4.nupkg       dist\DashHtml.Design.1.0.0.nupkg
+```
+
+Each staged module ships its own `README.md` (the companion has a module-local
+one, so its PSGallery page describes the companion, not the core) plus `LICENSE`.
 
 ---
 
@@ -1107,7 +1238,7 @@ DashHtml emits a **self-contained static HTML file** intended to be opened local
 
 ### Hard rules
 
-These four parameters are **raw HTML by design** — they are emitted via `innerHTML` so the caller can embed lists, links, formatted markup, etc. **Never pass externally-supplied data into them without HTML-encoding it first.** Use `[System.Web.HttpUtility]::HtmlEncode()` for the encoding pass.
+These four parameters are **raw HTML by design** — they are emitted via `innerHTML` so the caller can embed lists, links, formatted markup, etc.
 
 | Cmdlet | Field | Sink |
 |---|---|---|
@@ -1115,6 +1246,20 @@ These four parameters are **raw HTML by design** — they are emitted via `inner
 | `Add-DhTabs` | per-tab `Content` | `innerHTML` |
 | `Add-DhCollapsible` | `-Content` | `innerHTML` |
 | `Add-DhAlertBanner` | `-Message` | `innerHTML` |
+
+**Since 1.6.0, each of these takes an `-AllowHtml` switch.** Pass **`-AllowHtml:$false`** whenever the content includes externally-sourced data — the cmdlet HTML-encodes it for you, so it renders as literal text and cannot execute:
+
+```powershell
+# Untrusted value interpolated into a message — let the cmdlet encode it
+Add-DhAlertBanner -Report $r -Id 'a' -Severity warning `
+    -Message "Ticket: $($ticket.Title)" -AllowHtml:$false
+
+# Markup you authored yourself — keep it raw
+Add-DhHtmlBlock -Report $r -Id 'intro' -Style info -AllowHtml:$true `
+    -Content '<ul><li>Section A</li><li>Section B</li></ul>'
+```
+
+`-AllowHtml` defaults to `$true` (raw) in the 1.x line, **but that default flips to `$false` (encode) in 2.0.0.** If you pass HTML without an explicit `-AllowHtml`, you'll get a one-time deprecation warning per call — resolve it by adding `-AllowHtml:$true` (trusted markup) or `-AllowHtml:$false` (untrusted data). If you'd rather encode manually, `[System.Web.HttpUtility]::HtmlEncode()` (or `[System.Net.WebUtility]::HtmlEncode()`) still works.
 
 Everything else (table cells, summary tile labels, topology node labels, status grid cells, KPI captions, etc.) goes through HTML-encoding automatically; passing user-supplied text is safe.
 
@@ -1127,7 +1272,7 @@ Everything else (table cells, summary tile labels, topology node labels, status 
 
 ### What you should still do
 
-- **Treat your dashboard generator like an injection-vulnerable application.** Even if you trust the data sources today, plumb every external string through `HtmlEncode()` before it reaches one of the four raw-HTML sinks above.
+- **Treat your dashboard generator like an injection-vulnerable application.** Even if you trust the data sources today, pass `-AllowHtml:$false` (or pre-encode) every external string before it reaches one of the four raw-HTML sinks above.
 - **Open dashboards from trusted locations only.** Anyone who can write to the HTML file can put anything in it.
 - **Don't open a dashboard from an email attachment** without verifying the sender — same hygiene as any other downloaded `.html` file.
 
@@ -1179,7 +1324,7 @@ DashHtml/
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
 Tests/
-  DashHtml.Tests.ps1               # 322 tests at 1.5.3
+  DashHtml.Tests.ps1               # 397 tests at 1.10.4
 Examples/
   AD-Dashboard.ps1
   vSphere-Dashboard.ps1
@@ -1199,3 +1344,11 @@ readme-dev.md                      # AI-assistant reference
 ## License
 
 MIT
+
+
+
+
+
+
+
+

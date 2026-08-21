@@ -76,9 +76,19 @@ ntlm.fallback=disabled</pre>' }
         [string] $Title = '',
         [Parameter(Mandatory)] [object[]] $Tabs,
 
+        # v1.6.0 — when $false, each tab's Content is HTML-encoded (rendered as
+        # literal text) instead of injected as raw markup. Applies to every tab
+        # in this block. Default $true preserves v1.x behaviour; flips to $false
+        # in DashHtml 2.0.0. See ConvertTo-DhSafeContent.
+        [bool]   $AllowHtml   = $true,
+
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
 
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
+
+        [ValidateRange(0,12)]
+
+        [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
         [string] $NavGroup    = '',
         [string] $NavSubGroup = ''
@@ -96,7 +106,10 @@ ntlm.fallback=disabled</pre>' }
         throw "Add-DhTabs: -Tabs must contain at least one tab."
     }
 
-    $normTabs = foreach ($t in $Tabs) {
+    $allowHtmlExplicit = $PSBoundParameters.ContainsKey('AllowHtml')
+    # @(...) so a single tab still yields an array — otherwise $normTabs[0] below
+    # indexes a scalar hashtable and throws (a single-tab block is valid).
+    $normTabs = @(foreach ($t in $Tabs) {
         if ($t -isnot [hashtable] -and $t -isnot [System.Collections.Specialized.OrderedDictionary]) {
             throw "Add-DhTabs: each tab must be a hashtable. Got: $($t.GetType().Name)"
         }
@@ -107,11 +120,14 @@ ntlm.fallback=disabled</pre>' }
         }
         @{
             Title   = [string]$t['Title']
-            Content = [string]$t['Content']
+            # v1.6.0 — apply the -AllowHtml policy per tab. Context names the tab
+            # so the deprecation warning points at the offending content.
+            Content = ConvertTo-DhSafeContent -Content ([string]$t['Content']) -AllowHtml $AllowHtml `
+                        -Explicit $allowHtmlExplicit -Context "Add-DhTabs '$Id' tab '$([string]$t['Title'])' Content"
             Icon    = if ($t.Contains('Icon')   -and $null -ne $t['Icon'])   { [string]$t['Icon'] }   else { '' }
             Active  = if ($t.Contains('Active') -and $null -ne $t['Active']) { [bool]$t['Active'] }   else { $false }
         }
-    }
+    })
 
     # If no tab is explicitly Active, mark the first one
     $explicit = @($normTabs | Where-Object { $_.Active }).Count
@@ -132,6 +148,7 @@ ntlm.fallback=disabled</pre>' }
         Tabs        = @($normTabs)
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })

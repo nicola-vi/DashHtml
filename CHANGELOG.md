@@ -6,6 +6,301 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `DashHtml.Design` companion module (separate module, v1.0.0)
+
+A **new, optional** companion module that lets you manage a dashboard's *layout*
+declaratively in YAML/JSON. It is a pure design / round-trip transpiler and makes
+**no changes to the core DashHtml module** — the core API, output, and behaviour
+are byte-identical whether or not you install it. It is self-contained (ships its
+own compact YAML reader/writer; **no `powershell-yaml` dependency**).
+
+Three cmdlets:
+
+- **`ConvertTo-DhYaml`** — report object → YAML. Serialises the already-built
+  report (from `New-DhDashboard` + `Add-Dh*`), so loops, computed values and
+  dynamic data are captured faithfully. Row data is summarised as a `dataRows`
+  count by default; `-IncludeData` embeds the rows. This is the **lossless**
+  reverse direction.
+- **`ConvertFrom-DhYaml`** — YAML/JSON → a runnable `.ps1` build script. Emits
+  `New-DhDashboard` / `Add-Dh*` / `Export-DhDashboard` in dependency-correct order
+  (tables before the charts that reference them). Every argument is validated
+  against **live cmdlet metadata** (`Get-Command`), so only real parameters are
+  written and switch-vs-bool is handled correctly — no hand-maintained schema to
+  drift. Table data resolves from `dataFile` (→ `Import-Csv`), inline `data`, or a
+  `# TODO` placeholder.
+- **`ConvertFrom-DhScript`** — existing `.ps1` → YAML. **Best-effort** static AST
+  parse (never executes the script); values it can't resolve statically become
+  `<expr: ...>` markers.
+
+Docs: [DashHtml.Design/README.md](DashHtml.Design/README.md). Example:
+[Examples/design/](Examples/design/). Tests: **26 scenarios** in
+`Tests/DashHtml.Design.Tests.ps1` (YAML round-trip, lossless serialisation,
+YAML→runnable-script producing valid HTML, and static `.ps1` parsing) — run
+automatically by `Build.ps1`.
+
+### Changed — `Build.ps1` now builds both modules for independent publishing
+
+`Build.ps1` produces **two independently publishable packages**. Each module gets
+its own manifest validation (+ the PSGallery ReleaseNotes length guard), its own
+`dist\<Module>\` staging folder, its own versioned `.zip`, and its own `.nupkg`
+under `-NuGet`. PSScriptAnalyzer now covers both sources; the single Pester suite
+already covers both. The two modules are **versioned separately**:
+
+| Flag | Effect |
+|------|--------|
+| `-BumpVersion` | bump the **core** `DashHtml` patch version |
+| `-BumpDesignVersion` | bump the **companion** `DashHtml.Design` patch version |
+| `-SkipDesign` | build the core only, ignore the companion |
+| `-NuGet` | pack a `.nupkg` per module |
+
+Staging now prefers a **module-local `README.md`** when one exists (falling back
+to the repo-root README), so `DashHtml.Design` ships its own PSGallery page
+instead of the core module's. Core-module output is unchanged.
+[PublishPowerShellGallery.txt](PublishPowerShellGallery.txt) documents the
+two-package publish flow.
+
+Also fixed: **`-NuGet` is now idempotent.** `dist\` *is* the temporary
+`LocalBuild` repository's source location, so a `.nupkg` left by a previous run
+made `Publish-Module` fail with *"version 1.10.2 is already available in the
+repository"* — re-running `.\Build.ps1 -NuGet` without a version bump always
+failed at the last step. The stale package for the version being packed is now
+removed first.
+
+### Changed — `Install.ps1` installs both modules
+
+`Install.ps1` now installs the core module **and** the `DashHtml.Design`
+companion, each into its own versioned folder
+(`<root>\DashHtml\<ver>\`, `<root>\DashHtml.Design\<ver>\`). The core is always
+installed first, since the companion reads its cmdlet metadata at runtime. If
+the companion isn't present in the checkout, the script says so and installs the
+core alone — so existing single-module workflows are unaffected.
+
+| Flag | Effect |
+|------|--------|
+| `-SkipDesign` | install the core module only |
+| `-DesignOnly` | install the companion only |
+| `-DesignSource` | explicit path to the companion (mirrors `-Source`) |
+
+`-Uninstall` now removes both modules for the chosen scope (companion first),
+and honours `-SkipDesign` / `-DesignOnly` for partial removal. Source resolution
+still prefers a built `dist\<Module>\` over the in-repo folder, and each install
+is verified by importing the module and listing its exported cmdlets.
+
+## [1.10.4] — 2026-08-07
+
+Performance release. **No API changes, and sort order is unchanged** (proven by differential testing against the previous comparator — see below).
+
+### Performance
+- **Sorting a large table no longer freezes the browser — 5.6 s → 169 ms (~33×).** Clicking a column header on a 19,011-row × 17-column table blocked the main thread for **5.6 seconds**. Two pathologies in the comparator at [Get-DhJsTable.ps1](DashHtml/Private/Get-DhJsTable.ps1), which runs ~270,000 times per sort (n log n):
+
+  1. `String(av).localeCompare(String(bv), undefined, {sensitivity:'base'})` — passing an **options object** makes the engine re-resolve collation settings **on every call**. This is the dominant cost, worth ~15× on its own.
+  2. `parseFloat` on both operands per comparison — O(n log n) parses of values that need parsing only O(n) times.
+
+  Fixed with decorate–sort–undecorate: each row's sort keys (string form + numeric form) are computed **once**, and a single `Intl.Collator` is reused for every comparison.
+
+  | operation (19,011 rows) | before | after |
+  |---|---|---|
+  | sort column, ascending | 5,640 ms | **169 ms** |
+  | sort column, descending | 5,260 ms | **173 ms** |
+  | filter | ~250 ms | unchanged |
+  | load + parse (9.75 MB file) | ~3.1 s | unchanged |
+
+  Measured in-browser on a real SQL Server permission audit, not a synthetic benchmark.
+
+### Sort order is unchanged — and verified
+The risk in this change is ordering, so it was tested differentially rather than argued. A harness ran the **old and new comparators side by side over 501 randomised cases**, asserting identical output sequence:
+
+- partially-numeric strings (`'123abc'` → `parseFloat` gives `123`, **not** `NaN`, so it stays numeric-compared — existing quirk, deliberately preserved)
+- case- and accent-insensitivity (`café` / `cafe` / `CAFE` compare equal under `sensitivity:'base'`)
+- booleans, `null`, `undefined`, empty and whitespace strings, `'Infinity'`, `'NaN'`, `'1e3'`
+- sparkline columns across all four `sortBy` modes (`first` / `last` / `min` / `max`)
+- multi-field sorts with mixed asc/desc directions
+- a 200-row all-ties case pinning **stability**
+
+Zero mismatches. The equivalence is spec-level: `localeCompare(y, loc, opts)` is *defined* as `new Intl.Collator(loc, opts).compare(x, y)`, and `Array#sort` is stable in ES2019+, so tied rows keep their input order exactly as before.
+
+### Not changed
+- The other two `localeCompare` call sites — event feed ([Get-DhJsBlocks.ps1](DashHtml/Private/Get-DhJsBlocks.ps1)) and facet value lists ([Get-DhJsCore.ps1](DashHtml/Private/Get-DhJsCore.ps1)) — pass **no** options object and operate on small arrays, so neither has the pathology. Left as they are.
+
+### Tests
+- **5 new scenarios** (397 total) pinning the *shape* of the fix: a single reusable `Intl.Collator` exists; no options-object `localeCompare` survives outside the no-`Intl` fallback; sort keys are precomputed outside the comparator; sparkline reduction still runs; and a multi-column table exports without error. Pinned at source level deliberately — the old code sorted **correctly**, just glacially, so no functional test would ever have caught the regression.
+
+## [1.10.3] — 2026-08-07
+
+Performance release. **No API or output changes** — exported HTML is byte-identical to 1.10.2 (verified on a fixture covering every escaping rule, plus `$null` / bool / numeric / array cells and heterogeneous rows).
+
+### Performance
+- **`Export-DhDashboard` is ~15× faster end-to-end on large tables, ~40× on the part that scales.** The cost was concentrated in one place: `ConvertTo-DhJsonString` ran **nine regex passes over every string**, and the row serialiser calls it **twice per cell** (once for the column name, once for the value). Measured at **1.2718 ms per call** — so ~2.5 ms of a 3.9 ms/cell total, about two-thirds of export time, spent escaping text that in practice needs no escaping at all.
+
+  The fix is a single `IndexOfAny` pre-check ([ConvertTo-DhJsonString.ps1](DashHtml/Private/ConvertTo-DhJsonString.ps1)) that returns the quoted string immediately when it contains none of the characters any pass would rewrite. Real table data — hostnames, dates, enum values, counts — almost never does.
+
+  | | before | after |
+  |---|---|---|
+  | escaper, per call | 1.2718 ms | **0.0142 ms** (90×) |
+  | 20,400-cell report | 79.7 s | **5.2 s** (15×) |
+  | marginal cost | ~2.9–3.7 ms/cell | **~0.08 ms/cell** (~40×) |
+  | 338,000-cell report | ~16 min | **~30 s** (projected) |
+
+  Cost is linear in **cells (rows × columns)**, not rows — a 17-column table costs roughly twice an 8-column one at the same row count.
+
+### Security
+- **Documented and pinned a load-bearing ordering dependency in the escaper.** Carriage return is *dropped* rather than escaped, so `'<' CR '/script>'` only collapses into a literal `</script>` **during** escaping — and is then caught by the `</` → `<\/` pass that runs afterwards. Verified: `"a<`r/script>b"` → `"a<\/script>b"`.
+
+  This makes the obvious next optimisation — folding the nine passes into one regex over the *original* string — a **script breakout**, because that regex never sees the spliced `</`. The passes are therefore deliberately left intact and merely skipped when provably unnecessary; the hazard is now commented at the `</` rule and covered by a regression test. It is also a second reason (beyond the missing `</` and U+2028/29 handling already noted) not to swap in `ConvertTo-Json` or `System.Text.Json`.
+
+### Known trade-off
+- A string containing a lone `<` takes the slow path even though `<` alone is never rewritten — the trigger set is a deliberate superset so the check stays one `IndexOfAny`. Datasets with `<` in most cells (e.g. `"value < 10"`) see less benefit. Splitting the check would fix that at the cost of a second call on every cell.
+
+### Tests
+- **5 new scenarios** (392 total): plain-string fast path, `</script>` escaping, the CR-spliced `</script>` regression guard, lone `<` left untouched, and backslash / quote / tab / newline / C0 escaping — all driven through table cell data (the hot serialisation loop) rather than `InModuleScope`.
+
+## [1.10.2] — 2026-07-20
+
+Minor fixes — code-review follow-ups (the L-items from the 1.10.1 review). No API changes.
+
+### Fixed
+- **`--accent-primary-fg` now defined in every theme (contrast fix).** The token — the text colour drawn on an `--accent-primary` background (active subgroup pill, collapsed topology toggle) — was referenced but **never defined**, so it fell back to `#fff`. A WCAG check showed **7 of the 12 accent variants are bright** (Default, VMware, Azure-dark, Grey-dark, Rag-dark, Default-dark, VMware-dark), where white text is unreadable. Each theme now defines `--accent-primary-fg` with the higher-contrast of white / near-black for its accent (all pass WCAG AA). The `var(--accent-primary-fg, #fff)` fallback is retained defensively.
+- **XLSX export sanitises the sheet name.** Excel sheet names may not exceed 31 chars, be blank, or contain `: \ / ? * [ ]`; an invalid name made `book_append_sheet` throw and the Excel download **silently failed**. The name is now stripped of illegal characters, collapsed, trimmed to 31, and falls back to `Sheet1`.
+
+### Documentation
+- Clarified that **CSV / XLSX / PDF export always covers the full filtered set** (all rows matching the active filters, in sort order) — never just the visible page or the virtualised window. The PDF header prints `Rows: N` as a cue. (readme-dev gotcha #23.)
+
+### Tests
+- **8 new scenarios** (387 total): `--accent-primary-fg` present in every theme (source + exported HTML across all six families) and the XLSX sheet-name sanitiser in the export JS.
+
+## [1.10.1] — 2026-07-20
+
+Bug-fix patch from an internal code review. No API changes.
+
+### Security
+- **Progressbar cells now HTML-encode their label (XSS fix).** A table column with `CellType='progressbar'` built its cell via `innerHTML` with the value **un-escaped** ([Get-DhJsTable.ps1](DashHtml/Private/Get-DhJsTable.ps1)). A non-numeric value such as `<img src=x onerror=…>` therefore executed — a real XSS sink that contradicted the README's guarantee that *table cells are auto-encoded and safe for user-supplied text*. The value is now wrapped in `esc()`; it renders as inert literal text (verified: the payload becomes `&lt;img…`, no live tag). The sibling `badge` / `text` / `sparkline` cell types were already safe.
+
+### Fixed
+- **Duplicate-Id guard added to 5 block cmdlets** — `Add-DhBarChart`, `Add-DhCollapsible`, `Add-DhFilterCard`, `Add-DhHtmlBlock`, `Add-DhPieChart` now throw on a colliding block `Id`, matching the other 11 block cmdlets. Previously a duplicate silently produced two blocks sharing one DOM id, so charts rendered into the wrong container (or not at all).
+- **"Select all" checkbox on a non-pageable table** now selects **all** filtered rows. It sliced by `pageSize` (15) even when `-Pageable:$false` rendered every row, so the header checkbox silently selected only the first 15 of a many-row table.
+
+### Known limitation (documented, not a regression)
+- **Global filters (`Add-DhGlobalFilter`) affect tables and table-derived charts, not top-of-page KPI summary tiles.** Summary tiles are computed once from the full dataset and do not react to a global filter selection. Filter the underlying tables, or scope KPIs per nav panel with `Add-DhSummary -NavGroup`.
+
+### Tests
+- **7 new scenarios** (379 total): progressbar `esc()` in the runtime JS, duplicate-Id throw for all 5 newly-guarded cmdlets, and the pageable-aware select-all branch.
+
+## [1.10.0] — 2026-07-20
+
+Opt-in 12-column grid layout. **Non-breaking** — a dashboard that sets no `-GridSpan` is byte-identical to 1.9.0 (the sequential flex-column flow is unchanged).
+
+### Added
+- **`-GridSpan <1-12>` on every block cmdlet and `Add-DhTable`** — declares how many of 12 columns the element should occupy. As soon as **any** block or table sets a span, `Export-DhDashboard` switches the report body to a 12-column CSS grid (`.report-grid`) and emits an inline `grid-column: span N` on that section. Elements without a span default to full width, so you can mix a full-width table with a row of half-width charts:
+  ```powershell
+  Add-DhLineChart  -Report $r -Id 'trend' -GridSpan 8 ...   # 8/12 wide
+  Add-DhPieChart   -Report $r -Id 'mix'   -GridSpan 4 ...   # 4/12, sits beside it
+  Add-DhTable      -Report $r -TableId 't' ...              # no span → full row
+  ```
+  Two `-GridSpan 6` blocks sit side by side; three `-GridSpan 4` blocks make a row of thirds. Page chrome (alert banners, the global filter bar, the KPI summary) is always full width. The grid **collapses to a single column below 900 px** so it stays readable on narrow screens.
+
+### Implementation
+- 12 block cmdlets + `Add-DhTable` gained a `[ValidateRange(0,12)] [int] $GridSpan = 0` parameter (0 = default flow).
+- `Public/Export-DhDashboard.ps1` — detects any span, adds `report-grid` to the body class, emits the inline span on block sections; `Private/Build-DhTableSections.ps1` does the same for table sections.
+- `Private/Get-DhCssBase.ps1` — `.report-body.report-grid` grid rules + full-width chrome + the narrow-viewport collapse.
+
+### Tests
+- **7 new scenarios** (372 total): `-GridSpan` stored on block + table, range validation, and exported-HTML checks (grid body class, inline span, grid CSS, and a control confirming a no-span dashboard stays in flow layout).
+
+## [1.9.0] — 2026-07-20
+
+Page-level global filters. Non-breaking — a dashboard with no global filter is byte-identical to 1.8.0.
+
+### Added
+- **`Add-DhGlobalFilter` cmdlet** — adds a control to a filter bar rendered above the report body. When the user changes it, **every table that has the named field re-filters at once**, and any chart derived from those tables re-aggregates. Tables that don't have the field are left alone. Two control types:
+  - `-Type facet` (default) — a dropdown of distinct values (auto-derived from the tables' data, or supply `-Values`). Keeps rows whose field equals the selection.
+  - `-Type daterange` — from/to date inputs. Keeps rows whose field parses as a date within the inclusive range.
+  - Multiple global filters combine with **AND**. Selections **persist in the URL hash**, so a shared link or reload keeps them applied. `-Label` and `-Placeholder` customise the control.
+- The runtime gains a small **`GlobalFilter` event bus** (in `Get-DhJsCore`): tables subscribe and add a global-filter stage to their `_getFiltered()` pipeline (guarded by `GlobalFilter.active()`, so zero cost when unused). The filter bar honours `prefers-reduced-motion` and is keyboard-accessible with focus rings.
+
+### Implementation
+- `Public/Add-DhGlobalFilter.ps1` (new) + exported in the manifest.
+- `Public/Export-DhDashboard.ps1` — builds `GLOBALFILTER_CONFIG`, injects the `#global-filter-bar` container, substitutes the new placeholder.
+- `Private/Get-DhJsCore.ps1` — `GlobalFilter` bus, `renderGlobalFilters()`, `_gfDistinct()`, URL persistence; `Get-DhJsTable.ps1` — filter stage in `_getFiltered`; `Get-DhJsBoot.ps1` — restore + subscribe + first-render.
+- `Private/Get-DhCssBase.ps1` — `.global-filter-bar` and control styles.
+
+### Tests
+- **10 new scenarios** (365 total). Cmdlet validation (defaults, daterange, explicit values, duplicate-field guard) + exported-HTML wiring (bar container, config, bus, `_getFiltered` stage, placeholder substitution). The row-matching logic (`matchRow` — facet, date-range, AND, field-absent) was additionally verified against a Node harness.
+
+## [1.8.0] — 2026-07-20
+
+Internal refactor — **no functional change**. Generated dashboards are byte-for-byte identical to 1.7.0.
+
+### Changed
+- **Runtime JavaScript split into fragment files** — the dashboard runtime JS (~3,400 lines) previously lived in a single here-string inside `Private/Get-DhJsContent.ps1`. It is now authored across five cohesive private fragments — `Get-DhJsCore.ps1` (config/state/URL/formatting/threshold/theme/density/sparkline/delta/alerts/tiles), `Get-DhJsBlocks.ps1` (every block renderer), `Get-DhJsNav.ps1` (two/three-tier navigation), `Get-DhJsTable.ps1` (the `TableEngine`), and `Get-DhJsBoot.ps1` (DOMContentLoaded bootstrap) — which `Get-DhJsContent` concatenates with `-join`. The split points are top-level function boundaries, so the assembled script is a single shared scope exactly as before; **the output was verified byte-for-byte identical** to the 1.7.0 monolith. Pure maintainability win — no cmdlet, parameter, or rendered-HTML change.
+
+## [1.7.0] — 2026-07-20
+
+UX & performance pass (backlog P2). All changes are additive / non-breaking; interactive topology and reduced-motion are on by default.
+
+### Added
+- **Interactive topology maps** — `Add-DhTopologyMap` gains `-Interactive` (default `$true`). The tree renders in a fixed-height viewport with **drag-to-pan**, **mouse-wheel zoom**, a **zoom-in / zoom-out / reset toolbar**, and a **`+/−` collapse toggle on every parent node** to fold/unfold its subtree. Auto-fits to the container on load and re-fits on resize until the user takes manual control. Pass `-Interactive:$false` for the pre-1.7.0 static scale-to-fit rendering (no toolbar, no collapse). Auto-fit, hover tooltips, drill-down, status colours, and forest/horizontal/vertical layout are all preserved.
+- **Accessibility** — the generated dashboard now:
+  - honours **`prefers-reduced-motion`**: a media query neutralises every transition/animation (collapsible expand, hover lifts, topology easing) and disables smooth-scroll while preserving final states;
+  - adds **`aria-sort`** (`ascending`/`descending`/`none`) to sortable table headers and makes them **keyboard-operable** (`tabindex=0`, Enter/Space sorts, Shift for multi-sort) with a visible **focus ring**;
+  - marks the per-table **result-count** element `role="status"` + `aria-live="polite"` so filter changes are announced to screen readers;
+  - adds `scope="col"` to every column header.
+- **Large-table row virtualisation** — a non-pageable table (`-Pageable:$false`) larger than 150 rows now windows the DOM: only the rows near the scroll viewport are built (top/bottom spacer rows preserve the scrollbar), inside a bounded-height container with a sticky header. Keeps "show everything" fast for multi-thousand-row inventories. The default **paginated** path is byte-for-byte unchanged (the row-builder was extracted but produces identical rows) — zero regression there.
+
+### Fixed
+- **`-Pageable:$false` showed only the first page** — a non-paginated table emitted `pageSize=15` and rendered only 15 rows with no way to reach the rest. It now renders **all** filtered rows (virtualised when large). Existing dashboards that used `-Pageable:$false` with more than 15 rows were silently losing data and will now show everything.
+- **`Add-DhTabs` with a single tab threw** (carried from the 1.6.0 fix note; the `@(...)` coercion also protects the new virtualisation row lists).
+
+### Accessibility notes (RAG contrast audit)
+A WCAG contrast audit of the RAG palettes (text on the effective near-white cell background) found: **`Rag` theme passes AA across the board** (7–8.7 : 1); **`Default` passes AA** on ok/warn/danger (6.3–7.5 : 1); the only marginal case is `Default`'s `cell-nodata` grey at **4.4 : 1** (0.1 below the 4.5 : 1 AA threshold for normal text). Colours were **not** retuned (that would shift every existing dashboard) — for audiences needing guaranteed AA, use `-Theme Rag`.
+
+### Implementation
+- `Private/Get-DhJsContent.ps1` — `renderTopologyMap` rewritten with a re-runnable `computeLayout`, `buildInner`, pan/zoom transform state, `ResizeObserver`-driven auto-fit, and collapse state; `TableEngine._renderBody` split into `_buildRow` + a `_renderVirtual` / `_teardownVirtual` windowing path; sortable-header build adds ARIA + keyboard.
+- `Public/Add-DhTopologyMap.ps1` + `Public/Export-DhDashboard.ps1` — new `Interactive` field emitted in the topology block JSON.
+- `Private/Get-DhCssBase.ps1` — `prefers-reduced-motion` reset; topology toolbar/toggle/pan-cursor styles; `.table-virtual` sticky-header scroll container; sortable-header focus ring.
+- `Private/Build-DhTableSections.ps1` — `role="status"` + `aria-live` on the result-count span.
+
+### Tests
+- **10 new scenarios** (355 total): topology `-Interactive` default/override + emitted JS; `-Pageable:$false` config + virtualisation engine in output; reduced-motion / aria-live / aria-sort / keyboard / focus-ring presence.
+
+## [1.6.0] — 2026-07-20
+
+Opt-in HTML safety for the four cmdlets that inject caller-supplied content into the DOM via `innerHTML`. **Non-breaking** — the default preserves v1.x raw-markup behaviour; a deprecation warning announces the encode-by-default flip planned for 2.0.0.
+
+### Added
+- **`-AllowHtml` parameter on `Add-DhHtmlBlock`, `Add-DhTabs`, `Add-DhCollapsible`, and `Add-DhAlertBanner`** — controls whether the raw-HTML sink (`-Content`, per-tab `Content`, `-Content`, `-Message` respectively) is injected as raw markup or HTML-encoded.
+  - `-AllowHtml:$true` (**default**) — content is rendered as raw HTML, exactly as in v1.x. No behaviour change on upgrade.
+  - `-AllowHtml:$false` — content is HTML-encoded with `[System.Net.WebUtility]::HtmlEncode` (encodes `< > & " '`) and renders as literal text. **Use this for any externally-sourced / untrusted data** (AD attributes, ticket titles, log lines, hostnames).
+- **Deprecation warning** — when the content looks like HTML *and* `-AllowHtml` was not passed explicitly, the cmdlet emits a `Write-Warning` noting that the default will change to `$false` (encode) in **DashHtml 2.0.0**. Silence it by passing `-AllowHtml:$true` (keep raw) or `-AllowHtml:$false` (encode). Plain-text content never warns; an explicit `-AllowHtml` value never warns.
+- The encode / warn logic lives in one shared private helper (`ConvertTo-DhSafeContent`, with `Test-DhLooksLikeHtml`) so all four cmdlets behave identically.
+
+### Fixed
+- **`Add-DhTabs` with a single tab threw** — a one-element `-Tabs` array made the internal `$normTabs` a scalar hashtable, so the "no active tab → activate the first" step indexed `$normTabs[0]` on a scalar and failed with *"The property 'Active' cannot be found"*. The build loop is now wrapped in `@(...)`. Regression test added.
+
+### Changed
+- **All shipped `Examples/*.ps1` pass `-AllowHtml:$true` on their intentional raw-HTML calls** — the library's own examples are warning-free and model the forward-compatible pattern users should copy. Committed `Examples/*.html` regenerated at 1.6.0.
+
+### Migration note
+Nothing breaks on upgrade to 1.6.0. If you pass HTML into any of the four sinks you will now see a one-line deprecation warning per affected call. Two ways to resolve it, per call:
+- **Trusted / intentional HTML** (you built the markup) → add `-AllowHtml:$true`.
+- **Untrusted / external data** (you interpolated a value from somewhere) → add `-AllowHtml:$false` to encode it. This is the safer choice and will become the default in 2.0.0.
+
+## [1.5.4] — 2026-07-18
+
+Housekeeping / developer-experience release. **No runtime behaviour change** for generated dashboards — every change is in the build, tests, examples, and docs.
+
+### Added
+- **PSScriptAnalyzer gate in `Build.ps1`** — new step 3 runs `Invoke-ScriptAnalyzer` against the module source, fails the build on any **Error**-severity finding, and reports Warnings non-fatally. Rule exclusions live in the new `PSScriptAnalyzerSettings.psd1`, each with a documented rationale (BOM rule waived for a UTF-8/PS7 module; `PSReviewUnusedParameter` waived for the required `param($m)` in `[regex]::Replace` MatchEvaluators; `PSUseSingularNouns` waived for genuinely-plural cmdlets like `Add-DhTabs`; `PSUseShouldProcess` waived for the in-memory `New-DhDashboard` / `Set-DhTableLink`). Baseline is clean (0 errors, 0 warnings). New `-SkipLint` switch for rapid local iteration.
+- **Examples smoke test in the Pester suite** — a new `Describe` runs every `Examples/*.ps1` in its own `pwsh` subprocess (avoiding the multi-module-load collision that affects `InModuleScope`) and asserts exit 0, a `<!DOCTYPE html>` … `</html>` envelope, a plausible size, and that no `/*%%…%%*/` config placeholder survived unsubstituted. **330 tests total** (was 324).
+
+### Changed
+- **All five `Examples/*.ps1` normalised to a common parameter contract** — `-OutputPath` (defaults beside the script) and `-OpenInBrowser` (defaults `$false`). Previously `AD-Dashboard.ps1`, `Multi-Panel-Dashboard.ps1`, and `vSphere-Dashboard.ps1` had **no `param()` block and hard-coded `-OpenInBrowser`**, so every run popped a browser window and they couldn't be driven non-interactively (by the smoke test or by scripted regeneration).
+- **Regenerated `Examples/*.html`** — the committed example dashboards were stale (dated 2026-05-25, v1.5.0). They now reflect 1.5.1 collapsible chrome, 1.5.2 topology auto-fit + hover tooltips, and 1.5.3 SRI-pinned CDN scripts. All five carry the `v1.5.4` generator tag.
+- **`Build.ps1` stages `README.md` + `LICENSE`** into `dist/DashHtml/` so `Publish-*` ships them (fixes the "package is missing a readme" warning and lets the license travel as a file).
+
+### Security
+- **Removed a plaintext PSGallery API key** from `PublishPowerShellGallery.txt` (it was committed in a cloud-synced folder). The file is now a runbook with three safe key-handling patterns (interactive prompt / SecretManagement vault / CI env var). **The previously-committed key must be rotated and treated as compromised.**
+- **Publish runbook modernised to `Publish-PSResource`** — eliminates the `dotnet pack` NU5110/NU5111/NU1903 warning noise, picks up `README.md` as the package readme, and ships `LICENSE` as `<license type="file">` instead of the deprecated `<licenseUrl>`.
+
 ## [1.5.3] — 2026-06-20
 
 Security hardening. Closes three concrete vectors flagged in the v1.5.2 audit. **No breaking changes** for any caller passing well-formed colours and URLs.
