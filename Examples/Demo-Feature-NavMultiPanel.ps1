@@ -19,20 +19,20 @@
     and watch the per-panel strip change while the global strip stays put.
 
 .PARAMETER OutputPath
-    Where to write the generated HTML. Defaults to Multi-Panel-Dashboard.html
+    Where to write the generated HTML. Defaults to Demo-Feature-NavMultiPanel.html
     beside this script.
 
 .PARAMETER OpenInBrowser
     Open the dashboard in the default browser once generated.
 
 .EXAMPLE
-    PS> .\Examples\Multi-Panel-Dashboard.ps1 -OpenInBrowser
+    PS> .\Examples\Demo-Feature-NavMultiPanel.ps1 -OpenInBrowser
 
 .EXAMPLE
-    PS> .\Examples\Multi-Panel-Dashboard.ps1 -OutputPath C:\Temp\panels.html
+    PS> .\Examples\Demo-Feature-NavMultiPanel.ps1 -OutputPath C:\Temp\panels.html
 #>
 param(
-    [string] $OutputPath = (Join-Path $PSScriptRoot 'Multi-Panel-Dashboard.html'),
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-Feature-NavMultiPanel.html'),
     [switch] $OpenInBrowser
 )
 

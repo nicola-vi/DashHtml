@@ -22,6 +22,12 @@ function Get-DhCssAzureDark {
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #2886DE;
   --accent-danger:    #FC5F5F;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #6CCB5F;
+  --range-grad-50:  #FCE100;
+  --range-grad-100: #FC5F5F;
   --accent-warn:      #FCE100;
   --accent-ok:        #6CCB5F;
 

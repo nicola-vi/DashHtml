@@ -1,6 +1,6 @@
 @{
     RootModule        = 'DashHtml.Design.psm1'
-    ModuleVersion     = '1.0.0'
+    ModuleVersion     = '2.1.0'
     GUID              = 'b7e4c1a9-6d2f-4a83-9c15-2e8f7a4b1d60'
     Author            = 'DashHtml Contributors'
     CompanyName       = 'DashHtml Contributors'
@@ -13,16 +13,18 @@
     # and every generated build script starts with 'Import-Module DashHtml'.
     # Declaring the dependency makes Install-PSResource / Install-Module pull the
     # core in automatically and shows it on the gallery page.
-    # 1.10.0 is the floor: -GridSpan (1.10.0) and Add-DhGlobalFilter (1.9.0) are
-    # both in the type/parameter map. ModuleVersion here means "minimum".
+    # 2.0.0 is the floor: Update-DhScript audits the 2.0.0 upgrade, and the
+    # codegen picks up -NavPath / -NavScope from live cmdlet metadata.
+    # ModuleVersion here means "minimum".
     RequiredModules   = @(
-        @{ ModuleName = 'DashHtml'; ModuleVersion = '1.10.0' }
+        @{ ModuleName = 'DashHtml'; ModuleVersion = '2.1.0' }
     )
 
     FunctionsToExport = @(
         'ConvertTo-DhYaml'
         'ConvertFrom-DhYaml'
         'ConvertFrom-DhScript'
+        'Update-DhScript'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
@@ -33,8 +35,11 @@
             Tags         = @('DashHtml','YAML','Dashboard','CodeGen','Design','Layout')
             LicenseUri   = 'https://github.com/nicola-vi/DashHtml/blob/main/LICENSE'
             ProjectUri   = 'https://github.com/nicola-vi/DashHtml'
-            ReleaseNotes = '1.0.0 — Initial release. ConvertTo-DhYaml (report -> YAML, lossless), ConvertFrom-DhYaml (YAML/JSON -> runnable .ps1 build script, driven by live cmdlet metadata), ConvertFrom-DhScript (best-effort static .ps1 -> YAML). Self-contained YAML reader/writer, no external dependency. Companion to DashHtml; no core changes.'
+            ReleaseNotes = '2.0.0 — Adds Update-DhScript, an AST-based audit and rewriter for the DashHtml 2.0.0 upgrade (classifies findings ACTION/advisory/info, backs up before editing, idempotent, never rewrites non-literal content). Version and RequiredModules floor aligned to DashHtml 2.0.0, whose -NavPath/-NavScope parameters the codegen picks up automatically from live cmdlet metadata. Previously 1.0.0 — Initial release. ConvertTo-DhYaml (report -> YAML, lossless), ConvertFrom-DhYaml (YAML/JSON -> runnable .ps1 build script, driven by live cmdlet metadata), ConvertFrom-DhScript (best-effort static .ps1 -> YAML). Self-contained YAML reader/writer, no external dependency. Companion to DashHtml; no core changes.'
         }
     }
 }
+
+
+
 

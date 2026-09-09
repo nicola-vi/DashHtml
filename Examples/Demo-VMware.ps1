@@ -19,22 +19,22 @@
     Get-Datastore / Get-VIEvent when adapting to a real environment.
 
 .PARAMETER OutputPath
-    Where to write the generated HTML. Defaults to vSphere-Dashboard.html
+    Where to write the generated HTML. Defaults to Demo-VMware.html
     beside this script.
 
 .PARAMETER OpenInBrowser
     Open the dashboard in the default browser once generated.
 
 .EXAMPLE
-    PS> .\Examples\vSphere-Dashboard.ps1 -OpenInBrowser
+    PS> .\Examples\Demo-VMware.ps1 -OpenInBrowser
     Generates the dashboard and opens it in the default browser.
 
 .EXAMPLE
-    PS> .\Examples\vSphere-Dashboard.ps1 -OutputPath C:\Temp\vsphere.html
+    PS> .\Examples\Demo-VMware.ps1 -OutputPath C:\Temp\vsphere.html
     Generates the dashboard without opening a browser.
 #>
 param(
-    [string] $OutputPath = (Join-Path $PSScriptRoot 'vSphere-Dashboard.html'),
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-VMware.html'),
     [switch] $OpenInBrowser
 )
 

@@ -16,7 +16,7 @@
 
 [CmdletBinding()]
 param(
-    [string] $OutputPath = (Join-Path $PSScriptRoot 'v1.5-Widgets-Showcase.html'),
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-Feature-TabsHeatmapTopology.html'),
     [ValidateSet('Default','Azure','VMware','Grey','Company','Rag')]
     [string] $Theme = 'Default',
     [switch] $OpenInBrowser

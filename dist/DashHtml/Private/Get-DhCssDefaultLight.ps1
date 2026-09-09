@@ -20,6 +20,12 @@ function Get-DhCssDefaultLight {
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #005F8A;
   --accent-danger:    #CC2200;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #007A3D;
+  --range-grad-50:  #C87000;
+  --range-grad-100: #CC2200;
   --accent-warn:      #C87000;
   --accent-ok:        #007A3D;
 

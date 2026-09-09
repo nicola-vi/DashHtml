@@ -114,7 +114,7 @@ statically (a variable, an expression, a subexpression) is written as an
 `<expr: ...>` marker so you can see exactly what needs a live value.
 
 ```powershell
-ConvertFrom-DhScript -Path .\Examples\vSphere-Dashboard.ps1
+ConvertFrom-DhScript -Path .\Examples\Demo-VMware.ps1
 ```
 
 Use it to get a quick structural picture or a YAML starting point. For a

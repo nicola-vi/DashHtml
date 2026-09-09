@@ -28,6 +28,12 @@ function Get-DhCssVMwareDark {
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #00B388;
   --accent-danger:    #E74C3C;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #00C49A;
+  --range-grad-50:  #F39C12;
+  --range-grad-100: #E74C3C;
   --accent-warn:      #F39C12;
   --accent-ok:        #00C49A;
 

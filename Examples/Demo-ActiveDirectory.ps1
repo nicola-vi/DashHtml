@@ -20,22 +20,22 @@
     (DCDIAG, RepAdmin, Get-ADReplicationFailure, etc.) when adapting.
 
 .PARAMETER OutputPath
-    Where to write the generated HTML. Defaults to AD-Dashboard.html beside
+    Where to write the generated HTML. Defaults to Demo-ActiveDirectory.html beside
     this script.
 
 .PARAMETER OpenInBrowser
     Open the dashboard in the default browser once generated.
 
 .EXAMPLE
-    PS> .\Examples\AD-Dashboard.ps1 -OpenInBrowser
+    PS> .\Examples\Demo-ActiveDirectory.ps1 -OpenInBrowser
     Generates the dashboard and opens it in the default browser.
 
 .EXAMPLE
-    PS> .\Examples\AD-Dashboard.ps1 -OutputPath C:\Temp\ad.html
+    PS> .\Examples\Demo-ActiveDirectory.ps1 -OutputPath C:\Temp\ad.html
     Generates the dashboard without opening a browser.
 #>
 param(
-    [string] $OutputPath = (Join-Path $PSScriptRoot 'AD-Dashboard.html'),
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-ActiveDirectory.html'),
     [switch] $OpenInBrowser
 )
 

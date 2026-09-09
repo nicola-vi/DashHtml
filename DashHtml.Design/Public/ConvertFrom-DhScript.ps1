@@ -22,7 +22,7 @@ function ConvertFrom-DhScript {
     .PARAMETER OutFile   Optional path to write the YAML. Else returns the string.
 
     .EXAMPLE
-        ConvertFrom-DhScript -Path .\Examples\AD-Dashboard.ps1 -OutFile ad-layout.yaml
+        ConvertFrom-DhScript -Path .\Examples\Demo-ActiveDirectory.ps1 -OutFile ad-layout.yaml
     #>
     [CmdletBinding()]
     param(
@@ -40,7 +40,8 @@ function ConvertFrom-DhScript {
         'add-dhhtmlblock'='html'; 'add-dhcollapsible'='collapsible'; 'add-dhfiltercard'='filtercardgrid';
         'add-dhbarchart'='barchart'; 'add-dhpiechart'='piechart'; 'add-dhbullet'='bullet';
         'add-dhlinechart'='linechart'; 'add-dheventfeed'='eventfeed'; 'add-dhstatusgrid'='statusgrid';
-        'add-dhtabs'='tabs'; 'add-dhheatmap'='heatmap'; 'add-dhtopologymap'='topologymap'
+        'add-dhtabs'='tabs'; 'add-dhheatmap'='heatmap'; 'add-dhtopologymap'='topologymap';
+        'add-dhrangebar'='rangebar'
     }
 
     $commands = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)

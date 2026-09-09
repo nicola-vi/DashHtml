@@ -33,6 +33,12 @@ function Get-DhCssRagLight {
   --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #404040;
   --accent-danger:    #9C0006;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #375623;
+  --range-grad-50:  #7F4B00;
+  --range-grad-100: #9C0006;
   --accent-warn:      #7F4B00;
   --accent-ok:        #375623;
 

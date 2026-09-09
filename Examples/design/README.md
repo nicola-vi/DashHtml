@@ -36,5 +36,5 @@ Or take a best-effort structural picture of an existing script (dynamic values a
 flagged with `<expr: ...>` markers):
 
 ```powershell
-ConvertFrom-DhScript -Path ..\vSphere-Dashboard.ps1
+ConvertFrom-DhScript -Path ..\Demo-VMware.ps1
 ```

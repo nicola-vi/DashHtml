@@ -705,12 +705,20 @@ Describe 'Export-DhDashboard' {
     }
 
     It 'HTML contains nav bar markup' {
+        # v2.0.0: the menu is RENDERED CLIENT-SIDE from the data-navpath
+        # attributes on the sections, so the strips/chips do not appear in the
+        # static HTML. What must be present statically is the nav chrome plus
+        # the per-section nav data the runtime derives the whole menu from.
         $htmlPath = Join-Path $tmpDir 'test-nav.html'
         Export-DhDashboard -Report $report -OutputPath $htmlPath -Force
         $content = Get-Content $htmlPath -Raw
         $content | Should -Match 'report-nav'
-        $content | Should -Match 'nav-link'
-        $content | Should -Match 'data-table="hosts"'
+        $content | Should -Match 'id="nav-strips"'
+        $content | Should -Match 'data-navpath='
+        $content | Should -Match 'data-navscope='
+        # the 'hosts' table must carry its own path node
+        $content | Should -Match 'id="section-hosts"'
+        $content | Should -Match 'hosts'
     }
 
     It 'HTML meta tag records the theme family' {
@@ -1580,7 +1588,7 @@ Describe 'Add-DhHtmlBlock' {
 
     It 'Stores Id, Title, Icon, Content, Style correctly' {
         Add-DhHtmlBlock -Report $report -Id 'note' -Title 'Info Note' -Icon '📋' `
-            -Content '<p>Details here.</p>' -Style 'warn'
+            -Content '<p>Details here.</p>' -Style 'warn' -AllowHtml:$true
         $b = $report['Blocks'][0]
         $b.Id      | Should -Be 'note'
         $b.Title   | Should -Be 'Info Note'
@@ -1686,7 +1694,7 @@ Describe 'Add-DhCollapsible' {
 
     It 'Accepts free-form Content instead of Cards' {
         Add-DhCollapsible -Report $report -Id 'sec7' -Title 'Notes' `
-            -Content '<p>Some notes here.</p>'
+            -Content '<p>Some notes here.</p>' -AllowHtml:$true
         $report['Blocks'][0].Content | Should -Be '<p>Some notes here.</p>'
     }
 
@@ -2880,6 +2888,205 @@ Describe 'Add-DhHeatmap' {
     }
 }
 
+
+# ---------------------------------------------------------------------------
+# Add-DhRangeBar   (v2.1.0)
+# ---------------------------------------------------------------------------
+Describe 'Add-DhRangeBar' {
+
+    BeforeEach {
+        $script:report = New-DhDashboard -Title 'T'
+        $script:items = @(
+            @{ Name='cluster01-users';   Low=0; High=315; Min=60; Avg=97; Max=120 }
+            @{ Name='cluster02-bigdata'; Low=0; High=104; Min=1;  Avg=2;  Max=10  }
+        )
+        $script:tblData = @(
+            @{ Cluster='c1'; Load=60;    Capacity=315 }
+            @{ Cluster='c1'; Load=120;   Capacity=315 }
+            @{ Cluster='c1'; Load=111;   Capacity=315 }
+            @{ Cluster='c2'; Load=1;     Capacity=104 }
+            @{ Cluster='c2'; Load=10;    Capacity=104 }
+        )
+    }
+
+    It 'Adds a rangebar block in items mode' {
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'Load' -Items $items
+        $report['Blocks']                    | Should -Not -BeNullOrEmpty
+        $report['Blocks'][0].BlockType       | Should -Be 'rangebar'
+        $report['Blocks'][0].Mode            | Should -Be 'items'
+        @($report['Blocks'][0].Items).Count  | Should -Be 2
+    }
+
+    It 'Normalises item values to numbers, InvariantCulture' {
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'Load' -Items @(
+            @{ Name='a'; Low='0'; High='10.5'; Min='1.5'; Avg='2.25'; Max='3.75' })
+        $report['Blocks'][0].Items[0].High | Should -Be 10.5
+        $report['Blocks'][0].Items[0].Avg  | Should -Be 2.25
+    }
+
+    It 'Derives an axis caption when none is given' {
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'Load' -Items $items
+        $report['Blocks'][0].AxisLabel | Should -Be '% of high'
+    }
+
+    It 'Throws when an item is missing a required key' {
+        { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' -Items @(
+              @{ Name='a'; Low=0; High=10; Min=1; Max=3 }) } | Should -Throw -ExpectedMessage "*'Avg'*"
+    }
+
+    It 'Throws on a non-numeric item value' {
+        { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' -Items @(
+              @{ Name='a'; Low=0; High=10; Min='abc'; Avg=2; Max=3 }) } | Should -Throw -ExpectedMessage '*must be a number*'
+    }
+
+    It 'Throws on duplicate row names' {
+        { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' -Items @(
+              @{ Name='a'; Low=0; High=10; Min=1; Avg=2; Max=3 }
+              @{ Name='a'; Low=0; High=10; Min=1; Avg=2; Max=3 }) } | Should -Throw -ExpectedMessage '*duplicate*'
+    }
+
+    It 'Warns but does not throw when High <= Low (spec 3.2)' {
+        $w = $null
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' -Items @(
+            @{ Name='a'; Low=10; High=10; Min=1; Avg=2; Max=3 }) -WarningVariable w -WarningAction SilentlyContinue
+        @($w).Count            | Should -BeGreaterThan 0
+        $report['Blocks'].Count | Should -Be 1
+    }
+
+    It 'Warns when values fall outside the row scale, keeping the real numbers' {
+        $w = $null
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' -Items @(
+            @{ Name='a'; Low=0; High=50; Min=10; Avg=60; Max=80 }) -WarningVariable w -WarningAction SilentlyContinue
+        @($w).Count                       | Should -BeGreaterThan 0
+        $report['Blocks'][0].Items[0].Max | Should -Be 80
+    }
+
+    It 'Does not clamp an Avg outside [Min,Max] (spec 5.3)' {
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' -Items @(
+            @{ Name='a'; Low=0; High=100; Min=40; Avg=12; Max=70 })
+        $report['Blocks'][0].Items[0].Avg | Should -Be 12
+    }
+
+    It 'Throws on duplicate block Id' {
+        Add-DhRangeBar -Report $report -Id 'rb1' -Title 'A' -Items $items
+        { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'B' -Items $items } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
+
+    Context 'FromTable mode' {
+
+        BeforeEach {
+            Add-DhTable -Report $script:report -TableId 'clusters' -Title 'C' -Data $script:tblData
+        }
+
+        It 'Records the field names and defers aggregation to the browser' {
+            Add-DhRangeBar -Report $report -Id 'rb1' -Title 'Load' `
+                -TableId 'clusters' -CategoryField 'Cluster' -ValueField 'Load' -HighField 'Capacity'
+            $report['Blocks'][0].Mode          | Should -Be 'fromtable'
+            $report['Blocks'][0].CategoryField | Should -Be 'Cluster'
+            $report['Blocks'][0].HighField     | Should -Be 'Capacity'
+            @($report['Blocks'][0].Items).Count | Should -Be 0
+        }
+
+        It 'Derives the axis caption from the High source' {
+            Add-DhRangeBar -Report $report -Id 'rb1' -Title 'Load' `
+                -TableId 'clusters' -CategoryField 'Cluster' -ValueField 'Load' -HighField 'Capacity'
+            $report['Blocks'][0].AxisLabel | Should -Be '% of Capacity'
+        }
+
+        It 'Throws when the source table does not exist' {
+            { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' `
+                  -TableId 'nope' -CategoryField 'Cluster' -ValueField 'Load' } |
+                Should -Throw -ExpectedMessage '*not found*'
+        }
+
+        It 'Throws when a field name is not a column of the table' {
+            { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' `
+                  -TableId 'clusters' -CategoryField 'Nope' -ValueField 'Load' } |
+                Should -Throw -ExpectedMessage '*is not a column*'
+        }
+
+        It 'Throws when -High and -HighField are combined' {
+            { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' `
+                  -TableId 'clusters' -CategoryField 'Cluster' -ValueField 'Load' `
+                  -HighField 'Capacity' -High 500 } |
+                Should -Throw -ExpectedMessage '*mutually exclusive*'
+        }
+
+        It 'Throws when the category cardinality exceeds -MaxRows' {
+            { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' `
+                  -TableId 'clusters' -CategoryField 'Cluster' -ValueField 'Load' -MaxRows 1 } |
+                Should -Throw -ExpectedMessage '*over -MaxRows*'
+        }
+
+        It 'Warns about non-numeric values rather than coercing them to zero' {
+            $r2 = New-DhDashboard -Title 'T2'
+            Add-DhTable -Report $r2 -TableId 't' -Title 'T' -Data @(
+                @{ K='a'; V=1 }, @{ K='a'; V='n/a' }, @{ K='b'; V=3 })
+            $w = $null
+            Add-DhRangeBar -Report $r2 -Id 'rb1' -Title 'X' -TableId 't' `
+                -CategoryField 'K' -ValueField 'V' -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -BeGreaterThan 0
+        }
+
+        It 'Throws when no row has a numeric value field' {
+            $r3 = New-DhDashboard -Title 'T3'
+            Add-DhTable -Report $r3 -TableId 't' -Title 'T' -Data @(@{ K='a'; V='x' }, @{ K='b'; V='y' })
+            { Add-DhRangeBar -Report $r3 -Id 'rb1' -Title 'X' -TableId 't' `
+                  -CategoryField 'K' -ValueField 'V' } | Should -Throw -ExpectedMessage '*no row*'
+        }
+
+        It 'Rejects -Items combined with -TableId' {
+            { Add-DhRangeBar -Report $report -Id 'rb1' -Title 'X' `
+                  -Items $items -TableId 'clusters' -CategoryField 'Cluster' -ValueField 'Load' } |
+                Should -Throw
+        }
+    }
+
+    It 'HTML carries the block, the renderer and the theme gradient tokens' {
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ('DH_RbTest_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        try {
+            Add-DhRangeBar -Report $report -Id 'rb-export' -Title 'Load' `
+                -Items $items -Unit 'req/s' -ShowDataTable -AxisLabel '% of capacity'
+            $htmlPath = Join-Path $tmp 'test-rangebar.html'
+            Export-DhDashboard -Report $report -OutputPath $htmlPath -Force
+            $content = Get-Content $htmlPath -Raw
+            $content | Should -Match '"blockType":"rangebar"'
+            $content | Should -Match '"mode":"items"'
+            $content | Should -Match '"axisLabel":"% of capacity"'
+            $content | Should -Match '"unit":"req/s"'
+            $content | Should -Match '"showDataTable":true'
+            $content | Should -Match 'function renderRangeBar'
+            $content | Should -Match 'function computeRangeRows'
+            $content | Should -Match '--range-grad-0'
+            # numbers must serialise InvariantCulture, whatever the host culture
+            $content | Should -Match '"high":315'
+        } finally {
+            Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Serialises decimals with a dot under a comma-decimal culture' {
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ('DH_RbCult_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        $prev = [System.Threading.Thread]::CurrentThread.CurrentCulture
+        try {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo('it-IT')
+            Add-DhRangeBar -Report $report -Id 'rb-cult' -Title 'X' -Items @(
+                @{ Name='a'; Low=0; High=10.5; Min=1.5; Avg=2.25; Max=3.75 })
+            $htmlPath = Join-Path $tmp 'cult.html'
+            Export-DhDashboard -Report $report -OutputPath $htmlPath -Force
+            $content = Get-Content $htmlPath -Raw
+            $content | Should -Match '"avg":2\.25'
+            $content | Should -Not -Match '"avg":2,25'
+        } finally {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = $prev
+            Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Add-DhTopologyMap   (v1.5)
 # ---------------------------------------------------------------------------
@@ -3115,9 +3322,19 @@ Describe 'Security: -AllowHtml policy on raw-HTML sinks' {
 
     # -- Add-DhHtmlBlock ----------------------------------------------------
     Context 'Add-DhHtmlBlock -Content' {
-        It 'stores raw HTML by default (AllowHtml defaults to $true)' {
+        It 'HTML-encodes by default (v2.0.0 flipped AllowHtml to $false)' {
             Add-DhHtmlBlock -Report $script:report -Id 'h1' -Content '<b>x</b>' -WarningAction SilentlyContinue
-            $script:report.Blocks[0].Content | Should -BeExactly '<b>x</b>'
+            $script:report.Blocks[0].Content | Should -BeExactly '&lt;b&gt;x&lt;/b&gt;'
+        }
+        It 'warns when markup is encoded by the default, so the change is not silent' {
+            $w = $null
+            Add-DhHtmlBlock -Report $script:report -Id 'h1w' -Content '<b>x</b>' -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -BeGreaterThan 0
+        }
+        It 'does not warn when the caller chose explicitly' {
+            $w = $null
+            Add-DhHtmlBlock -Report $script:report -Id 'h1e' -Content '<b>x</b>' -AllowHtml:$true -WarningVariable w -WarningAction SilentlyContinue
+            @($w).Count | Should -Be 0
         }
         It 'HTML-encodes the content when -AllowHtml:$false' {
             Add-DhHtmlBlock -Report $script:report -Id 'h2' -Content '<script>alert(1)</script>' -AllowHtml:$false
@@ -3152,9 +3369,9 @@ Describe 'Security: -AllowHtml policy on raw-HTML sinks' {
             Add-DhAlertBanner -Report $script:report -Id 'a1' -Severity 'info' -Message '<img src=x onerror=alert(1)>' -AllowHtml:$false
             $script:report.AlertBanners[0].Message | Should -BeExactly '&lt;img src=x onerror=alert(1)&gt;'
         }
-        It 'keeps raw message by default' {
+        It 'HTML-encodes the message by default (v2.0.0)' {
             Add-DhAlertBanner -Report $script:report -Id 'a2' -Severity 'info' -Message '<b>hot</b>' -WarningAction SilentlyContinue
-            $script:report.AlertBanners[0].Message | Should -BeExactly '<b>hot</b>'
+            $script:report.AlertBanners[0].Message | Should -BeExactly '&lt;b&gt;hot&lt;/b&gt;'
         }
     }
 
@@ -3181,12 +3398,12 @@ Describe 'Security: -AllowHtml policy on raw-HTML sinks' {
             $tabsBlock = $script:report.Blocks | Where-Object Id -eq 't1'
             $tabsBlock.Tabs[0].Content | Should -BeExactly '&lt;h2&gt;hi&lt;/h2&gt;'
         }
-        It 'keeps raw tab content by default' {
+        It 'HTML-encodes tab content by default (v2.0.0)' {
             Add-DhTabs -Report $script:report -Id 't2' -Tabs @(
                 @{ Title='Raw'; Content='<h2>hi</h2>' }
             ) -WarningAction SilentlyContinue
             $tabsBlock = $script:report.Blocks | Where-Object Id -eq 't2'
-            $tabsBlock.Tabs[0].Content | Should -BeExactly '<h2>hi</h2>'
+            $tabsBlock.Tabs[0].Content | Should -BeExactly '&lt;h2&gt;hi&lt;/h2&gt;'
         }
     }
 
@@ -3611,6 +3828,12 @@ Describe 'Duplicate-Id guard on all block cmdlets (M2)' {
         { Add-DhPieChart -Report $script:report -Id 'd' -Title 'B' -Slices @(@{Label='b';Value=1}) } |
             Should -Throw -ExpectedMessage '*already exists*'
     }
+    It 'Add-DhRangeBar throws on a duplicate block Id' {
+        $rbItems = @(@{ Name='a'; Low=0; High=10; Min=1; Avg=2; Max=3 })
+        Add-DhRangeBar -Report $script:report -Id 'd' -Title 'A' -Items $rbItems
+        { Add-DhRangeBar -Report $script:report -Id 'd' -Title 'B' -Items $rbItems } |
+            Should -Throw -ExpectedMessage '*already exists*'
+    }
 }
 
 Describe 'Select-all covers all rows when non-pageable (M3)' {
@@ -3743,5 +3966,367 @@ Describe 'Examples: every shipped example script renders valid HTML' {
         $html | Should -Not -Match '%%BLOCKS_CONFIG%%'
         $html | Should -Not -Match '%%SUMMARY_CONFIG%%'
         $html | Should -Not -Match '%%ALERTS_CONFIG%%'
+    }
+}
+
+
+
+# ---------------------------------------------------------------------------
+# Collapsible chrome survives a post-boot re-render   (v2.1.1)
+#
+# renderBlocks() hands a collapsible block an INNER container (#cinner-<id>)
+# and a title-stripped clone. Three block types are re-rendered AFTER that -
+# barchart, Mode-A piechart and table-fed rangebar - in the boot pass and again
+# on every filter change. Before 2.1.1 those re-renders targeted the OUTER
+# element ('block-<id>') with the original block, which overwrote the toggle
+# header renderBlocks() had just built: the chevron vanished and -Collapsible /
+# -DefaultOpen were silently dead for bar and pie charts.
+#
+# The collapsible chrome is assembled client-side, so it cannot be asserted in
+# the emitted HTML. These tests pin the runtime contract instead: every
+# re-render path resolves its target through blockRenderTarget(), and none
+# reaches for the outer container directly.
+# ---------------------------------------------------------------------------
+Describe 'Collapsible chrome survives a post-boot re-render (v2.1.1)' {
+
+    BeforeAll {
+        $script:tmpDir = Join-Path ([IO.Path]::GetTempPath()) ('DH_Collapse_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmpDir | Out-Null
+
+        $r = New-DhDashboard -Title 'collapsible re-render'
+        Add-DhTable -Report $r -TableId 'tbl' -Title 'T' -Data @(
+            @{ K = 'a'; V = 1 }
+            @{ K = 'a'; V = 2 }
+            @{ K = 'b'; V = 3 }
+        )
+        Add-DhBarChart  -Report $r -Id 'bc' -Title 'Counts by K' -TableId 'tbl' -Field 'K'
+        Add-DhPieChart  -Report $r -Id 'pc' -Title 'Pie by K'    -TableId 'tbl' -Field 'K'
+        Add-DhRangeBar  -Report $r -Id 'rb' -Title 'Range by K'  -TableId 'tbl' `
+                        -CategoryField 'K' -ValueField 'V'
+
+        $script:htmlPath = Join-Path $script:tmpDir 'collapse.html'
+        Export-DhDashboard -Report $r -OutputPath $script:htmlPath -Force
+        $script:html = Get-Content $script:htmlPath -Raw
+    }
+
+    AfterAll {
+        if ($script:tmpDir -and (Test-Path -LiteralPath $script:tmpDir)) {
+            Remove-Item $script:tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'ships the blockRenderTarget resolver' {
+        $script:html | Should -Match 'function blockRenderTarget\(block\)'
+        # it must prefer the inner container and strip the title, or the header
+        # gets printed twice
+        $script:html | Should -Match "getElementById\('cinner-' \+ block\.id\)"
+    }
+
+    It 'has no leftover range-bar-specific name for the resolver' {
+        $script:html | Should -Not -Match 'rangeBarRenderTarget'
+    }
+
+    It 'routes every post-boot re-render through the resolver, none direct' {
+        # Each of the three re-rendered block types appears twice: once in the
+        # boot pass, once in _refreshLinkedBarCharts.
+        ([regex]::Matches($script:html, 'blockRenderTarget\(block\)')).Count |
+            Should -BeGreaterOrEqual 6 -Because 'boot + filter refresh, for barchart, piechart and rangebar'
+
+        # The old defect, exactly: reaching for the outer container inside a
+        # re-render loop. Nothing should do this any more.
+        $script:html | Should -Not -Match "if \(container\) renderBarChart\(container, block\)"
+        $script:html | Should -Not -Match "if \(container\) renderPieChart\(container, block\)"
+        $script:html | Should -Not -Match "if \(container\) renderRangeBar\(container, block\)"
+    }
+
+    It 'renders the re-rendered chart types into the resolved container' {
+        $script:html | Should -Match 'renderBarChart\(bcT\.container, bcT\.block\)'
+        $script:html | Should -Match 'renderPieChart\(pcT\.container, pcT\.block\)'
+        $script:html | Should -Match 'renderRangeBar\(rbT\.container, rbT\.block\)'
+    }
+
+    It 'still marks these blocks collapsible so the wrapper actually engages' {
+        # -Collapsible defaults to $true; if this regressed to false the fix
+        # above would be invisible for a different reason.
+        $blocks = [regex]::Match($script:html, 'const BLOCKS_CONFIG\s*=\s*(\[.*?\]);').Groups[1].Value
+        if (-not $blocks) {
+            $blocks = [regex]::Match($script:html, 'BLOCKS_CONFIG\s*=\s*(\[.*?\]);').Groups[1].Value
+        }
+        $blocks | Should -Not -BeNullOrEmpty
+        $cfg = $blocks | ConvertFrom-Json
+        foreach ($id in 'bc', 'pc', 'rb') {
+            $b = $cfg | Where-Object { $_.id -eq $id }
+            $b            | Should -Not -BeNullOrEmpty -Because "block '$id' should be in BLOCKS_CONFIG"
+            $b.collapsible | Should -BeTrue -Because "'$id' should default to collapsible"
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Long cell values: tooltip on clipped cells + resizable columns
+#
+# .data-table tbody td is `white-space: nowrap; overflow: hidden;
+# text-overflow: ellipsis`, so any value wider than its column is cut off. It
+# used to be cut off with no way to read the rest: _renderCell set textContent
+# and nothing else, and the column width was fixed at authoring time. A real
+# report hit this with 271-character values in a 300px column.
+# ---------------------------------------------------------------------------
+Describe 'Long cell values are readable (tooltip + column resize)' {
+
+    BeforeAll {
+        $script:tmpDir = Join-Path ([IO.Path]::GetTempPath()) ('DH_Trunc_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmpDir | Out-Null
+
+        $long = 'A' * 260
+        $rows = 1..6 | ForEach-Object {
+            @{ Short = "u$_"; Long = $(if ($_ % 2) { $long } else { 'brief' }) }
+        }
+        $r = New-DhDashboard -Title 'trunc'
+        Add-DhTable -Report $r -TableId 'wide' -Title 'Wide values' -Data $rows -Columns @(
+            @{ Field = 'Short'; Label = 'Short'; Width = '120px' }
+            @{ Field = 'Long';  Label = 'Long';  Width = '300px' }
+        )
+        $script:htmlPath = Join-Path $script:tmpDir 'trunc.html'
+        Export-DhDashboard -Report $r -OutputPath $script:htmlPath -Force
+        $script:html = Get-Content $script:htmlPath -Raw
+    }
+
+    AfterAll {
+        if ($script:tmpDir -and (Test-Path -LiteralPath $script:tmpDir)) {
+            Remove-Item $script:tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'ships the measured truncation pass' {
+        $script:html | Should -Match 'TableEngine\.prototype\._markTruncated'
+        # measured, not guessed from string length - the threshold is the
+        # rendered width, which the theme font and a drag both change
+        $script:html | Should -Match 'scrollWidth>td\.clientWidth'
+    }
+
+    It 'runs the truncation pass on every render' {
+        $render = [regex]::Match($script:html, 'TableEngine\.prototype\.render\s*=\s*function\(\)\{(.*?)\};', 'Singleline')
+        $render.Success       | Should -BeTrue
+        $render.Groups[1].Value | Should -Match '_markTruncated\(\)'
+    }
+
+    It 'stashes the full value on text cells so the tooltip has something to show' {
+        $script:html | Should -Match "cellType==='text' && dispVal"
+        $script:html | Should -Match 'td\.dataset\.full=dispVal'
+    }
+
+    It 'lets the declared column width beat the stylesheet cap' {
+        # Without this a column declared wider than the td max-width was clipped
+        # anyway, silently ignoring -Width.
+        $script:html | Should -Match 'td\.style\.maxWidth=effW'
+        $script:html | Should -Match '"width":"300px"'
+    }
+
+    It 'ships a drag-to-resize grip that does not trigger the sort' {
+        $script:html | Should -Match "grip\.className='col-resizer'"
+        $script:html | Should -Match 'TableEngine\.prototype\._setColWidth'
+        # the grip lives inside a sortable th, so it must swallow its own events
+        $script:html | Should -Match "grip\.addEventListener\('click',function\(e\)\{e\.stopPropagation\(\);\}\)"
+    }
+
+    It 'makes the grip keyboard-operable and resettable' {
+        $script:html | Should -Match "aria-label','Resize column "
+        $script:html | Should -Match "e\.key==='ArrowLeft'"
+        $script:html | Should -Match "e\.key==='Home'"
+        $script:html | Should -Match "grip\.addEventListener\('dblclick'"
+    }
+
+    It 'styles the resizer and the clipped-cell affordance' {
+        $script:html | Should -Match '\.col-resizer \{'
+        $script:html | Should -Match 'cursor: col-resize'
+        $script:html | Should -Match '\.data-table tbody td\.cell-clipped \{'
+    }
+
+    It 'keeps per-table width overrides isolated from the column definitions' {
+        # colWidths is engine state; col.width stays the author's declaration so
+        # a reset (double-click / Home) can fall back to it.
+        $script:html | Should -Match 'this\.colWidths     = \{\};'
+        $script:html | Should -Match 'self\.colWidths\[col\.field\]\|\|col\.width'
+    }
+
+    # -- 2.1.2: the header used to set the column's hard minimum -------------
+    It 'lets the header clip, so a column can shrink below its own label' {
+        # table-layout is auto, where width is only a suggestion: a nowrap header
+        # that cannot clip pins the column at label + padding + sort icon.
+        # 'Ottenuto tramite' floored a real report at 181px.
+        $script:html | Should -Match '\.data-table thead th \{[^}]*overflow: hidden'
+        $script:html | Should -Match '\.data-table thead th \.col-label \{'
+        $script:html | Should -Match 'text-overflow: ellipsis'
+    }
+
+    It 'caps the header width, not just suggests it' {
+        $script:html | Should -Match 'th\.style\.maxWidth=effW'
+        # a live drag must move the cap too, or the header springs back
+        $script:html | Should -Match 'head\.children\[idx\]\.style\.maxWidth=w'
+    }
+
+    It 'gives a clipped header the same measured tooltip as a clipped cell' {
+        $script:html | Should -Match "lab\.scrollWidth>lab\.clientWidth"
+        $script:html | Should -Match "ths\[h\]\.title=lab\.textContent"
+        $script:html | Should -Match "classList\.add\('th-clipped'\)"
+        # and drops it again when the column is widened
+        $script:html | Should -Match "ths\[h\]\.removeAttribute\('title'\)"
+    }
+
+    It 'does not reserve icon space in the label, which faked a clipped header' {
+        # calc(100% - 26px) made a short header like "ID" measure as clipped in a
+        # narrow column and pick up a pointless tooltip.
+        $script:html | Should -Match '\.data-table thead th \.col-label \{[^}]*max-width: 100%'
+        $script:html | Should -Not -Match 'max-width: calc\(100% - 26px\)'
+    }
+
+    It 'keeps the resize grip inside the now-clipping header' {
+        # right:-3px would be cut off by the header's overflow:hidden
+        $script:html | Should -Match '\.col-resizer \{[^}]*right: 0;'
+        $script:html | Should -Not -Match 'right: -3px'
+    }
+
+    It 'lowers the drag floor now that the header no longer sets one' {
+        $script:html | Should -Match 'Math\.max\(40,startW\+'
+        $script:html | Should -Not -Match 'Math\.max\(60,'
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Bar-chart click filters bind a real handler   (v2.1.3)
+#
+# -ClickFilters shipped broken from the start: renderBarChart built an inline
+# onclick attribute, which is evaluated in GLOBAL scope, while `engines` is a
+# var inside the runtime IIFE. Every click threw ReferenceError. The attribute
+# also spliced the bar's label into markup escaping only single quotes, so a
+# label containing a double quote broke out and the remaining JS was parsed as
+# HTML attributes - a controllable attribute-injection sink fed by table data.
+#
+# Binding with addEventListener inside the IIFE fixes both at once: the label
+# is captured as a JS value and never reaches the markup.
+#
+# The same pass extracted TableEngine.prototype.applyTextFilter. Three call
+# sites (search box, pie slice, bar click) each carried a partial copy of the
+# "apply a text filter" sequence and had drifted apart.
+# ---------------------------------------------------------------------------
+Describe 'Bar-chart click filters bind a real handler (v2.1.3)' {
+
+    BeforeAll {
+        $script:tmpDir = Join-Path ([IO.Path]::GetTempPath()) ('DH_Click_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmpDir | Out-Null
+
+        # the two hostile labels are the point: a plain double quote, and a
+        # payload that tries to open an attribute of its own
+        $rows = @(
+            @{ Name = 'a'; Kind = 'X' }
+            @{ Name = 'b'; Kind = 'Y' }
+            @{ Name = 'c'; Kind = 'say "hi"' }
+            @{ Name = 'd'; Kind = 'x" data-injected="yes' }
+        )
+        $r = New-DhDashboard -Title 'click filters'
+        Add-DhTable    -Report $r -TableId 'items' -Title 'Items' -Data $rows
+        Add-DhBarChart -Report $r -Id 'bc' -Title 'By kind' -TableId 'items' -Field 'Kind' -ClickFilters
+        Add-DhPieChart -Report $r -Id 'pc' -Title 'Pie'     -TableId 'items' -Field 'Kind' -ClickFilters
+        Add-DhBarChart -Report $r -Id 'bc2' -Title 'No click' -TableId 'items' -Field 'Kind'
+
+        $script:htmlPath = Join-Path $script:tmpDir 'click.html'
+        Export-DhDashboard -Report $r -OutputPath $script:htmlPath -Force
+        $script:html = Get-Content $script:htmlPath -Raw
+    }
+
+    AfterAll {
+        if ($script:tmpDir -and (Test-Path -LiteralPath $script:tmpDir)) {
+            Remove-Item $script:tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'emits no inline event-handler attribute anywhere in the document' {
+        # the whole class of defect, not just the one occurrence: an inline
+        # handler cannot see anything inside the IIFE
+        $script:html | Should -Not -Match 'onclick="\(function'
+        $script:html | Should -Not -Match "var eng=engines\["
+    }
+
+    It 'does not take the shortcut of leaking the registry to window' {
+        # exposing engines globally would have made the inline handler work and
+        # left the injection sink in place
+        $script:html | Should -Not -Match 'window\.engines'
+    }
+
+    It 'ships applyTextFilter as the single filter entry point' {
+        $script:html | Should -Match 'TableEngine\.prototype\.applyTextFilter'
+    }
+
+    It 'applyTextFilter performs the whole sequence, not part of it' {
+        $body = [regex]::Match($script:html,
+            'TableEngine\.prototype\.applyTextFilter\s*=\s*function\s*\(value\)\s*\{(.*?)\n  \};', 'Singleline')
+        $body.Success | Should -BeTrue
+        $t = $body.Groups[1].Value
+        # each of these was missing from at least one of the three old copies
+        $t | Should -Match 'filter-clear-'              # pie + bar never revealed the clear button
+        $t | Should -Match '_refreshLinkedBarCharts'    # pie + bar left linked charts stale
+        $t | Should -Match '_renderCharts'              # ditto for in-table charts
+        $t | Should -Match 'URLState\.save'             # bar never persisted to the hash
+        $t | Should -Match 'currentPage = 1'
+    }
+
+    It 'routes every caller through it instead of keeping its own copy' {
+        $script:html | Should -Match "inp\.addEventListener\('input',function\(\)\{ self\.applyTextFilter\(inp\.value\); \}\)"
+        $script:html | Should -Match "clr\.addEventListener\('click',function\(\)\{ self\.applyTextFilter\(''\); \}\)"
+        $script:html | Should -Match 'if \(eng\) eng\.applyTextFilter\(entry\.label\)'   # pie
+        $script:html | Should -Match 'engine\.applyTextFilter\(label\)'                  # bar
+    }
+
+    It 'binds the bar handler with addEventListener, after the innerHTML write' {
+        $fn = [regex]::Match($script:html,
+            'function renderBarChart\(container, block\) \{(.*?)\n  \}\n', 'Singleline')
+        $fn.Success | Should -BeTrue
+        $t = $fn.Groups[1].Value
+        $t | Should -Match "addEventListener\('click', applyBar\)"
+        # order matters - the elements do not exist before the assignment
+        $idxHtml = $t.IndexOf('container.innerHTML')
+        $idxBind = $t.IndexOf('container.querySelectorAll')
+        $idxHtml | Should -BeGreaterThan -1
+        $idxBind | Should -BeGreaterThan $idxHtml -Because 'binding before the innerHTML write would find no elements'
+    }
+
+    It 'never writes the bar label into an attribute' {
+        # the old line hand-rolled label.replace(/'/g,"\'") into the markup.
+        # The label is now closed over as a value, so there is nothing to escape.
+        $script:html | Should -Not -Match "label\.replace\(/'/g"
+        $script:html | Should -Not -Match "e\.label\.replace"
+        # the click affordance is a fixed pair of attributes
+        $script:html | Should -Match 'block\.clickFilters \? '' role="button" tabindex="0"'' : '''''
+    }
+
+    It 'carries a quote-bearing label as data only, exactly once' {
+        # NOTE this is NOT the guard against the injection itself. The bars are
+        # built by JS at runtime, so an injected attribute never appears in the
+        # emitted file - only in the live DOM. The source-level guard is the
+        # test above ('never writes the bar label into an attribute'); runtime
+        # absence is verified in the browser pass.
+        #
+        # What this pins is that the hostile value round-trips as escaped JSON
+        # ("Kind":"x\" data-injected=\"yes") and does not corrupt the document:
+        # one occurrence, in the data, with the quote escaped.
+        $script:html | Should -Match 'data-injected=\\"yes' -Because 'the value is legitimate table data and must survive intact'
+        ([regex]::Matches($script:html, 'data-injected')).Count |
+            Should -Be 1 -Because 'the payload belongs in TABLES_CONFIG and nowhere else'
+    }
+
+    It 'makes clickable bars keyboard-operable, and only clickable ones' {
+        $script:html | Should -Match "ev\.key === 'Enter' \|\| ev\.key === ' '"
+        $script:html | Should -Match '\.bar-item\.bar-clickable:focus-visible \{'
+        # role/tabindex are conditional on clickFilters, not unconditional
+        $script:html | Should -Not -Match '<div class="bar-item.*role="button"'
+    }
+
+    It 'emits a well-formed table toolbar' {
+        # the start tag was missing its '>', so .toolbar-left was swallowed as
+        # attributes and .toolbar-right escaped the toolbar entirely - the row
+        # count and export buttons dropped onto a second row on every report
+        $script:html | Should -Match 'id="toolbar-items">'
+        $script:html | Should -Not -Match 'id="toolbar-items"\s*\r?\n'
+        $script:html | Should -Match '<div class="toolbar-left">'
     }
 }

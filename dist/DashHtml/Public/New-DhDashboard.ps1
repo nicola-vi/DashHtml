@@ -92,7 +92,23 @@ function New-DhDashboard {
         # string like '30s', '5m', '1h'. When set, the exported HTML carries a
         # <meta http-equiv="refresh"> tag so wall-display dashboards re-fetch
         # the file automatically. Omit / pass '' / pass 0 to disable.
-        [string]   $AutoRefresh = ''
+        [string]   $AutoRefresh = '',
+
+        # ---- v2.0.0 navigation layout ------------------------------------
+        # Auto    - strips up to 3 levels, sidebar rail at 4+ (default).
+        # Strips  - always the horizontal strips (the 1.x look).
+        # Sidebar - always the left tree rail.
+        # The three sticky strips cost ~190px of vertical chrome at depth 3 and
+        # ~225px at depth 4 (21% of a 1080p viewport), which is why deep trees
+        # switch automatically.
+        [ValidateSet('Auto','Strips','Sidebar')]
+        [string]   $NavLayout = 'Auto',
+
+        # Deepest nav path the report will accept. Depth is a POLICY, not an
+        # architectural limit: the matcher, URL state and renderer are all
+        # depth-agnostic, so raising this costs nothing but layout.
+        [ValidateRange(1,5)]
+        [int]      $NavMaxDepth = 3
     )
 
     # Map theme family to internal light/dark CSS names
@@ -169,5 +185,8 @@ function New-DhDashboard {
         NavTitle       = if ($null -eq $NavTitle) { '' } else { $NavTitle }
         GeneratedBy    = $GeneratedBy
         AutoRefreshSec = $autoRefreshSeconds   # 0 = disabled
+        NavLayout      = $NavLayout            # v2.0.0 Auto | Strips | Sidebar
+        NavMaxDepth    = $NavMaxDepth          # v2.0.0 policy cap (1-5)
     }
 }
+

@@ -78,9 +78,9 @@ ntlm.fallback=disabled</pre>' }
 
         # v1.6.0 — when $false, each tab's Content is HTML-encoded (rendered as
         # literal text) instead of injected as raw markup. Applies to every tab
-        # in this block. Default $true preserves v1.x behaviour; flips to $false
-        # in DashHtml 2.0.0. See ConvertTo-DhSafeContent.
-        [bool]   $AllowHtml   = $true,
+        # in this block. v2.0.0: the default is now $false (encoded). Pass
+        # -AllowHtml:$true for intentional raw markup.
+        [bool]   $AllowHtml   = $false,
 
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
 
@@ -91,8 +91,25 @@ ntlm.fallback=disabled</pre>' }
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
         [string] $NavGroup    = '',
-        [string] $NavSubGroup = ''
+        [string] $NavSubGroup = '',
+        # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
+        [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
+        [ValidateSet('','Exact','Subtree','Global')]
+        [string] $NavScope     = '',   # Exact (default) | Subtree (this node and below) | Global (everywhere)
+        [string] $NavLabel     = '',   # display text for this node, decoupled from the path key
+        [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
+
+    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
+    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
+                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
+                    -ItemKind 'Block' -Context 'Add-DhTabs'
+    # Monotonic declaration number, shared by tables and blocks. The exporter
+    # emits ALL blocks before ALL tables, so without this the menu would order
+    # nodes by section type instead of by the order the author wrote them.
+    if (-not $Report.Contains('_DhNavSeq')) { $Report['_DhNavSeq'] = 0 }
+    $navSeqNo = [int]$Report['_DhNavSeq']; $Report['_DhNavSeq'] = $navSeqNo + 1
 
     if (-not $Report.Contains('Blocks')) {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
@@ -148,9 +165,18 @@ ntlm.fallback=disabled</pre>' }
         Tabs        = @($normTabs)
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        NavPath     = $NavPath
+        NavSegments     = $navDecl.Path
+        NavSeqNo     = $navSeqNo
+        NavScope    = $navDecl.Scope
+        NavLabel    = $NavLabel
+        NavOrder    = $NavOrder
         GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhTabs: '$Id' ($($normTabs.Count) tab(s))."
 }
+
+
+

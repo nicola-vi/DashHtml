@@ -22,6 +22,12 @@ function Get-DhCssGreyDark {
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #546E7A;
   --accent-danger:    #EF5350;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #66BB6A;
+  --range-grad-50:  #FFB300;
+  --range-grad-100: #EF5350;
   --accent-warn:      #FFB300;
   --accent-ok:        #66BB6A;
 

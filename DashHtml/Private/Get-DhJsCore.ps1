@@ -155,11 +155,13 @@ function Get-DhJsCore {
     _write: function () {
       try {
         var state = {};
-        /* active group (two-tier mode) */
-        if (currentGroup) state.group = currentGroup;
-        /* active panel */
-        var activeLink = document.querySelector('.nav-link.nav-active');
-        if (activeLink) state.panel = activeLink.dataset.table || activeLink.dataset.panel;
+        /* v2.0.0 - the selected nav path, at any depth. Replaces the 1.x
+           {group,panel} pair, which could not express a third level at all
+           (proposal defect #6). Old hashes are still READ, in initNav. */
+        if (typeof window._navPath === 'function') {
+          var np = window._navPath();
+          if (np && np.length) state.nav = np;
+        }
         /* text filters per table */
         var filters = {};
         Object.keys(engines).forEach(function (id) {
@@ -217,7 +219,7 @@ function Get-DhJsCore {
         case 'bytes': {
           var n = parseFloat(str); if (isNaN(n)) return str;
           var u=['B','KB','MB','GB','TB','PB'], i=0;
-          while (n>=1024&&i<u.length-1){n/=1024;i++;}
+          while (n>=1000&&i<u.length-1){n/=1000;i++;}
           var dp=decimals!==undefined?decimals:(i===0?0:2);
           return new Intl.NumberFormat(locale,{minimumFractionDigits:dp,maximumFractionDigits:dp}).format(n)+' '+u[i];
         }
@@ -928,3 +930,4 @@ function Get-DhJsCore {
 
 '@
 }
+

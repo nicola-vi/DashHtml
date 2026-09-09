@@ -6,6 +6,211 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.3]
+
+### Fixed — `Add-DhBarChart -ClickFilters` never worked
+
+Clicking a bar did nothing and logged `ReferenceError: engines is not defined`.
+`renderBarChart` built an **inline `onclick`** attribute, and inline handlers are
+evaluated in *global* scope, while `engines` is a `var` inside the runtime IIFE.
+Every other interactive control in the module binds with `addEventListener`
+inside that IIFE, which is why this was the only path that broke.
+
+The handler is now bound with `addEventListener` after the markup is written.
+The registry was deliberately **not** exported to `window` — that would have made
+the handler work while leaving the second defect below in place.
+
+### Fixed — a bar label containing `"` could inject HTML attributes
+
+The inline attribute spliced the bar's label into markup escaping only *single*
+quotes. A label containing a double quote terminated the attribute early and the
+remaining JavaScript was parsed as HTML attributes. Measured with the label
+`say "hi"`: the element ended up with **5 attributes instead of 2**. Proven
+controllable — a table value of `x" data-injected="yes` wrote a real
+`data-injected` attribute; substituting an event-handler name yields a live
+handler. The attribute was written at *render* time, so it applied even though
+the click itself was broken.
+
+The label is now captured as a JavaScript value and never reaches the markup, so
+there is nothing left to escape. Any dashboard built with `-ClickFilters` over
+data that can contain a double quote should be regenerated.
+
+### Fixed — pie-slice clicks left the UI half-updated
+
+`Add-DhPieChart -ClickFilters` worked, but carried its own partial copy of the
+"apply a text filter" sequence: it never revealed the filter's clear button
+(`.filter-clear` is `display: none` until shown, so the user was left with a
+filter and no visible way to clear it) and never refreshed linked bar charts,
+pie charts or range bars, which went stale against the filtered table.
+
+All three call sites — the search box, pie slices and bar clicks — now route
+through one new `TableEngine.prototype.applyTextFilter`. Add a step there, not
+in a caller.
+
+### Fixed — the table toolbar was malformed on every report
+
+`<div class="table-toolbar" id="toolbar-..."` was missing its closing `>`. The
+parser consumed `<div class="toolbar-left"` as *attributes*, so `.toolbar-left`
+never existed and the stray `</div>` closed the toolbar early — leaving
+`.toolbar-right` outside it, at width 0. The row count, page-size selector,
+Columns button and CSV/XLSX/PDF buttons dropped onto a second, left-aligned row
+instead of sitting right-aligned beside the filter box.
+
+One character. Present since the toolbar was introduced, in every generated
+report. Regenerate to pick up the corrected layout.
+
+### Added — clickable bars are keyboard-operable
+
+Bars rendered with `-ClickFilters` now carry `role="button"` and `tabindex="0"`,
+respond to Enter and Space, and get a `:focus-visible` ring from the active
+theme's `--accent-primary`.
+
+## [2.1.2]
+
+### Fixed — a column could not be dragged narrower than its own header
+
+2.1.1 made columns resizable, but shrinking one below a certain point silently
+did nothing. The table is `table-layout: auto`, where `width` is only a
+*suggestion*, and `.data-table thead th` was `white-space: nowrap` with no
+`overflow` and no `max-width` — so the header text could neither wrap nor clip
+and became the column's hard minimum. Measured on a real report: `Ottenuto
+tramite` floored at **181px**, `Livello di autorizzazione` at **239px**
+(label + 32px padding + the sort icon). The uppercase + `letter-spacing` header
+style makes that text wider than it looks.
+
+The header now clips like the body cells already did:
+
+- `thead th` gets `overflow: hidden`, and the renderer sets `max-width` on it
+  (not just `width`) so the cap is real rather than advisory.
+- `.col-label` truncates with an ellipsis. `max-width` is `100%`, deliberately
+  not `100%` minus an icon reservation — reserving space made a short header
+  like `ID` measure as clipped in a narrow column and pick up a tooltip it
+  did not need.
+- **A clipped header gets the full text as `title=`**, measured the same way the
+  cells are, and drops it again when the column is widened. A truncated header
+  matters more than a truncated cell: it is the only thing naming the column.
+- The resize grip moved from `right: -3px` to `right: 0`, so the header's new
+  `overflow: hidden` does not cut it off.
+- The explicit drag floor drops from 60px to **40px**, now that it is the only
+  floor left.
+
+`Ottenuto tramite` now drags from 300px down to 40px and back.
+
+## [2.1.1]
+
+### Fixed — long cell values were unreadable
+
+Table cells are `white-space: nowrap` with `text-overflow: ellipsis`, so a value
+wider than its column is clipped. It was clipped with no way to recover the rest:
+`_renderCell` set `textContent` and nothing else, and the width was fixed at
+authoring time. A production report hit this with 271-character group chains in a
+300px column.
+
+Three changes, no API surface added:
+
+- **Clipped cells now carry the full value as a `title=` tooltip.** Which cells get
+  one is *measured* after render (`scrollWidth > clientWidth`), not guessed from
+  string length — so short cells stay tooltip-free and the set stays correct when
+  the theme font or the column width changes. Clipped cells also get a dotted right
+  edge (`.cell-clipped`) so "there is more here" is visible, not just on hover.
+- **Columns are resizable.** Drag the right edge of any header; double-click or
+  `Home` resets to the declared width, `←` / `→` nudge by 16px. Widths are engine
+  state, so a reset falls back to the author's `Width`. The grip stops its own
+  events so resizing never triggers the column sort.
+- **A declared column `Width` now wins over the stylesheet cap.** A column declared
+  wider than `.data-table td { max-width }` was previously clipped at the cap
+  anyway, silently ignoring the declaration.
+
+### Changed — example scripts renamed
+
+`Examples/*.ps1` now follow a scheme that says what each one produces:
+`Demo-<Domain>.ps1` for a realistic report, `Demo-Feature-<X>.ps1` for one
+capability in isolation. Each script's default `-OutputPath` follows its new name.
+
+| Was | Now |
+|---|---|
+| `AD-Dashboard.ps1` | `Demo-ActiveDirectory.ps1` |
+| `vSphere-Dashboard.ps1` | `Demo-VMware.ps1` |
+| `Invoke-Demo-DashHtml.ps1` | `Demo-Feature-FullShowcase.ps1` |
+| `Multi-Panel-Dashboard.ps1` | `Demo-Feature-NavMultiPanel.ps1` |
+| `v1.5-Widgets-Showcase.ps1` | `Demo-Feature-TabsHeatmapTopology.ps1` |
+| `v2-Nav-Tree.ps1` | `Demo-Feature-NavTree.ps1` |
+| `v2-Deep-Nav-Sidebar.ps1` | `Demo-Feature-NavDeepSidebar.ps1` |
+| `v2.1-RangeBar-Showcase.ps1` | `Demo-Feature-RangeBar.ps1` |
+
+### Added — `Examples/Demo-Feature-AllChartTypes.ps1`
+
+Every visualisation type in one dashboard, one nav panel per job to be done
+(Trend / Proportion / Ranking / Range / Target / Matrix / Hierarchy / Timeline /
+KPI / In-table). Each panel carries a note saying what that chart is **for** and
+when to reach for a different one — so it doubles as the "which widget?" reference.
+
+
+### Fixed — `-Collapsible` / `-DefaultOpen` had no effect on bar and pie charts
+
+`renderBlocks()` hands a collapsible block an **inner** container (`#cinner-<id>`)
+and a title-stripped clone. Three block types are re-rendered after that point —
+`barchart`, Mode-A `piechart` and table-fed `rangebar` — once in the boot pass and
+again on every filter change via `_refreshLinkedBarCharts`. Bar and pie charts
+targeted the **outer** element (`block-<id>`) with the original block, overwriting
+the toggle header that had just been built. The chevron never appeared and both
+`-Collapsible` and `-DefaultOpen` were silently inert for those two block types.
+
+All three now resolve their target through `blockRenderTarget(block)` (renamed from
+`rangeBarRenderTarget`, which 2.1.0 introduced for the range bar alone). A collapsed
+bar chart also now **stays collapsed** across a filter change, where previously the
+whole block was rebuilt.
+
+**Visible change:** bar charts and table-fed pie charts now render with a collapse
+header, like every other block type. Pass `-Collapsible $false` to keep one flat.
+
+Also: `renderBarChart`, `renderBarChartStacked` and `buildPieSvg` emitted an empty
+heading element when the title was stripped, leaving 4–9px of dead space inside the
+collapsible body. They now omit the heading entirely when there is no title, matching
+what `renderLineChart` and `renderRangeBar` already did.
+
+## [2.1.0]
+
+### Added — `Add-DhRangeBar`
+
+A horizontal **min–avg–max range chart**. One floating bar per category spanning
+`Min → Max`, an independently positioned average tick, and a shared 0–100 axis
+that every row is normalised onto against its own `High` value — so entities of
+very different magnitude (a 315-unit cluster and a 30-unit one) become visually
+comparable.
+
+The bar's fill is a fixed slice of **one gradient spanning the whole track**, so
+its colour says *where on the axis it sits*, not which category it is. The stops
+are new per-theme tokens `--range-grad-0` / `--range-grad-50` / `--range-grad-100`,
+mapped onto each theme's own `--accent-ok` → `--accent-warn` → `--accent-danger`
+ramp, so the scale follows the active theme in both light and dark.
+
+Two data modes:
+
+- `-Items` — explicit rows (`Name` / `Low` / `High` / `Min` / `Avg` / `Max`).
+- `-TableId` + `-CategoryField` + `-ValueField` — derives the rows from a table
+  already in the report. Aggregation runs in the browser against the table's
+  **filtered** rows, so filtering the table live-recomputes every bar (the same
+  mechanism `Add-DhBarChart` uses). `-HighField` / `-High` / neither selects what
+  the 0–100 axis is normalised against; the caption states which, automatically.
+
+Also: `-ShowDataTable` for a toggleable raw-values fallback, keyboard-focusable
+bars with a full readout tooltip, `-MaxRows` cardinality guard, and generation-time
+warnings for non-numeric values, out-of-scale rows and `High <= Low` (which renders
+striped rather than dividing by zero).
+
+The average tick is deliberately **not** clamped into `[Min, Max]` — an average
+over a different window legitimately falls outside the bar, and hiding that would
+misrepresent the data.
+
+### Fixed
+
+- The shared tooltip overlay (`.topo-tooltip`, used by `Add-DhTopologyMap` and now
+  `Add-DhRangeBar`) and `.topo-node-rect` referenced `--bg-elevated`, which no theme
+  defines — so the tooltip painted with a transparent background in every theme.
+  Both now fall back to `--bg-surface`.
+
+
 ### Added — `DashHtml.Design` companion module (separate module, v1.0.0)
 
 A **new, optional** companion module that lets you manage a dashboard's *layout*
@@ -86,6 +291,67 @@ and honours `-SkipDesign` / `-DesignOnly` for partial removal. Source resolution
 still prefers a built `dist\<Module>\` over the in-repo folder, and each install
 is verified by importing the module and listing its exported cmdlets.
 
+## [2.0.0] — 2026-08-26
+
+**Major release.** Navigation rebuilt as a single depth-agnostic tree, and the long-announced `-AllowHtml` default flip. See **[MIGRATION-v2.md](MIGRATION-v2.md)** — all five bundled examples upgrade with **zero edits**.
+
+### BREAKING — `-AllowHtml` now defaults to `$false`
+
+Announced by a runtime warning on every build since 1.5.x. Affects `Add-DhHtmlBlock`, `Add-DhCollapsible`, `Add-DhAlertBanner`, `Add-DhTabs`. Content is now **HTML-encoded by default** and renders as literal text; pass `-AllowHtml:$true` for intentional raw markup.
+
+The change is **self-diagnosing**: when the new default applies *and* the content looks like markup, a warning names the exact call site. An explicit `-AllowHtml` (either value) silences it — the warning exists for the *unchosen* case. `Update-DhScript -Apply` rewrites the affected calls automatically.
+
+### Added — one navigation tree, any depth
+
+`-NavPath` / `-NavScope` / `-NavLabel` / `-NavOrder` on all **15** nav-aware cmdlets.
+
+```powershell
+Add-DhBarChart -Report $r -Id 'c1' -NavPath 'Storage/Tagging/Keys'
+Add-DhSummary  -Report $r -NavPath 'Storage' -NavScope Subtree
+Add-DhAlertBanner -Report $r -Id 'a1' -NavScope Global
+```
+
+- `Exact` (default) · `Subtree` (this node and everything below) · `Global` (everywhere).
+- `-NavLabel` decouples display text from the path key, so renaming never breaks a saved deep link.
+- `-NavOrder` orders siblings explicitly; ties fall back to **declaration order**, shared across tables and blocks.
+- `'//'` escapes a literal `/` inside a segment.
+- Combining `-NavPath` with `-NavGroup`/`-NavSubGroup` is a **hard error** — silent precedence between two ways of saying the same thing is how the 1.x nav grew three competing mechanisms.
+- **`-NavGroup` / `-NavSubGroup` are kept indefinitely** and map onto the new model. Not deprecated.
+
+### Fixed — SECURITY-adjacent: content that was silently unreachable
+
+A **block** declared with both `-NavGroup` and `-NavSubGroup` was **invisible in 1.x** and could not be reached by any navigation sequence. The hide path cleared both the inline `display` and the `panel-active` class; the show path restored only the inline style, and `.block-section` defaults to `display:none`. Reproduced in a browser: a chart in a non-first subgroup never appeared, and a chart in the first subgroup never returned after any pill click. Failed **silently** — no console output, just an empty panel.
+
+Dashboards that have been quietly losing a chart since 1.9.x **will start rendering it**. That is the fix, but the page will look different — check before shipping.
+
+### Changed — navigation runtime rewritten
+
+`showGroup` / `showSubPanel` / `showSubGroup` / `_showFlatPanel` (~110 lines, two competing visibility mechanisms) are replaced by `applyNav` + `navMatches`. A section is visible **iff** it carries `panel-active`; nothing else touches `style.display`. State is recomputed whole from the selected path — idempotent and independent of the route taken. There are no show/hide branches left to keep symmetrical.
+
+The menu is derived **from the DOM**, from the same `data-navpath` attributes the matcher reads, so a menu strip can never describe a view the content does not have. Strips render from a **loop** with no fixed element ids and no level names, which is what makes a fourth level a config change rather than a rewrite.
+
+### Added — layout engine
+
+- `New-DhDashboard -NavLayout Auto|Strips|Sidebar` (default `Auto`) and `-NavMaxDepth 1..5` (default 3).
+- **Auto** keeps the 1.x strips look to 3 levels and switches to a left tree rail at 4+, where three or four sticky strips would consume ~190–225px — a fifth of a 1080p viewport.
+- **Breadcrumb** at depth 4+; the rail expands only the branch in use.
+- **Auto-descend stops at the first node with content of its own**, so one click never teleports the reader four levels down.
+- Exceeding `-NavMaxDepth` **warns but still exports** — depth is a layout preference, not a correctness problem.
+- Row-count badges now render on menu nodes at any depth.
+
+### Added — `Update-DhScript` (DashHtml.Design)
+
+AST-based upgrade audit with an optional rewrite mode. Classifies findings as `ACTION` / `advisory` / `info`, backs up before editing, and is idempotent. It only ever **adds** `-AllowHtml:$true`, only for literal markup, and never guesses at non-literal content.
+
+AST rather than text matching is load-bearing: these calls routinely span lines with backtick continuation, so a line-oriented pattern silently under-reports — on `Examples/` the obvious greps find **0** issues where the AST finds **13**.
+
+### URL state
+
+The selected path is persisted at any depth, replacing the 1.x `{group,panel}` pair that could not express a third level. Old hashes are shimmed; restore validates segment by segment and truncates at the first miss, so a renamed node degrades to its parent rather than a blank page.
+
+### Tests
+
+**474 total** (was 423). New: a nav truth table across scope × declared depth × selected depth; a structural test asserting **no content can be unreachable** — the exact failure class of the fixed bug; layout-resolution tests; and a Node + DOM-shim suite (`Tests/js/`) that drives the JS matcher headlessly in ~0.2s. The shim was prototyped **first**, as a spike, to verify it could actually catch the reported bug before any production code depended on it.
 ## [1.10.4] — 2026-08-07
 
 Performance release. **No API changes, and sort order is unchanged** (proven by differential testing against the previous comparator — see below).
@@ -511,3 +777,4 @@ Tier A widget expansion: inline tabbed content, 2-D heatmaps, and parent-child t
 - Two-tier navigation: flat nav bar or grouped primary-tabs + subnav strip
 - Client-side export: CSV (no CDN), XLSX and PDF (cdnjs)
 - Light/dark theme toggle with both variants always embedded in the HTML output
+

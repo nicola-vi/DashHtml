@@ -303,7 +303,7 @@ Add-DhTable -Report $r -TableId 'srv' -Title ("Server " + $count) -Data $rows
     }
 
     It 'Parses the real vSphere example without throwing' {
-        $example = Join-Path $PSScriptRoot '..\Examples\vSphere-Dashboard.ps1'
+        $example = Join-Path $PSScriptRoot '..\Examples\Demo-VMware.ps1'
         if (-not (Test-Path $example)) { Set-ItResult -Skipped -Because 'example not present'; return }
         $yaml = ConvertFrom-DhScript -Path $example
         $yaml | Should -Match 'title:'

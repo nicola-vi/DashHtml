@@ -62,7 +62,7 @@ what would be copied without touching anything.
 Copy each module folder to a directory in `$env:PSModulePath`, under a versioned
 subfolder:
 ```
-<modules-root>\DashHtml\1.10.4\
+<modules-root>\DashHtml\2.0.0\
 <modules-root>\DashHtml.Design\1.0.0\      (optional companion)
 ```
 
@@ -296,6 +296,28 @@ $cols = @(
 )
 ```
 
+### Long values: tooltip and resizable columns
+
+Table cells never wrap — a value wider than its column is cut with an ellipsis, which keeps rows scannable but can hide the tail of a long string (a nested group chain, a DN, a stack frame). Two things make the full value reachable:
+
+- **Hover a clipped cell** and its complete text appears as a tooltip. The tooltip is added only to cells that are *actually* clipped, measured after render — short cells stay tooltip-free, so hovering means something. Clipped cells also carry a dotted right edge as the visual cue.
+- **Drag the right edge of any column header** to widen it. Double-click the grip (or press `Home` with it focused) to reset to the declared width; `←` / `→` nudge it 16px at a time. The width is per-viewer and per-session — it does not change the report for anyone else.
+
+Headers truncate the same way, and a clipped header carries its full text as a tooltip too — worth knowing because a truncated header is the only thing naming the column.
+
+Set a sensible starting width with the column's `Width` key. As of 2.1.1 a declared width is authoritative: previously a column declared wider than the stylesheet's cap was clipped at the cap anyway.
+
+**Minimum width is 40px.** Before 2.1.2 the real floor was the header's own text — the table is `table-layout: auto`, where `width` is only a suggestion, and a header that could not clip pinned the column at roughly *label + 32px padding + sort icon*. A header like `Livello di autorizzazione` floored its column at 239px whatever you did.
+
+```powershell
+Add-DhTable -Report $report -TableId 'accessi' -Title 'Access by user' -Data $rows -Columns @(
+    @{ Field='User';   Label='User';        Width='200px' }
+    @{ Field='Path';   Label='Granted via'; Width='420px' }   # long nested group chains
+)
+```
+
+Nothing needs enabling — this applies to every text column in every table.
+
 ### Sparkline cells (v1.4+)
 
 Set `CellType='sparkline'` and feed the column **arrays** of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (`SPARK.build`), so the look stays consistent between summary tiles and table cells.
@@ -420,7 +442,7 @@ Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
 Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
 ```
 
-Full runnable example: [`Examples/Multi-Panel-Dashboard.ps1`](Examples/Multi-Panel-Dashboard.ps1).
+Full runnable example: [`Examples/Demo-Feature-NavMultiPanel.ps1`](Examples/Demo-Feature-NavMultiPanel.ps1).
 
 NavGroup-specific keys:
 - `-Id` — explicit block Id; auto-derived by slugifying `NavGroup` (+ optional `NavSubGroup`) when omitted, e.g. `My Group` → `summary-my-group`. Duplicate Ids throw.
@@ -618,6 +640,12 @@ Add-DhBarChart -Report $report -Id 'by-region-stacked' `
 
 **Stacked mode (v1.4+):** pass `-SeriesField` to break each primary bar into colour-coded segments. The legend below the chart maps each series value to its colour. The `-Stacked` switch is optional — supplying `-SeriesField` alone implies it. Click-to-filter (`-ClickFilters`) is single-series only; stacked bars have no single value to filter by. Series colours are pulled from the active theme's chart palette and assigned in alphabetical order, so the legend stays stable across renders.
 
+**`-ClickFilters` (working from 2.1.3):** a bar click applies the bar's label as the source table's **text filter** — exactly as if you had typed it into the search box. The table filters, the `×` clear button appears, the chart re-aggregates against the filtered rows (so it collapses to the clicked bar), linked charts refresh, and the state is written to the URL hash so the view survives a reload and can be shared. Click `×` for the full distribution again. Because it is a text filter rather than an exact-value match, a label that is a substring of another value matches both.
+
+Bars are keyboard-operable: Tab to one, then Enter or Space.
+
+> **This never worked before 2.1.3** — every click threw `ReferenceError: engines is not defined`, and a label containing a `"` could inject HTML attributes. If you have dashboards using `-ClickFilters`, regenerate them: the runtime is baked into each HTML file, so updating the module alone changes nothing already on disk.
+
 ---
 
 ## Pie / Donut charts
@@ -659,7 +687,7 @@ Add-DhPieChart -Report $report -Id 'license-pie' `
 - `-Style` — `'donut'` (default) or `'pie'`
 - `-TableId` / `-Field` — Mode A only; the source table must already be added
 - `-TopN` — Mode A only; cap at N segments (default 10)
-- `-ClickFilters` — Mode A only; clicking a slice applies the slice label as a text filter on the source table
+- `-ClickFilters` — Mode A only; clicking a slice applies the slice label as a text filter on the source table, the same way a bar-chart click does. Before 2.1.3 a slice click filtered the table but left the `×` clear button hidden and linked charts stale.
 - `-Slices` — Mode B only; mutually exclusive with `-TableId`
 - `-ShowTotal` — show the total in the donut hole (default `$true`; ignored for `pie` style)
 - `-ShowLegend` — show the label / count / percentage rows (default `$true`)
@@ -969,6 +997,65 @@ Per-item keys:
 
 ---
 
+## Range bars (2.1+)
+
+`Add-DhRangeBar` shows the **spread** of a metric per entity, not a single value. Each row is a floating bar from `Min` to `Max` with a tick at `Avg`, and every row is normalised against its own `High` — so a cluster allocated 315 units and one allocated 30 sit on the same comparable 0–100 axis.
+
+Bar colour follows **position on that axis** (`--accent-ok` → `--accent-warn` → `--accent-danger`), not category identity. Two bars of the same colour mean "same load level", never "same thing".
+
+```powershell
+Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
+    -Unit 'req/s' -ShowDataTable `
+    -Items @(
+        @{ Name='cluster01-users';   Low=0; High=315; Min=60; Avg=97; Max=120 }
+        @{ Name='cluster02-bigdata'; Low=0; High=104; Min=1;  Avg=2;  Max=10  }
+    )
+```
+
+Or derive the rows from a table already in the report. Aggregation runs in the browser against the table's **filtered** rows, so filtering the table live-recomputes every bar:
+
+```powershell
+Add-DhTable -Report $report -TableId 'clusters' -Title 'Cluster hosts' -Data $hosts
+
+Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
+    -TableId 'clusters' -CategoryField 'Cluster' `
+    -ValueField 'LoadReqSec' -HighField 'CapacityReqSec' -Unit 'req/s'
+```
+
+**Where `High` comes from**, in precedence order — it decides what the chart is actually saying:
+
+| Form | The axis reads as | Use when |
+|---|---|---|
+| `-HighField 'Capacity'` | "% of that row's own capacity" | each table row carries its category's ceiling |
+| `-High 250` | "% of a fixed ceiling" | one SLA / limit applies to everything |
+| neither | "% of the largest value seen anywhere" | exploratory |
+
+`-High` together with `-HighField` is an error, not a silent preference. The 0–100 caption is derived from whichever you pick, so the chart never ships without saying what the axis means.
+
+Per-item keys (all six required): `Name`, `Low`, `High`, `Min`, `Avg`, `Max`. Values are real, un-normalised units — the percentages are an internal plotting mechanism and are shown only in the tooltip.
+
+Worth knowing:
+
+- **The avg tick is not clamped** into `[Min, Max]`. An average computed over a longer window than the observed min/max legitimately falls outside the bar; hiding that would misrepresent the data.
+- **`High <= Low` is not an error.** Normalisation is undefined, so the row renders striped and muted and you get a `Write-Warning`. Fix the source data.
+- **Values beyond the row's own scale** clip at the axis edge, but the real numbers survive in the label and the tooltip.
+- `-ShowDataTable` adds a toggleable raw-values table — the printable, screen-reader-friendly escape hatch.
+- `-MaxRows` (default 60) throws on a runaway `-CategoryField` rather than emitting hundreds of unreadable rows.
+
+### Choosing between the three per-entity bar widgets
+
+| You want to show | Use | Bar starts at |
+|---|---|---|
+| one value vs one target, with RAG bands | `Add-DhBullet` | the axis origin |
+| a min–max spread plus its average | `Add-DhRangeBar` | `Min` (it floats) |
+| a count per category | `Add-DhBarChart` | the axis origin |
+
+`Add-DhRangeBar` is the only one whose bar floats, and the only one whose colour encodes position rather than category or state.
+
+Full runnable example: [`Examples/Demo-Feature-RangeBar.ps1`](Examples/Demo-Feature-RangeBar.ps1). Every chart type side by side, with guidance on which to pick: [`Examples/Demo-Feature-AllChartTypes.ps1`](Examples/Demo-Feature-AllChartTypes.ps1).
+
+---
+
 ## Global filters (1.9.0+)
 
 `Add-DhGlobalFilter` puts a control in a bar above the whole report. Changing it re-filters **every table that has the named field at once** — and any chart built from those tables re-aggregates. Tables that don't have the field are left untouched. Multiple global filters combine with **AND**, and the selection is saved in the URL so a shared link or reload keeps it applied.
@@ -1063,6 +1150,45 @@ Set-DhTableLink -Report $report -MasterTableId 'categories' -DetailTableId 'grou
 Set-DhTableLink -Report $report -MasterTableId 'groups' -DetailTableId 'items' `
                 -MasterField 'GroupId' -DetailField 'GroupId'
 ```
+
+---
+
+## Navigation (2.0.0)
+
+Every item declares **where it lives** (a path) and **how far up it stays visible** (a scope). One rule, any depth.
+
+```powershell
+Add-DhTable    -Report $r -TableId 'vols' -NavPath 'Storage/Capacity/vols' -NavLabel 'All volumes'
+Add-DhBarChart -Report $r -Id 'mix' -NavPath 'Storage' -NavScope Subtree   # whole branch
+Add-DhAlertBanner -Report $r -Id 'a1' -NavScope Global                     # everywhere
+```
+
+| Parameter | Meaning |
+|---|---|
+| `-NavPath` | where the item lives, e.g. `'A/B/C'`. `'//'` escapes a literal `/` in a segment |
+| `-NavScope` | `Exact` (default) · `Subtree` (this node and everything below) · `Global` (everywhere) |
+| `-NavLabel` | display text, decoupled from the path key — rename without breaking deep links |
+| `-NavOrder` | explicit sibling ordering; ties fall back to declaration order |
+
+Combining `-NavPath` with `-NavGroup`/`-NavSubGroup` on one call is a hard error.
+
+### Layout
+
+```powershell
+New-DhDashboard -Title 'Net' -NavLayout Auto -NavMaxDepth 4
+```
+
+`Auto` (default) renders horizontal strips up to 3 levels and switches to a left tree rail with a breadcrumb at 4+, where stacked sticky strips would consume about a fifth of the viewport. Force either with `-NavLayout Strips|Sidebar`. Selecting a node descends to the first child that has content of its own, so one click never teleports you several levels down.
+
+### Upgrading from 1.x
+
+`-NavGroup` / `-NavSubGroup` **keep working** and map onto the new model — no edit required. See **[MIGRATION-v2.md](MIGRATION-v2.md)**, and run:
+
+```powershell
+Update-DhScript -Path .\YourScripts        # report only
+```
+
+> **One behaviour change worth checking.** In 1.x a *block* given both `-NavGroup` and `-NavSubGroup` was unreachable and never rendered. It works now, so content that has been silently missing will reappear.
 
 ---
 
@@ -1223,8 +1349,8 @@ Artifacts land in `dist\`:
 
 ```
 dist\DashHtml\                   dist\DashHtml.Design\
-dist\DashHtml-v1.10.4.zip        dist\DashHtml.Design-v1.0.0.zip
-dist\DashHtml.1.10.4.nupkg       dist\DashHtml.Design.1.0.0.nupkg
+dist\DashHtml-v2.0.0.zip        dist\DashHtml.Design-v1.0.0.zip
+dist\DashHtml.2.0.0.nupkg       dist\DashHtml.Design.1.0.0.nupkg
 ```
 
 Each staged module ships its own `README.md` (the companion has a module-local
@@ -1324,13 +1450,18 @@ DashHtml/
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
 Tests/
-  DashHtml.Tests.ps1               # 397 tests at 1.10.4
-Examples/
-  AD-Dashboard.ps1
-  vSphere-Dashboard.ps1
-  Multi-Panel-Dashboard.ps1
-  Invoke-Demo-DashHtml.ps1
-  v1.5-Widgets-Showcase.ps1        # Tabs / Heatmap / TopologyMap demo
+  DashHtml.Tests.ps1               # 474 tests at 2.0.0
+Examples/                            # Demo-<Domain> = a realistic report
+                                     # Demo-Feature-* = one capability, isolated
+  Demo-ActiveDirectory.ps1           # AD ops report
+  Demo-VMware.ps1                    # vSphere ops report
+  Demo-Feature-FullShowcase.ps1      # every cmdlet, realistic data
+  Demo-Feature-AllChartTypes.ps1     # every chart type + when to use each
+  Demo-Feature-RangeBar.ps1          # Add-DhRangeBar, both data modes
+  Demo-Feature-TabsHeatmapTopology.ps1
+  Demo-Feature-NavMultiPanel.ps1     # per-NavGroup KPI strips
+  Demo-Feature-NavTree.ps1           # v2 -NavPath tree
+  Demo-Feature-NavDeepSidebar.ps1    # v2 deep nav sidebar
 Build.ps1
 Build-DhReference.ps1              # Generates DashHtml-Reference.html
 Install.ps1
@@ -1344,6 +1475,11 @@ readme-dev.md                      # AI-assistant reference
 ## License
 
 MIT
+
+
+
+
+
 
 
 

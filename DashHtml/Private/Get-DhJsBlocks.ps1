@@ -74,6 +74,7 @@ function Get-DhJsBlocks {
         case 'tabs':           renderTabs(container, b); break;
         case 'heatmap':        renderHeatmap(container, b); break;
         case 'topologymap':    renderTopologyMap(container, b); break;
+        case 'rangebar':       renderRangeBar(container, b); break;
       }
     });
   }
@@ -101,7 +102,7 @@ function Get-DhJsBlocks {
     panel.className = 'chart-panel';
     var total = entries.reduce(function (s, e) { return s + (Number(e.count) || 0); }, 0);
     if (!total) {
-      panel.innerHTML = '<div class="chart-title">'+esc(opts.title || '')+'</div>'+
+      panel.innerHTML = (opts.title ? '<div class="chart-title">'+esc(opts.title)+'</div>' : '')+
                         '<div class="chart-body chart-empty">No data</div>';
       return panel;
     }
@@ -147,7 +148,7 @@ function Get-DhJsBlocks {
       legendHtml = '<div class="chart-legend">'+rows+'</div>';
     }
 
-    panel.innerHTML = '<div class="chart-title">'+esc(opts.title || '')+'</div>'+
+    panel.innerHTML = (opts.title ? '<div class="chart-title">'+esc(opts.title)+'</div>' : '')+
                       '<div class="chart-body">'+svgParts.join('')+legendHtml+'</div>';
 
     if (opts.onSliceClick) {
@@ -201,15 +202,11 @@ function Get-DhJsBlocks {
     };
 
     if (block.mode === 'fromtable' && block.clickFilters) {
+      /* v2.1.3 — routed through the shared helper. The copy that used to live
+         here left the clear button hidden and never refreshed linked charts. */
       opts.onSliceClick = function (entry) {
         var eng = engines[block.tableId];
-        if (!eng) return;
-        eng.filterText = entry.label;
-        var inp = document.getElementById('filter-'+block.tableId);
-        if (inp) inp.value = entry.label;
-        eng.currentPage = 1;
-        eng.render();
-        URLState.save();
+        if (eng) eng.applyTextFilter(entry.label);
       };
     }
 
@@ -306,6 +303,220 @@ function Get-DhJsBlocks {
                unitHtml + targetHtml +
              '</div>' +
            '</div>';
+  }
+
+  /* ── Range-gradient bar chart (v2.1.0) ──
+        One floating bar per category spanning min → max, an independently
+        positioned avg tick, and a shared 0-100 axis. Every row is normalised
+        against its own `high`, so categories of very different magnitude become
+        comparable. The fill is a fixed slice of ONE gradient that spans the
+        whole track — a bar's colour says WHERE ON THE AXIS it sits, not which
+        category it is. Implemented with clip-path against the full-track box so
+        all placement is percentage-based and reflows at any width. */
+
+  var RB_TICKS = [0, 20, 40, 60, 80, 100];
+
+  /* Round to at most 2 decimals and drop trailing zeros — these are real,
+     un-normalised units and must stay readable. */
+  function _rbFmt(v) {
+    if (v === null || v === undefined || !isFinite(v)) return '—';
+    return String(Math.round(v * 100) / 100);
+  }
+  function _rbPct(v, low, high) {
+    var span = high - low;
+    if (!isFinite(span) || span <= 0) return 0;
+    return (v - low) / span * 100;
+  }
+  function _rbClamp(p) { return Math.max(0, Math.min(100, p)); }
+
+  /* Where to re-render a block that is refreshed AFTER renderBlocks() ran - the
+     boot pass, and every table filter change. renderBlocks() hands collapsible
+     blocks an INNER container and a title-stripped clone; a naive re-render into
+     'block-<id>' targets the OUTER element with the original block, which wipes
+     the collapsible chrome and prints the title a second time. Resolve the same
+     target the first render used.
+
+     Used by every table-derived block that re-renders on filter changes:
+     rangebar, barchart, and Mode-A piechart. */
+  function blockRenderTarget(block) {
+    var inner = document.getElementById('cinner-' + block.id);
+    if (!inner) return { container: document.getElementById('block-' + block.id), block: block };
+    var b = {};
+    for (var k in block) { if (Object.prototype.hasOwnProperty.call(block, k)) b[k] = block[k]; }
+    b.title = '';
+    b.icon  = '';
+    return { container: inner, block: b };
+  }
+
+  /* Rows for a block, from either mode. Returns null when the block reads a
+     table whose engine is not ready yet. */
+  function computeRangeRows(block) {
+    if (block.mode !== 'fromtable') return (block.items || []).slice();
+
+    var engine = engines[block.tableId];
+    if (!engine) return null;
+
+    var groups = {}, order = [];
+    engine._getFiltered().forEach(function (row) {
+      var raw = row[block.categoryField];
+      var key = (raw !== null && raw !== undefined && String(raw) !== '') ? String(raw) : '(empty)';
+      var v = Number(row[block.valueField]);
+      if (!isFinite(v)) return;            /* non-numeric rows are skipped, never coerced to 0 */
+      if (!groups[key]) {
+        groups[key] = { name: key, min: v, max: v, sum: 0, n: 0, high: null, low: null };
+        order.push(key);
+      }
+      var g = groups[key];
+      if (v < g.min) g.min = v;
+      if (v > g.max) g.max = v;
+      g.sum += v; g.n++;
+      if (block.highField) {
+        var hv = Number(row[block.highField]);
+        /* max wins, so an inconsistent capacity column cannot under-scale a bar */
+        if (isFinite(hv) && (g.high === null || hv > g.high)) g.high = hv;
+      }
+      if (block.lowField) {
+        var lv = Number(row[block.lowField]);
+        if (isFinite(lv) && (g.low === null || lv < g.low)) g.low = lv;
+      }
+    });
+
+    var globalMax = 0;
+    order.forEach(function (k) { if (groups[k].max > globalMax) globalMax = groups[k].max; });
+
+    return order.map(function (k) {
+      var g = groups[k], high;
+      if (block.highField)                                      high = (g.high !== null) ? g.high : g.max;
+      else if (block.high !== null && block.high !== undefined)  high = block.high;
+      else                                                      high = globalMax;
+      var low = (block.lowField && g.low !== null) ? g.low : (block.low || 0);
+      return { name: g.name, low: low, high: high, min: g.min, avg: g.sum / g.n, max: g.max };
+    });
+  }
+
+  function renderRangeBar(container, block) {
+    container.className = 'rangebar-section';
+    var titleHtml = block.title ? '<h3 class="rangebar-title">' + esc(block.title) + '</h3>' : '';
+
+    var rows = computeRangeRows(block);
+    if (rows === null) { container.innerHTML = titleHtml + '<p class="no-data">Table not ready.</p>'; return; }
+    if (!rows.length)  { container.innerHTML = titleHtml + '<div class="rangebar-empty">No data.</div>'; return; }
+
+    var unit     = block.unit || '';
+    var unitSfx  = unit ? ' ' + unit : '';
+    var firstRow = 3;                                  /* row 1 axis caption, row 2 ticks */
+    var nRows    = rows.length;
+
+    var tickHtml = RB_TICKS.map(function (t) {
+      return '<span class="rb-axis-tick" style="left:' + t + '%">' + t + '</span>';
+    }).join('');
+    var gridHtml = RB_TICKS.map(function (t) {
+      var edge = (t === 0 || t === 100) ? ' rb-edge' : '';
+      return '<i class="' + ('rb-gridline' + edge) + '" style="left:' + t + '%"></i>';
+    }).join('');
+
+    var rowsHtml = rows.map(function (d, i) {
+      var gr    = firstRow + i;
+      var span  = d.high - d.low;
+      var bad   = !isFinite(span) || span <= 0;        /* spec §3.2 — undefined normalisation */
+      var minP  = bad ? 0 : _rbPct(d.min, d.low, d.high);
+      var avgP  = bad ? 0 : _rbPct(d.avg, d.low, d.high);
+      var maxP  = bad ? 0 : _rbPct(d.max, d.low, d.high);
+
+      /* Geometry is clamped to the axis so an out-of-scale row clips at the
+         edge; the labels and tooltip keep the real numbers (spec §3.2). */
+      var cMin = _rbClamp(minP), cMax = _rbClamp(maxP), cAvg = _rbClamp(avgP);
+
+      var barHtml = '';
+      if (!bad) {
+        /* clip-path percentages resolve against the bar's own box, which IS the
+           full track — so this reads off the same percentages as the logical
+           position, with no pixel maths. */
+        var clip = 'inset(0 ' + (100 - cMax) + '% 0 ' + cMin + '% round 4px)';
+        var aria = d.name + ': ' + _rbFmt(d.min) + ' to ' + _rbFmt(d.max) + unitSfx +
+                   ', average ' + _rbFmt(d.avg) + unitSfx + ', of ' + _rbFmt(d.high) + unitSfx;
+        barHtml = '<div class="rb-bar" tabindex="0" role="img"' +
+                  ' aria-label="' + esc(aria) + '"' +
+                  ' data-rb="' + i + '" style="clip-path:' + clip + ';-webkit-clip-path:' + clip + '"></div>' +
+                  '<div class="rb-avg" style="left:' + cAvg + '%"></div>';
+      }
+
+      return '<div class="rb-label" style="grid-row:' + gr + '">' + esc(d.name) + '</div>' +
+             '<div class="rb-track' + (bad ? ' rb-track-bad' : '') + '" style="grid-row:' + gr + '">' +
+               '<div class="rb-base"></div>' + barHtml +
+             '</div>' +
+             '<div class="rb-values" style="grid-row:' + gr + '">' +
+               '<span class="rb-v-range">' + esc(_rbFmt(d.min)) + '–' + esc(_rbFmt(d.max)) + '</span>' +
+               '<span class="rb-v-avg">avg <b>' + esc(_rbFmt(d.avg)) + '</b></span>' +
+             '</div>';
+    }).join('');
+
+    var tableHtml = '';
+    if (block.showDataTable) {
+      var body = rows.map(function (d) {
+        return '<tr><td>' + esc(d.name) + '</td><td>' + esc(_rbFmt(d.low)) + '</td><td>' + esc(_rbFmt(d.high)) +
+               '</td><td>' + esc(_rbFmt(d.min)) + '</td><td>' + esc(_rbFmt(d.avg)) + '</td><td>' +
+               esc(_rbFmt(d.max)) + '</td></tr>';
+      }).join('');
+      tableHtml =
+        '<button type="button" class="rb-table-toggle" aria-expanded="false">Show data table</button>' +
+        '<div class="rb-data-table"><table hidden>' +
+          '<thead><tr><th>Name</th><th>Low</th><th>High</th><th>Min</th><th>Avg</th><th>Max</th></tr></thead>' +
+          '<tbody>' + body + '</tbody>' +
+        '</table></div>';
+    }
+
+    container.innerHTML =
+      titleHtml +
+      '<div class="rangebar-scroller"><div class="rangebar-plot" style="grid-template-rows:repeat(' + (nRows + 2) + ', auto)">' +
+        '<div class="rb-axis-title">' + esc(block.axisLabel || '') + '</div>' +
+        '<div class="rb-axis-cell">' + tickHtml + '</div>' +
+        '<div class="rb-gridlines" style="grid-row:' + firstRow + ' / span ' + nRows + '">' + gridHtml + '</div>' +
+        rowsHtml +
+      '</div></div>' +
+      '<div class="rangebar-legend">' +
+        '<span class="rb-legend-scale"><span>0</span><span class="rb-legend-swatch"></span><span>100</span>' +
+          '<span class="rb-legend-note">' + esc(block.axisLabel || '') + '</span></span>' +
+        '<span class="rb-legend-avg"><span class="rb-legend-tick"></span>average</span>' +
+      '</div>' +
+      tableHtml;
+
+    /* Tooltip — reuses the shared body-level overlay (pre-wrap, viewport-clamped) */
+    container.querySelectorAll('.rb-bar').forEach(function (bar) {
+      var d = rows[parseInt(bar.getAttribute('data-rb'), 10)];
+      if (!d) return;
+      var minP = _rbPct(d.min, d.low, d.high),
+          avgP = _rbPct(d.avg, d.low, d.high),
+          maxP = _rbPct(d.max, d.low, d.high);
+      var text = d.name + '\n' +
+                 'min  ' + _rbFmt(d.min) + unitSfx + '  (' + _rbFmt(minP) + '%)\n' +
+                 'avg  ' + _rbFmt(d.avg) + unitSfx + '  (' + _rbFmt(avgP) + '%)\n' +
+                 'max  ' + _rbFmt(d.max) + unitSfx + '  (' + _rbFmt(maxP) + '%)\n' +
+                 'high ' + _rbFmt(d.high) + unitSfx;
+      bar.addEventListener('pointerenter', function (e) { _topoShowTooltip(text, e); });
+      bar.addEventListener('pointermove',  function (e) { _topoShowTooltip(text, e); });
+      bar.addEventListener('pointerleave', _topoHideTooltip);
+      bar.addEventListener('blur',         _topoHideTooltip);
+      bar.addEventListener('focus', function () {
+        /* getBoundingClientRect returns the UNCLIPPED box, so aim at the middle
+           of the visible span instead of the middle of the whole track. */
+        var r = bar.getBoundingClientRect();
+        var midPct = (_rbClamp(minP) + _rbClamp(maxP)) / 2;
+        _topoShowTooltip(text, { clientX: r.left + r.width * midPct / 100, clientY: r.top });
+      });
+    });
+
+    var toggle = container.querySelector('.rb-table-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var tbl = container.querySelector('.rb-data-table table');
+        if (!tbl) return;
+        var hidden = tbl.hasAttribute('hidden');
+        if (hidden) { tbl.removeAttribute('hidden'); } else { tbl.setAttribute('hidden', ''); }
+        toggle.textContent = hidden ? 'Hide data table' : 'Show data table';
+        toggle.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+      });
+    }
   }
 
   /* ── Line / Area chart (v1.4 F9) ──
@@ -1412,12 +1623,18 @@ function Get-DhJsBlocks {
     var maxCount = entries[0]?entries[0].count:1;
     var total = engine._getFiltered().length;
 
+    /* v2.1.3 — the click affordance is a fixed pair of attributes; the label
+       never reaches the markup. It used to be spliced into an inline onclick,
+       which (a) ran in global scope where `engines` is not visible, so the
+       handler always threw, and (b) escaped only single quotes, so a label
+       containing a double quote broke out of the attribute and the rest of the
+       JS was parsed as HTML attributes. The listener below closes over the
+       label as a value, so there is nothing left to escape. */
+    var clickAttr = block.clickFilters ? ' role="button" tabindex="0"' : '';
+
     var barsHtml = entries.map(function (e) {
       var pct = (e.count/maxCount*100).toFixed(1);
       var pctTotal = (e.count/total*100).toFixed(0);
-      var clickAttr = block.clickFilters
-        ? ' onclick="(function(){var eng=engines[\''+block.tableId+'\'];if(eng){eng.filterText=\''+e.label.replace(/'/g,"\\'")+ '\';document.getElementById(\'filter-'+block.tableId+'\').value=\''+e.label.replace(/'/g,"\\'")+'\';eng.currentPage=1;eng.render();}})();"'
-        : '';
       /* v1.4.2 — native hover tooltip with label / count / percentage */
       var tip = e.label + ': ' + e.count + ' (' + pctTotal + '%)';
       return '<div class="bar-item'+(block.clickFilters?' bar-clickable':'')+'"'+clickAttr+' title="'+esc(tip)+'">'+
@@ -1431,8 +1648,25 @@ function Get-DhJsBlocks {
     }).join('');
 
     container.innerHTML =
-      '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>'+
+      (block.title ? '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>' : '')+
       '<div class="bar-chart">'+barsHtml+'</div>';
+
+    /* Bind AFTER the innerHTML assignment — the elements do not exist before
+       it. renderBarChart is re-entered by _refreshLinkedBarCharts on every
+       filter change, which replaces these nodes wholesale, so no listener
+       accumulates across renders. */
+    if (block.clickFilters) {
+      var barEls = container.querySelectorAll('.bar-item');
+      for (var bi = 0; bi < barEls.length && bi < entries.length; bi++) {
+        (function (el, label) {
+          function applyBar() { engine.applyTextFilter(label); }
+          el.addEventListener('click', applyBar);
+          el.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); applyBar(); }
+          });
+        })(barEls[bi], entries[bi].label);
+      }
+    }
   }
 
   /* Stacked variant — each primary bar is segmented by block.seriesField.
@@ -1495,7 +1729,7 @@ function Get-DhJsBlocks {
       }).join('') + '</div>';
 
     container.innerHTML =
-      '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>'+
+      (block.title ? '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>' : '')+
       '<div class="bar-chart bar-chart-stacked">'+barsHtml+'</div>'+
       legendHtml;
   }

@@ -126,8 +126,25 @@ function Add-DhHeatmap {
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
         [string] $NavGroup    = '',
-        [string] $NavSubGroup = ''
+        [string] $NavSubGroup = '',
+        # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
+        [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
+        [ValidateSet('','Exact','Subtree','Global')]
+        [string] $NavScope     = '',   # Exact (default) | Subtree (this node and below) | Global (everywhere)
+        [string] $NavLabel     = '',   # display text for this node, decoupled from the path key
+        [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
+
+    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
+    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
+                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
+                    -ItemKind 'Block' -Context 'Add-DhHeatmap'
+    # Monotonic declaration number, shared by tables and blocks. The exporter
+    # emits ALL blocks before ALL tables, so without this the menu would order
+    # nodes by section type instead of by the order the author wrote them.
+    if (-not $Report.Contains('_DhNavSeq')) { $Report['_DhNavSeq'] = 0 }
+    $navSeqNo = [int]$Report['_DhNavSeq']; $Report['_DhNavSeq'] = $navSeqNo + 1
 
     if (-not $Report.Contains('Blocks')) {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
@@ -221,9 +238,17 @@ function Add-DhHeatmap {
         ShowValues  = [bool]$ShowValues
         NavGroup    = $NavGroup
         NavSubGroup = $NavSubGroup
+        NavPath     = $NavPath
+        NavSegments     = $navDecl.Path
+        NavSeqNo     = $navSeqNo
+        NavScope    = $navDecl.Scope
+        NavLabel    = $NavLabel
+        NavOrder    = $NavOrder
         GridSpan    = $GridSpan
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })
     Write-Verbose "Add-DhHeatmap: '$Id' ($($rowList.Count) × $($colList.Count), $(@($normCells).Count) cells, scale=$ColorScale)."
 }
+
+

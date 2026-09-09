@@ -23,6 +23,9 @@ function Get-DhJsTable {
     this.selected      = [];
     this.colVisible    = {};
     this.columns.forEach(function(col,i){this.colVisible[i]=true;},this);
+    /* Per-field width overrides set by dragging a header edge. Empty until the
+       user resizes something; the declared col.width stays the default. */
+    this.colWidths     = {};
 
     this.exportFileName = cfg.exportFileName || cfg.id;
     this._initPageSizes();
@@ -44,16 +47,22 @@ function Get-DhJsTable {
     this._renderCharts();
   };
 
-  /* Re-render any bar charts and Mode-A pie charts that reference this table */
+  /* Re-render any bar charts, Mode-A pie charts and range bars that reference
+     this table. v2.1.1 - every branch resolves its target through
+     blockRenderTarget so the collapsible chrome survives a filter change. */
   TableEngine.prototype._refreshLinkedBarCharts = function () {
     var id = this.id;
     BLOCKS_CONFIG.forEach(function (block) {
       if (block.blockType === 'barchart' && block.tableId === id) {
-        var container = document.getElementById('block-' + block.id);
-        if (container) renderBarChart(container, block);
+        var bcT = blockRenderTarget(block);
+        if (bcT.container) renderBarChart(bcT.container, bcT.block);
       } else if (block.blockType === 'piechart' && block.mode === 'fromtable' && block.tableId === id) {
-        var container = document.getElementById('block-' + block.id);
-        if (container) renderPieChart(container, block);
+        var pcT = blockRenderTarget(block);
+        if (pcT.container) renderPieChart(pcT.container, pcT.block);
+      } else if (block.blockType === 'rangebar' && block.mode === 'fromtable' && block.tableId === id) {
+        /* v2.1.0 - a filtered table live-recomputes its range bars */
+        var rbT = blockRenderTarget(block);
+        if (rbT.container) renderRangeBar(rbT.container, rbT.block);
       }
     });
   };
@@ -80,20 +89,33 @@ function Get-DhJsTable {
   };
 
   /* ── Filter ─────────────────────────────────────────────────────── */
+
+  /* v2.1.3 — the single definition of "apply a text filter to this table".
+     The search box, pie-slice clicks and bar-chart clicks all route through
+     here. Before 2.1.3 each carried its own partial copy and they had drifted:
+     the pie never revealed the clear button and never refreshed linked charts,
+     and the bar chart's inline onclick did neither and skipped URLState too.
+     Add a step here, never in a caller. */
+  TableEngine.prototype.applyTextFilter = function (value) {
+    var inp = document.getElementById('filter-'+this.id);
+    var clr = document.getElementById('filter-clear-'+this.id);
+    this.filterText  = value || '';
+    this.currentPage = 1;
+    if (inp) inp.value = this.filterText;
+    if (clr) clr.style.display = this.filterText ? 'flex' : 'none';
+    this.render();
+    this._refreshLinkedBarCharts();
+    this._renderCharts();
+    URLState.save();
+  };
+
   TableEngine.prototype._bindFilter = function () {
     var inp=document.getElementById('filter-'+this.id);
     var clr=document.getElementById('filter-clear-'+this.id);
     if (!inp) return;
     var self=this;
-    inp.addEventListener('input',function(){
-      self.filterText=inp.value;self.currentPage=1;
-      clr.style.display=inp.value?'flex':'none';
-      self.render();self._refreshLinkedBarCharts();self._renderCharts();URLState.save();
-    });
-    clr.addEventListener('click',function(){
-      inp.value='';self.filterText='';clr.style.display='none';
-      self.currentPage=1;self.render();self._refreshLinkedBarCharts();self._renderCharts();URLState.save();
-    });
+    inp.addEventListener('input',function(){ self.applyTextFilter(inp.value); });
+    clr.addEventListener('click',function(){ self.applyTextFilter(''); });
     /* Restore from URL */
     var saved=URLState.load();
     if (saved.filters&&saved.filters[this.id]) {
@@ -377,6 +399,19 @@ function Get-DhJsTable {
     } else {
       td.textContent=dispVal;
     }
+
+    /* Width: a dragged override wins over the author's declared width. Without
+       this the cell falls back to the .data-table td max-width, so a column
+       declared wider than that silently clipped anyway. */
+    var effW = (this.colWidths && this.colWidths[col.field]) || col.width;
+    if(effW){ td.style.maxWidth=effW; td.style.width=effW; }
+
+    /* Full text for the truncation tooltip. _markTruncated() promotes this to a
+       real title= only on cells that actually overflow, so short cells stay
+       tooltip-free. Kept off badge/progress/sparkline cells, whose visible text
+       is not the raw value. */
+    if(cellType==='text' && dispVal){ td.dataset.full=dispVal; }
+
     /* Pin first column */
     if(col.pinFirst){td.classList.add('col-pinned');}
     return td;
@@ -386,6 +421,46 @@ function Get-DhJsTable {
   TableEngine.prototype.render = function(){
     this._renderHead();this._renderBody();this._renderFoot();this._renderPaging();
     this._renderInfo();this._renderSelClearBtn();
+    this._markTruncated();
+  };
+
+  /* Give a title= only to cells whose text is actually clipped, so hovering a
+     short cell shows nothing while a clipped one reveals the full value.
+     Measured rather than guessed from string length, because the threshold is
+     the rendered column width - which the author sets, the theme font affects,
+     and the user can now drag. One pass over the rendered rows only: the page
+     when paginated, the virtualised window otherwise. */
+  TableEngine.prototype._markTruncated = function(){
+    /* Headers first. A clipped header is worse than a clipped cell - it is the
+       only thing naming the column - so it gets the same measured title=. */
+    var head=document.getElementById('thead-'+this.id);
+    if(head){
+      var ths=head.querySelectorAll('th');
+      for(var h=0;h<ths.length;h++){
+        var lab=ths[h].querySelector('.col-label');
+        if(!lab)continue;
+        if(lab.scrollWidth>lab.clientWidth+1){
+          ths[h].title=lab.textContent;
+          ths[h].classList.add('th-clipped');
+        } else {
+          ths[h].removeAttribute('title');
+          ths[h].classList.remove('th-clipped');
+        }
+      }
+    }
+    var tbody=document.getElementById('tbody-'+this.id);
+    if(!tbody)return;
+    var cells=tbody.querySelectorAll('td[data-full]');
+    for(var i=0;i<cells.length;i++){
+      var td=cells[i];
+      if(td.scrollWidth>td.clientWidth+1){
+        td.title=td.dataset.full;
+        td.classList.add('cell-clipped');
+      } else {
+        td.removeAttribute('title');
+        td.classList.remove('cell-clipped');
+      }
+    }
   };
 
   /* Aggregate footer row — only rendered when any column has an 'aggregate' property */
@@ -479,7 +554,10 @@ function Get-DhJsTable {
       var th=document.createElement('th');
       th.dataset.field=col.field;
       th.setAttribute('scope','col');   /* a11y: column-header association */
-      if(col.width)th.style.width=col.width;
+      var effW=self.colWidths[col.field]||col.width;
+      /* max-width as well as width: under table-layout:auto the browser treats
+         width as a suggestion and will not go below the header's own text. */
+      if(effW){th.style.width=effW;th.style.maxWidth=effW;}
       if(col.pinFirst)th.classList.add('col-pinned');
 
       var align=(col.align||'left').toLowerCase();
@@ -537,8 +615,80 @@ function Get-DhJsTable {
           if(e.key==='Enter'||e.key===' '){ e.preventDefault(); doSort(e.shiftKey); }
         });
       }
+      /* Drag-to-resize grip on the column's right edge. Added after the sort
+         handlers so its own pointerdown/click can stop propagation - otherwise
+         every resize would also toggle the sort. */
+      var grip=document.createElement('span');
+      grip.className='col-resizer';
+      grip.setAttribute('role','separator');
+      grip.setAttribute('aria-orientation','vertical');
+      grip.setAttribute('aria-label','Resize column '+col.label);
+      grip.tabIndex=0;
+      grip.title='Drag to resize · double-click to reset';
+      grip.addEventListener('click',function(e){e.stopPropagation();});
+      grip.addEventListener('keydown',function(e){
+        /* Keyboard parity: arrows nudge, Home resets. */
+        var step=(e.key==='ArrowLeft')?-16:(e.key==='ArrowRight')?16:0;
+        if(step){
+          e.preventDefault();e.stopPropagation();
+          var cur=th.getBoundingClientRect().width;
+          self._setColWidth(col.field,Math.max(40,cur+step));
+        } else if(e.key==='Home'){
+          e.preventDefault();e.stopPropagation();
+          delete self.colWidths[col.field];self.render();
+        }
+      });
+      grip.addEventListener('dblclick',function(e){
+        e.preventDefault();e.stopPropagation();
+        delete self.colWidths[col.field];self.render();
+      });
+      grip.addEventListener('pointerdown',function(e){
+        e.preventDefault();e.stopPropagation();
+        var startX=e.clientX, startW=th.getBoundingClientRect().width;
+        grip.setPointerCapture(e.pointerId);
+        grip.classList.add('resizing');
+        var onMove=function(ev){
+          self._setColWidth(col.field,Math.max(40,startW+(ev.clientX-startX)));
+        };
+        var onUp=function(ev){
+          grip.classList.remove('resizing');
+          try{grip.releasePointerCapture(ev.pointerId);}catch(_){}
+          grip.removeEventListener('pointermove',onMove);
+          grip.removeEventListener('pointerup',onUp);
+          grip.removeEventListener('pointercancel',onUp);
+          /* Re-evaluate which cells are clipped at the new width */
+          self._markTruncated();
+        };
+        grip.addEventListener('pointermove',onMove);
+        grip.addEventListener('pointerup',onUp);
+        grip.addEventListener('pointercancel',onUp);
+      });
+      th.appendChild(grip);
+
       tr.appendChild(th);
     });
+  };
+
+  /* Apply a dragged column width without a full re-render - rebuilding every
+     row on each pointermove would make the drag crawl on a large table. */
+  TableEngine.prototype._setColWidth = function(field,px){
+    var w=Math.round(px)+'px';
+    this.colWidths[field]=w;
+    var idx=this._visibleCols().findIndex(function(c){return c.field===field;});
+    if(idx<0)return;
+    if(this.multiSelect)idx+=1;
+    var head=document.getElementById('thead-'+this.id);
+    if(head&&head.children[idx]){
+      head.children[idx].style.width=w;
+      head.children[idx].style.maxWidth=w;
+    }
+    var tbody=document.getElementById('tbody-'+this.id);
+    if(!tbody)return;
+    var rows=tbody.rows;
+    for(var r=0;r<rows.length;r++){
+      var cell=rows[r].cells[idx];
+      if(cell){cell.style.width=w;cell.style.maxWidth=w;}
+    }
   };
 
   /* Build one <tr> for a data row. Extracted from _renderBody so both the

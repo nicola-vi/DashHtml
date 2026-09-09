@@ -39,7 +39,7 @@
 #>
 param(
     [string] $LogoPath   = '',
-    [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-DashHtml.html'),
+    [string] $OutputPath = (Join-Path $PSScriptRoot 'Demo-Feature-FullShowcase.html'),
     [ValidateSet('Default','Azure','VMware','Grey','Company','Rag')]
     [string] $Theme      = 'Company',
     [switch] $OpenInBrowser

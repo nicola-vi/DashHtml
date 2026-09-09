@@ -469,6 +469,68 @@ body {
   border-bottom: 2px solid var(--border-medium);
   white-space: nowrap;
   user-select: none;
+  position: relative;   /* anchors .col-resizer */
+  /* 2.1.2 - the table is table-layout:auto, where width is only a suggestion
+     and a nowrap header that cannot clip sets the column's hard minimum. With
+     overflow hidden (plus the max-width the renderer puts on the th) the header
+     truncates like the body cells do, so a column can be dragged narrow. */
+  overflow: hidden;
+}
+/* The label clips itself; the th clips whatever follows it (sort icon, grip).
+   max-width is 100%, not 100% minus an icon reservation - reserving space made
+   a short header like "ID" measure as clipped in a narrow column and pick up a
+   pointless tooltip. */
+.data-table thead th .col-label {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+/* Header whose own label is clipped - full text is on the th as title= */
+.data-table thead th.th-clipped .col-label { cursor: help; }
+
+/* Drag-to-resize grip on a column's right edge. Sits inside the th, so it must
+   not inherit the header's pointer/sort affordance. */
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;        /* inside the th: 2.1.2 made the header overflow:hidden */
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;   /* let the pointer drag work on touch devices */
+}
+.col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 3px;
+  width: 1px;
+  background: var(--border-medium);
+  opacity: 0;
+  transition: opacity var(--trans-fast);
+}
+.data-table thead th:hover .col-resizer::after,
+.col-resizer:focus-visible::after,
+.col-resizer.resizing::after {
+  opacity: 1;
+  background: var(--accent-primary);
+}
+.col-resizer.resizing::after { top: 0; bottom: 0; width: 2px; }
+.col-resizer:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -1px;
+}
+
+/* A cell whose text is clipped carries title= with the full value (set by
+   _markTruncated). The dotted edge is the affordance that says "there is more
+   here" - an ellipsis alone reads as part of the data. */
+.data-table tbody td.cell-clipped {
+  border-right: 1px dotted var(--border-medium);
+  cursor: help;
 }
 
 .data-table thead th.sortable {
@@ -871,6 +933,141 @@ td.no-data {
 }
 
 /* Subnav strip */
+/* ── v2.0.0 sidebar rail ─────────────────────────────────────────────
+   Used automatically at nav depth 4+, where three or four stacked sticky
+   strips would eat a quarter of a 1080p viewport. Shows the whole tree at
+   once; only the branch in use is expanded. */
+.nav-sidebar {
+  position: fixed;
+  top: calc(var(--header-height) + var(--nav-height));
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--nav-border);
+  padding: var(--space-sm) 0;
+  z-index: 40;
+}
+.nav-rail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--nav-link-fg);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.nav-rail-item:hover { background: var(--nav-link-hover-bg); color: var(--nav-link-hover-fg); }
+.nav-rail-onpath     { border-left-color: var(--nav-border); }
+.nav-rail-active {
+  background: var(--accent-primary);
+  color: var(--accent-primary-fg, #fff);
+  border-left-color: var(--accent-primary);
+  font-weight: var(--weight-medium);
+}
+.nav-rail-d0 { font-weight: var(--weight-medium); }
+.nav-rail-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+
+/* Body shifts to make room for the rail. */
+body.has-nav-sidebar .report-body,
+body.has-nav-sidebar .report-alerts,
+body.has-nav-sidebar .global-filter-bar { margin-left: 240px; }
+
+/* Below 900px the rail would leave no room for content: fall back to the
+   strips flow rather than a cramped two-column layout. */
+@media (max-width: 900px) {
+  .nav-sidebar { display: none !important; }
+  body.has-nav-sidebar .report-body,
+  body.has-nav-sidebar .report-alerts,
+  body.has-nav-sidebar .global-filter-bar { margin-left: 0; }
+}
+
+/* ── v2.0.0 nav strips ───────────────────────────────────────────────
+   N strips rendered from a loop; depth is a class suffix, never a level name.
+   Depth 0 reads as the old group-tab row, deeper strips get progressively
+   lighter so the hierarchy is legible without three bespoke stylesheets. */
+.nav-strips { display: block; }
+
+/* Top-level chips live inside .nav-inner, sharing the line with the Top /
+   density / theme buttons. flex:1 pushes those buttons to the right edge, and
+   wrapping keeps a long section list readable instead of overflowing. */
+.nav-strip-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nav-strip {
+  background: var(--bg-surface);
+  border-top: 1px solid var(--nav-border);
+}
+.nav-strip-0 { background: var(--bg-surface); border-bottom: 2px solid var(--accent-primary); }
+.nav-strip-1 { background: var(--bg-base); }
+.nav-strip-2,
+.nav-strip-3,
+.nav-strip-4 { background: var(--bg-base); }
+
+.nav-strip-inner {
+  max-width: 2400px;
+  margin: 0 auto;
+  padding: var(--space-xs) var(--space-md);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 32px;
+}
+.nav-strip-0 .nav-strip-inner { min-height: 38px; gap: 2px; }
+
+.nav-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: var(--nav-link-fg);
+  background: var(--bg-surface);
+  border: 1px solid var(--nav-border);
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nav-strip-0 .nav-chip { border-radius: 4px; font-size: 13px; padding: 4px 12px; }
+.nav-chip:hover {
+  background: var(--nav-link-hover-bg);
+  color: var(--nav-link-hover-fg);
+}
+.nav-chip-active {
+  background: var(--accent-primary);
+  color: var(--accent-primary-fg, #fff);
+  border-color: var(--accent-primary);
+}
+.nav-chip:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
+/* Breadcrumb - only rendered at depth 4+, where strips alone stop answering
+   "where am I" (plan-v2.md WP3.2). */
+.nav-crumb {
+  max-width: 2400px;
+  margin: 0 auto;
+  padding: 4px var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text3);
+}
+.nav-crumb-item { color: var(--text3); text-decoration: none; }
+.nav-crumb-item:hover { color: var(--accent-primary); text-decoration: underline; }
+.nav-crumb-sep { color: var(--text3); opacity: 0.6; }
+
 .nav-subnav {
   background: var(--bg-surface);
   border-top: 1px solid var(--nav-border);
@@ -2378,7 +2575,7 @@ body.theme-forced-dark {
 
 /* Node rectangle — base look */
 .topo-node-rect {
-  fill: var(--bg-elevated);
+  fill: var(--bg-elevated, var(--bg-surface));
   stroke: var(--border-strong);
   stroke-width: 1;
   transition: stroke var(--trans-fast), fill var(--trans-fast);
@@ -2430,7 +2627,7 @@ body.theme-forced-dark {
   z-index: 9999;
   max-width: 360px;
   padding: 6px 10px;
-  background: var(--bg-elevated);
+  background: var(--bg-elevated, var(--bg-surface));
   color: var(--text-primary);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -2909,6 +3106,13 @@ body.theme-forced-dark {
 }
 .bar-item.bar-clickable { cursor: pointer; }
 .bar-item.bar-clickable:hover .bar-fill { filter: brightness(1.2); }
+/* v2.1.3 - clickable bars are keyboard-reachable (role=button, tabindex=0),
+   so they need a visible focus ring. */
+.bar-item.bar-clickable:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
 
 .bar-label {
   display: flex;
@@ -3037,5 +3241,239 @@ body.theme-forced-dark {
   transition: outline 0.1s;
 }
 
+/* ── Range-gradient bar chart (v2.1.0 — Add-DhRangeBar) ──
+   min → max floating bars on a shared 0-100 axis, coloured by position on
+   that axis. The gradient stops are theme tokens (--range-grad-0/50/100),
+   so the ramp follows whichever theme is active. All placement is
+   percentage-based against the track's own box, so it reflows at any width.
+
+   Geometry follows the spec: 56px rows, a 24px bar vertically centred, and
+   an avg tick that overshoots the bar by 5px top and bottom. */
+.rangebar-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-xs);
+}
+.rangebar-title {
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: var(--space-xs);
+}
+.rangebar-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--space-md);
+  text-align: center;
+}
+
+/* Data-dense: horizontal scroll beats illegibly compressed tracks. */
+.rangebar-scroller { width: 100%; overflow-x: auto; }
+.rangebar-plot {
+  min-width: 640px;
+  display: grid;
+  grid-template-columns: 152px 1fr 214px;
+  column-gap: 16px;
+  align-items: stretch;
+  position: relative;
+}
+
+.rb-axis-title {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: right;
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  padding-bottom: 6px;
+}
+.rb-axis-cell { grid-column: 2; grid-row: 2; height: 26px; position: relative; }
+.rb-axis-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rb-axis-tick:first-child { transform: translateX(0); }
+.rb-axis-tick:last-child  { transform: translateX(-100%); }
+
+/* Gridlines share column 2 with the tracks and span every data row. The row
+   span is computed from the item count — never hard-coded. */
+.rb-gridlines { grid-column: 2; position: relative; }
+.rb-gridline {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: var(--border-subtle);
+}
+.rb-gridline.rb-edge { background: var(--border-medium); }
+
+.rb-label {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  font-size: var(--size-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  padding: 15px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-track {
+  grid-column: 2;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 56px;
+}
+/* No top/bottom offsets: the static position of an out-of-flow child in a
+   centred flex container lands it vertically centred, at its own height. */
+.rb-base {
+  position: absolute;
+  left: 0; right: 0;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--progress-track-bg);
+}
+.rb-bar {
+  position: absolute;
+  left: 0; right: 0;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(to right,
+              var(--range-grad-0)   0%,
+              var(--range-grad-50)  50%,
+              var(--range-grad-100) 100%);
+  cursor: pointer;
+}
+.rb-bar:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+/* Avg tick — independently positioned and deliberately NOT clamped into
+   [min, max]; an avg outside the bar is a real data signal, not a glitch. */
+.rb-avg {
+  position: absolute;
+  top: 50%;
+  height: 34px;
+  width: 2px;
+  background: var(--text-primary);
+  border-radius: 1px;
+  transform: translate(-1px, -50%);
+  pointer-events: none;
+}
+/* Degenerate row (High <= Low): normalisation is undefined, so show the row
+   as striped rather than dividing by zero or faking a position. */
+.rb-track-bad .rb-base {
+  background: repeating-linear-gradient(
+      45deg,
+      var(--progress-track-bg) 0 6px,
+      transparent 6px 12px);
+  border: 1px dashed var(--border-medium);
+}
+
+.rb-values {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 0;
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rb-v-range { color: var(--text-primary); font-weight: var(--weight-medium); }
+.rb-v-avg b { color: var(--text-primary); font-weight: var(--weight-bold); }
+
+/* Colour encodes position on a shared axis, not category identity — so the
+   legend explains the scale once, instead of one swatch per row. */
+.rangebar-legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: var(--space-sm);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+.rb-legend-scale, .rb-legend-avg { display: flex; align-items: center; gap: 8px; }
+.rb-legend-scale { font-family: var(--font-mono); }
+.rb-legend-swatch {
+  width: 120px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(to right,
+              var(--range-grad-0)   0%,
+              var(--range-grad-50)  50%,
+              var(--range-grad-100) 100%);
+}
+.rb-legend-note { color: var(--text-secondary); font-family: var(--font-ui); }
+.rb-legend-tick {
+  width: 2px;
+  height: 14px;
+  background: var(--text-primary);
+  border-radius: 1px;
+}
+
+.rb-table-toggle {
+  margin-top: var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.rb-table-toggle:hover { color: var(--text-primary); }
+.rb-table-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+.rb-data-table { overflow-x: auto; }
+.rb-data-table table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 520px;
+  margin-top: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+}
+.rb-data-table table[hidden] { display: none; }
+.rb-data-table th, .rb-data-table td {
+  text-align: right;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rb-data-table th:first-child, .rb-data-table td:first-child {
+  text-align: left;
+  font-family: var(--font-ui);
+  font-weight: var(--weight-medium);
+}
+.rb-data-table th {
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 '@
 }
+
+

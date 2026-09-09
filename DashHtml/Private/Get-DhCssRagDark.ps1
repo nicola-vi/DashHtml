@@ -31,6 +31,12 @@ function Get-DhCssRagDark {
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #BFBFBF;
   --accent-danger:    #FF7E7E;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #A9D08E;
+  --range-grad-50:  #FFD966;
+  --range-grad-100: #FF7E7E;
   --accent-warn:      #FFD966;
   --accent-ok:        #A9D08E;
 

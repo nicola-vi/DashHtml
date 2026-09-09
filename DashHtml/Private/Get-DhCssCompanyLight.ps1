@@ -24,6 +24,12 @@ function Get-DhCssCompanyLight {
   --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #8C0031;
   --accent-danger:    #BE0036;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #1B7A2E;
+  --range-grad-50:  #E05000;
+  --range-grad-100: #BE0036;
   --accent-warn:      #E05000;
   --accent-ok:        #1B7A2E;
 

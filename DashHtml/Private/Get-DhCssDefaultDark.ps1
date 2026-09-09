@@ -20,6 +20,12 @@ function Get-DhCssDefaultDark {
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #0077cc;
   --accent-danger:    #ff4d6a;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #00e676;
+  --range-grad-50:  #ffc107;
+  --range-grad-100: #ff4d6a;
   --accent-warn:      #ffc107;
   --accent-ok:        #00e676;
 

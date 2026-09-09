@@ -22,6 +22,12 @@ function Get-DhCssAzureLight {
   --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
   --accent-secondary: #106EBE;
   --accent-danger:    #A4262C;
+
+  /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
+     0-100 axis, mapped onto this theme's own severity ramp. */
+  --range-grad-0:   #107C10;
+  --range-grad-50:  #BC4B09;
+  --range-grad-100: #A4262C;
   --accent-warn:      #BC4B09;
   --accent-ok:        #107C10;
 

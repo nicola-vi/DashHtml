@@ -12,14 +12,22 @@ function Get-DhJsBoot {
       engines[cfg.id] = new TableEngine(cfg);
     });
 
-    /* Bar charts and Mode-A pie charts need engines ready */
+    /* Bar charts, Mode-A pie charts and table-fed range bars need engines ready.
+       v2.1.1 - all three go through blockRenderTarget so a collapsible block is
+       re-rendered into its INNER container. Targeting 'block-<id>' directly (as
+       barchart and piechart did before 2.1.1) overwrites the collapsible header
+       renderBlocks() just built, which is why -Collapsible / -DefaultOpen had no
+       visible effect on these block types. */
     BLOCKS_CONFIG.forEach(function (block) {
       if (block.blockType === 'barchart') {
-        var container = document.getElementById('block-'+block.id);
-        if (container) renderBarChart(container, block);
+        var bcT = blockRenderTarget(block);
+        if (bcT.container) renderBarChart(bcT.container, bcT.block);
       } else if (block.blockType === 'piechart' && block.mode === 'fromtable') {
-        var container = document.getElementById('block-'+block.id);
-        if (container) renderPieChart(container, block);
+        var pcT = blockRenderTarget(block);
+        if (pcT.container) renderPieChart(pcT.container, pcT.block);
+      } else if (block.blockType === 'rangebar' && block.mode === 'fromtable') {
+        var rbT = blockRenderTarget(block);
+        if (rbT.container) renderRangeBar(rbT.container, rbT.block);
       }
     });
 

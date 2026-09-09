@@ -339,6 +339,26 @@ function Export-DhDashboard {
                     $svStr = ([bool]$b.ShowValues).ToString().ToLower()
                     "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJ],`"columns`":[$columnsJ],`"cells`":[$cellsJ],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"colorScale`":$(ConvertTo-DhJsonString $b.ColorScale),`"min`":$minJ,`"max`":$maxJ,`"unit`":$(ConvertTo-DhJsonString $b.Unit),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize),`"showValues`":$svStr,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
+                'rangebar' {
+                    # v2.1.0 - min / avg / max floating bars on a shared 0-100 axis.
+                    # Two modes: 'items' carries the finished rows; 'fromtable'
+                    # carries the field names and the browser aggregates the
+                    # table's FILTERED rows, so filtering live-recomputes ranges.
+                    # Numbers are formatted InvariantCulture - a comma decimal
+                    # separator in the host culture would emit invalid JSON.
+                    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+                    $rbItemsJ = ''
+                    if ($b.Items -and @($b.Items).Count -gt 0) {
+                        $rbItemsJ = (@($b.Items) | ForEach-Object {
+                            $ri = $_
+                            "{`"name`":$(ConvertTo-DhJsonString $ri.Name),`"low`":$(([double]$ri.Low).ToString($inv)),`"high`":$(([double]$ri.High).ToString($inv)),`"min`":$(([double]$ri.Min).ToString($inv)),`"avg`":$(([double]$ri.Avg).ToString($inv)),`"max`":$(([double]$ri.Max).ToString($inv))}"
+                        }) -join ','
+                    }
+                    $rbHighJ = if ($null -ne $b.High) { ([double]$b.High).ToString($inv) } else { 'null' }
+                    $rbLowJ  = if ($null -ne $b.Low)  { ([double]$b.Low).ToString($inv)  } else { '0' }
+                    $rbSdtJ  = ([bool]$b.ShowDataTable).ToString().ToLower()
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"mode`":$(ConvertTo-DhJsonString $b.Mode),`"items`":[$rbItemsJ],`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"categoryField`":$(ConvertTo-DhJsonString $b.CategoryField),`"valueField`":$(ConvertTo-DhJsonString $b.ValueField),`"highField`":$(ConvertTo-DhJsonString $b.HighField),`"lowField`":$(ConvertTo-DhJsonString $b.LowField),`"high`":$rbHighJ,`"low`":$rbLowJ,`"maxRows`":$($b.MaxRows),`"axisLabel`":$(ConvertTo-DhJsonString $b.AxisLabel),`"unit`":$(ConvertTo-DhJsonString $b.Unit),`"showDataTable`":$rbSdtJ,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
+                }
                 'tabs' {
                     # v1.5 — inline tabbed content block.
                     $tabsJson = ''
@@ -615,98 +635,11 @@ function Export-DhDashboard {
     # Nav logo suppressed by design
     $navLogoHtml = ''
 
-    # ---- Detect two-tier nav (any table or block has a NavGroup) --
-    $hasTwoTier = ($Report.Tables | Where-Object { $_.NavGroup }) -or
-                  ($Report.Contains('Blocks') -and ($Report.Blocks | Where-Object { $_.NavGroup }))
-
-    if ($hasTwoTier) {
-        # Collect ordered unique groups — tables first (preserve order), then any block-only groups
-        $groupOrder = [System.Collections.Generic.List[string]]::new()
-        foreach ($t in $Report.Tables) {
-            if ($t.NavGroup -and -not $groupOrder.Contains($t.NavGroup)) {
-                $groupOrder.Add($t.NavGroup)
-            }
-        }
-        # Blocks may introduce groups that have no matching table (e.g. a filter-card-only group)
-        if ($Report.Contains('Blocks')) {
-            foreach ($b in $Report.Blocks) {
-                if ($b.NavGroup -and -not $groupOrder.Contains($b.NavGroup)) {
-                    $groupOrder.Add($b.NavGroup)
-                }
-            }
-        }
-
-        # Ungrouped tables get flat links in the primary bar
-        $flatLinks = ($Report.Tables | Where-Object { -not $_.NavGroup } | ForEach-Object {
-            $tid = $_.Id
-            $tn  = [System.Web.HttpUtility]::HtmlEncode($_.Title)
-            "<a class=`"nav-link`" href=`"#`" data-table=`"$tid`">$tn<span class=`"nav-badge`" data-table=`"$tid`"></span></a>"
-        }) -join "`n        "
-
-        # Group tabs for primary nav
-        $groupTabsHtml = ($groupOrder | ForEach-Object {
-            $g = [System.Web.HttpUtility]::HtmlEncode($_)
-            "<a class=`"nav-group-tab`" href=`"#`" data-group=`"$g`">$g</a>"
-        }) -join "`n        "
-
-        # All grouped table links go in subnav (include data-subgroup when defined)
-        $subnavLinks = ($Report.Tables | Where-Object { $_.NavGroup } | ForEach-Object {
-            $tid = $_.Id
-            $tn  = [System.Web.HttpUtility]::HtmlEncode($_.Title)
-            $g   = [System.Web.HttpUtility]::HtmlEncode($_.NavGroup)
-            $sg  = if ($_.Contains('NavSubGroup') -and $_.NavSubGroup) { $_.NavSubGroup } else { '' }
-            $sgAttr = if ($sg) { " data-subgroup=`"$([System.Web.HttpUtility]::HtmlEncode($sg))`"" } else { '' }
-            "<a class=`"nav-link`" href=`"#`" data-table=`"$tid`" data-group=`"$g`"$sgAttr>$tn<span class=`"nav-badge`" data-table=`"$tid`"></span></a>"
-        }) -join "`n        "
-
-        # ---- Three-tier nav: build subgroup pills ----
-        # Collect (group, subgroup) pairs from tables first, then block-only subgroups
-        $subGroupPairs = [System.Collections.Generic.List[object]]::new()
-        $seenPairs = @{}
-        foreach ($t in $Report.Tables) {
-            if ($t.NavGroup -and $t.Contains('NavSubGroup') -and $t.NavSubGroup) {
-                $key = "$($t.NavGroup)`0$($t.NavSubGroup)"
-                if (-not $seenPairs.ContainsKey($key)) {
-                    $seenPairs[$key] = $true
-                    $subGroupPairs.Add(@{ Group = $t.NavGroup; SubGroup = $t.NavSubGroup })
-                }
-            }
-        }
-        if ($Report.Contains('Blocks')) {
-            foreach ($b in $Report.Blocks) {
-                if ($b.NavGroup -and $b.Contains('NavSubGroup') -and $b.NavSubGroup) {
-                    $key = "$($b.NavGroup)`0$($b.NavSubGroup)"
-                    if (-not $seenPairs.ContainsKey($key)) {
-                        $seenPairs[$key] = $true
-                        $subGroupPairs.Add(@{ Group = $b.NavGroup; SubGroup = $b.NavSubGroup })
-                    }
-                }
-            }
-        }
-
-        $subgroupHtml = ''
-        if ($subGroupPairs.Count -gt 0) {
-            $subgroupPillsHtml = ($subGroupPairs | ForEach-Object {
-                $g  = [System.Web.HttpUtility]::HtmlEncode($_.Group)
-                $sg = [System.Web.HttpUtility]::HtmlEncode($_.SubGroup)
-                "<a class=`"subgroup-pill`" href=`"#`" data-group=`"$g`" data-subgroup=`"$sg`">$sg</a>"
-            }) -join "`n        "
-            $subgroupHtml = "<div class=`"nav-subgroup`" id=`"nav-subgroup`" style=`"display:none`"><div class=`"subgroup-inner`">$subgroupPillsHtml</div></div>"
-        }
-
-        $navLinksHtml  = $flatLinks
-        $groupTabsHtml = if ($groupTabsHtml) { "<div class=`"nav-group-tabs`" id=`"nav-group-tabs`">$groupTabsHtml</div>" } else { '' }
-        $subnavHtml    = "<div class=`"nav-subnav`" id=`"nav-subnav`"><div class=`"subnav-inner`">$subnavLinks</div></div>"
-    } else {
-        $navLinksHtml  = ($Report.Tables | ForEach-Object {
-            $tid   = $_.Id
-            $tname = [System.Web.HttpUtility]::HtmlEncode($_.Title)
-            "<a class=`"nav-link`" href=`"#`" data-table=`"$tid`">$tname<span class=`"nav-badge`" data-table=`"$tid`"></span></a>"
-        }) -join "`n        "
-        $groupTabsHtml = ''
-        $subnavHtml    = ''
-        $subgroupHtml  = ''
-    }
+    # v2.0.0 - the nav menu is no longer built here. The runtime derives the
+    # whole tree from the data-navpath attributes on the sections themselves
+    # (see Get-DhJsNav), which is what stops a menu strip describing a view the
+    # content does not have. The 1.x code that assembled nav-group-tabs,
+    # nav-subgroup pills and nav-subnav links server-side has been deleted.
 
     $subtitleHtml = if ($Report.Subtitle) {
         "<p class=`"report-subtitle`">$([System.Web.HttpUtility]::HtmlEncode($Report.Subtitle))</p>"
@@ -735,9 +668,39 @@ function Export-DhDashboard {
         $summaryContainerHtml = '<div class="report-summary" id="report-summary"></div>'
     }
 
+    # ---- Navigation model (v2.0.0) ----------------------------------------------
+    # Build the menu tree ONCE from the declared paths, then derive the opening
+    # view from it. Both the strips/sidebar renderer and the server-stamped
+    # panel-active classes read from this, so the menu can never describe a
+    # different set of views than the content it reveals.
+    $navSeq     = @{}    # "<kind>:<id>" -> declaration index
+    foreach ($it in (Get-DhNavItem -Report $Report)) { $navSeq["$($it.Kind):$($it.Id)"] = $it.Seq }
+    $navTree    = Get-DhNavTree -Report $Report
+    $navInitial = Get-DhNavInitialPath -Tree $navTree
+    $navDepth   = Get-DhNavDepth -Node $navTree
+
+    # Depth policy. Exceeding it is a warning, not an error: the runtime handles
+    # any depth, so refusing to export would punish the author for a layout
+    # preference rather than a correctness problem.
+    $navMaxDepth = if ($Report.Contains('NavMaxDepth') -and $Report.NavMaxDepth) { [int]$Report.NavMaxDepth } else { 3 }
+    if ($navDepth -gt $navMaxDepth) {
+        Write-Warning ("Export-DhDashboard: nav tree is $navDepth levels deep but -NavMaxDepth is $navMaxDepth. " +
+                       "Rendering anyway. Raise -NavMaxDepth on New-DhDashboard to silence this.")
+    }
+
+    # Layout resolution (v2.0.0). Auto keeps the 1.x strips look up to 3 levels
+    # and switches to the sidebar rail at 4+, where the strips stop fitting.
+    $navLayoutPref = if ($Report.Contains('NavLayout') -and $Report.NavLayout) { $Report.NavLayout } else { 'Auto' }
+    $navLayout = switch ($navLayoutPref) {
+        'Strips'  { 'strips' }
+        'Sidebar' { 'sidebar' }
+        default   { if ($navDepth -ge 4) { 'sidebar' } else { 'strips' } }
+    }
+    Write-Verbose "Export-DhDashboard: nav depth $navDepth, layout '$navLayout' (pref '$navLayoutPref'), opening view '$($navInitial -join '/')'"
+
     # ---- Table section shells ---------------------------------------------------
     $tableSections = if ($Report.Tables.Count -gt 0) {
-        Build-DhTableSections -Tables $Report.Tables
+        Build-DhTableSections -Tables $Report.Tables -NavInitialPath $navInitial -NavSeq $navSeq
     } else { '' }
 
     # Build block section HTML shells
@@ -749,9 +712,16 @@ function Export-DhDashboard {
             $bNgAttr    = if ($bNg) { " data-navgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bNg))`"" } else { '' }
             $bSg        = if ($b.Contains('NavSubGroup') -and $b.NavSubGroup) { $b.NavSubGroup } else { '' }
             $bSgAttr    = if ($bSg) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bSg))`"" } else { '' }
-            $bActive    = if (-not $bNg) { ' panel-active' } else { '' }
+            # v2.0.0 - canonical nav attributes. The initial panel-active class is
+            # stamped with the SAME predicate the runtime uses, so first paint and
+            # first applyNav agree by construction.
+            $bNav       = ConvertTo-DhNavAttr -Path @($b.NavSegments) -Scope $b.NavScope -InitialPath $navInitial `
+                              -Seq ([int]$navSeq["Block:$($b.Id)"]) `
+                              -Order $(if ($b.Contains('NavOrder')) { [int]$b.NavOrder } else { 0 }) `
+                              -Label $(if ($b.Contains('NavLabel')) { [string]$b.NavLabel } else { '' })
+            $bActive    = $bNav.Active
             $bSpanAttr  = if ($b.Contains('GridSpan') -and $b.GridSpan -ge 1 -and $b.GridSpan -le 12) { " style=`"grid-column:span $($b.GridSpan)`"" } else { '' }
-            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr$bSgAttr$bSpanAttr><div id=`"block-$($b.Id)`"></div></div>"
+            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr$bSgAttr$($bNav.Attr)$bSpanAttr><div id=`"block-$($b.Id)`"></div></div>"
         }) -join "`n"
     }
 
@@ -812,20 +782,20 @@ $themeStyleTag
     </div>
   </header>
 
-  <nav class="report-nav" id="report-nav" role="navigation" aria-label="Report sections">
+  <nav class="report-nav" id="report-nav" role="navigation" aria-label="Report sections" data-navlayout="$navLayout" data-navdepth="$navDepth">
     <div class="nav-inner">
       $navLogoHtml
       $(if ($Report.Contains('NavTitle') -and $Report.NavTitle) { "<span class=`"nav-title`">$([System.Web.HttpUtility]::HtmlEncode($Report.NavTitle))</span>" })
       <div class="nav-divider"></div>
-      $(if ($navLinksHtml) { "<div class=`"nav-links`">$navLinksHtml</div>" })
-      $groupTabsHtml
+      <div class="nav-strip-top" id="nav-strips-top" role="tablist" aria-label="Sections"></div>
       <button class="nav-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679; Top</button>
       <button class="nav-utility-btn" id="btn-density-toggle" title="Toggle table row density">&#8862; Normal</button>
       <button class="nav-utility-btn" id="btn-theme-toggle" data-primary="$theme" data-alternate="$alternateTheme" title="Toggle theme">&#9790; Dark</button>
     </div>
-    $subgroupHtml
-    $subnavHtml
+    <div class="nav-strips" id="nav-strips"></div>
+    <div class="nav-crumb" id="nav-crumb" style="display:none" aria-label="Breadcrumb"></div>
   </nav>
+  <aside class="nav-sidebar" id="nav-sidebar" role="tree" aria-label="Report sections" style="display:none"></aside>
 
   <main class="$bodyClass">
     <div class="report-alerts" id="report-alerts"></div>
@@ -868,3 +838,13 @@ $js
         }
     }
 }
+
+
+
+
+
+
+
+
+
+

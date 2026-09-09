@@ -21,6 +21,7 @@ $script:DhTypeToCmdlet = @{
     statusgrid     = 'Add-DhStatusGrid'
     tabs           = 'Add-DhTabs'
     heatmap        = 'Add-DhHeatmap'
+    rangebar       = 'Add-DhRangeBar'
     topologymap    = 'Add-DhTopologyMap'
 }
 
