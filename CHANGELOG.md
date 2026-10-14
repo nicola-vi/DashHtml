@@ -6,6 +6,259 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0]
+
+Assessment features: what an audit report needs. Source: `NewFeatures/plan-v2.2.md`
+(N1–N8), with decisions D1–D4 as agreed. **No breaking changes.** A report
+that sets none of the new options looks and behaves as in 2.1.4, except
+for the two improvements to every report described below: export
+libraries no longer block page load, and every report gets a Print button.
+
+### Added — `Add-DhFindings` (cmdlet #22)
+
+A list of findings, one expandable row each: severity badge, title, area and
+affected count. Expanded, a row shows:
+
+- the description and the recommendation;
+- the affected objects, capped, with "+N more";
+- a **Show in table** jump to the evidence table, filtered;
+- reference links.
+
+Severity counter chips filter the list, and a text box filters over every
+field. Optional group headers come from `-GroupBy Area|Severity`.
+
+- Severities are `critical / warning / info / ok`, the alert-banner scale.
+  `high / medium / low` are accepted as aliases (decision D2).
+- Sorted critical → ok, then by affected count; `-SortBy None` keeps your order.
+- Reference URLs go through the same scheme check as alert and tile actions,
+  and are checked again in the browser.
+- All text is HTML-encoded. There is no `-AllowHtml`.
+- "Show in table" uses the 2.1.4 `jumpToTable`, so the filter, the clear
+  button and linked charts all update together.
+- `Export-DhDashboard` warns about an `AffectedTableId` that names no table.
+
+### Added — verdict tile: `Add-DhSummary` `Style='verdict'`
+
+A full-width overall assessment ("Action required") with an optional
+caption and one chip per non-zero severity count. Without a `Class`, its
+colour follows the worst count. It works in the page-wide strip and in
+per-panel strips.
+
+### Added — bar charts that measure a value
+
+`Add-DhBarChart -ValueField <field> -Aggregate count|sum|avg|min|max
+[-Unit] [-Decimals]`. Until now a bar chart could only count rows, so a
+chart titled "replication lag (min)" drew row counts.
+
+- `-ValueField` alone means `sum`.
+- Percentages are a share of the grand total for `sum`, and are hidden for
+  `avg / min / max`.
+- Stacked charts allow `count` or `sum`.
+- The field is checked against the table when the chart is added, and
+  again at export (for charts declared before their table).
+- Aggregation runs in the browser over the filtered rows, with the same
+  rules as the table footer aggregates.
+
+**Table charts render `Type='bar'`**, with the same options plus `TopN`.
+This replaces the 2.1.4 "rendered from 2.2.0" warning.
+
+### Added — link cells: `CellType='link'`
+
+The URL comes from `UrlField`, which can be a property that is not a
+visible column; `LinkText` sets fixed text. Only `http:` / `https:` /
+`mailto:` URLs become links, built with DOM calls. Anything else renders
+as plain text.
+
+### Added — `New-DhDashboard -ThemeMode Light|Dark|Auto`
+
+Sets the theme a report opens in. `Auto` follows the system setting, live,
+until the reader toggles. A reader's saved choice (2.1.4) always wins.
+The default is `Light`, as before.
+
+### Changed — export libraries no longer block the page (`-ExportLibraries`)
+
+SheetJS, jsPDF and AutoTable were blocking script tags in the page head.
+On a network without internet access the report stayed blank until the CDN
+request timed out, then the XLSX/PDF buttons raised an `alert()`. Now
+`Export-DhDashboard -ExportLibraries`:
+
+- **`Cdn` (default):** loads the libraries on the first XLSX/PDF click, with
+  the same pinned SRI hashes. Offline, the buttons grey out with a "use
+  CSV" tooltip. No `alert()`.
+- **`Embed`:** inlines the libraries, about 1.3 MB, for air-gapped readers.
+  The vendored copies in `DashHtml/Vendor/` were verified byte-for-byte
+  against the pinned hashes, are re-checked on every embed, and ship with
+  their licences (Apache-2.0, MIT, MIT). `Build.ps1` now stages `Vendor/`.
+- **`None`:** no XLSX/PDF buttons.
+
+### Added — printing
+
+Every report gets a 🖨 Print button. While printing:
+
+- the theme switches to light;
+- every nav view appears, in menu order, each under a heading with its path;
+- collapsibles, tab panels and findings are expanded (in CSS, so this
+  works even without the print handlers);
+- tables print up to `-PrintMaxRows` rows (default 200), with a "Showing N
+  of M" note;
+- nav, toolbars and filters are hidden; table headers repeat; pages are
+  numbered;
+- `New-DhDashboard -PrintCover` adds a cover page with the verdict tile.
+
+Everything is restored after printing. Verified in headless Edge
+`--print-to-pdf`, which runs the same handlers, so PDF pipelines get the
+same layout.
+
+### Fixed
+
+- **A grid report widened the page on phones.** With any `-GridSpan` set,
+  below 900px the single grid column was `1fr`, which cannot shrink below
+  its content. A wide table pushed the whole page sideways instead of
+  scrolling inside its own box. It is now `minmax(0, 1fr)`.
+- **The table section header printed with a dark band.** Its gradient
+  starts from a hard-coded dark colour; it now prints flat.
+
+### Changed — internal
+
+- The two hand-synchronised copies of the summary-tile serialiser in
+  `Export-DhDashboard` are now one `ConvertTo-DhTileJson`. Verified
+  byte-identical on a fixture covering every tile style, on both paths.
+- Bar charts render through shared `aggregateBars` / `buildBarHtml`
+  helpers, which the table charts reuse. Verified by comparing the rendered
+  DOM of every existing bar variant before and after: identical.
+- The runtime JS gains a `Get-DhJsPrint` fragment.
+
+### DashHtml.Design 2.2.0
+
+Recognises the findings block: YAML round-trip, `ConvertFrom-DhScript`,
+and `Update-DhScript` / `Test-DhV2Upgrade` audits. Requires DashHtml 2.2.0.
+
+### Examples
+
+New `Examples/Demo-Feature-Findings.ps1`: a complete assessment report.
+`Demo-ActiveDirectory.ps1` gains a verdict tile, a value bar chart and
+findings.
+
+## [2.1.4]
+
+Fixes only, no new parameters. Source: `NewFeatures/plan-v2.2.md` (F1–F8, F10),
+checked line by line against 2.1.3 before any change. **Regenerate** existing
+dashboards to pick these up: the runtime is baked into each HTML file.
+
+### Fixed — collapsible tables could not be opened (since 2.0.0)
+
+`Add-DhTable -Collapsible $true -DefaultOpen $false` produced a table that
+could never be opened. `Build-DhTableSections` emits
+`button#tsect-toggle-<id>` and toggles visibility through `.open` on
+`div#tsect-body-<id>`; the 2.0.0 runtime rewrite bound `.table-collapse-toggle`,
+a class nothing emits. The 1.5.1 binding is back. Opening a folded table also
+re-renders it, so a virtualised table laid out at zero height measures
+correctly.
+
+### Fixed — table `-Charts`: `pie` drew a donut, everything else vanished
+
+The runtime rendered only `Type='pie'`, always as a donut, and silently dropped
+any other type (an AD report lost three charts this way).
+
+- A chart with **no** `Type` still draws a **donut**. Existing reports look the same.
+- **`Type='pie'` now draws a solid pie**, as the name says. If you relied on
+  `'pie'` giving a donut, change it to `'donut'`.
+- `Type` is case-insensitive and validated. `'bar'` is accepted but skipped with
+  a warning until 2.2.0 renders it. Any other value is skipped with a warning
+  instead of disappearing. Neither throws, so a script that runs today keeps
+  running.
+
+### Fixed — "jump to table" left the UI half-updated
+
+Alert-banner actions, summary-tile actions, status-grid cells and topology
+nodes each carried a copy of "show the table and set its filter". They set
+`filterText` directly, so the clear (×) button stayed hidden and charts
+linked to the table went stale. These are the same defects 2.1.3 fixed for
+pie and bar clicks. All four now call one function, `jumpToTable`, which
+filters through `applyTextFilter`. It also unfolds a collapsed table and
+scrolls it into view. It is exposed as `window._dhJumpToTable`.
+
+### Fixed — theme choice was lost on reload
+
+The theme toggle called `URLState.save()`, but the saved state had no theme
+key. The choice is now kept in the URL hash, which a shared link carries, and
+in `localStorage` (`dh-theme`), which keeps this browser's last choice. On
+load the URL hash wins over `localStorage`, and both win over the report's
+default. A small script in `<head>` applies the choice before first paint,
+so the page doesn't flash the other theme. The button now says `☾ Dark` /
+`☀ Light` instead of the internal theme name (`⇄ DefaultDark`).
+
+### Fixed — density toggle out of sync after a reload
+
+A restored density moved the body class but not the toggle's private
+counter. The first click after a reload then either did nothing visible or
+left two density classes on `<body>`. The two code paths also used
+different glyphs for "Spacious". There is now one `DENSITY` table and one
+position.
+
+### Fixed — CSV export ignored `-ExportFileName`
+
+XLSX and PDF used `-ExportFileName`; CSV used the table id. All three now
+use the same name.
+
+The right-click menu got two fixes along the way:
+
+- **Copy cell value** and **Copy table as CSV** fall back to
+  `execCommand('copy')` when `navigator.clipboard` is unavailable or refuses,
+  which can happen on `file://` pages. Before, nothing happened.
+- The menu items use classes instead of fixed ids, so a report with several
+  tables no longer contains duplicate DOM ids.
+
+### Added — export-time link check
+
+`Export-DhDashboard` now warns, rather than rendering a silent no-op, when a
+reference names a table that is not in the report. That covers:
+
+- a bar chart, pie chart or range bar `TableId`;
+- a filter-card `TargetTableId`;
+- a status-grid cell or topology node `LinkTableId`;
+- a summary-tile or alert-banner `Action.TableId`;
+- a `Set-DhTableLink` end.
+
+It also warns about a block with an unknown `BlockType`. Several of these
+were never checked at all. The others were checked only by the `Add-Dh*`
+cmdlet, and only when a table had already been added. The check runs on
+the finished report, so declaration order doesn't matter. A chart or
+filter card declared before its table renders correctly, which was checked
+in a browser. Warnings only, no new throws.
+
+### Changed
+
+- `esc()` also encodes `'` as `&#39;`. Every attribute in the runtime is
+  double-quoted, so no sink was affected; this is defence in depth.
+- **Performance:** each row render looked the row up with
+  `allData.indexOf(row)`, a linear scan, which made a render O(n²) on big
+  pages and virtual windows. A row→index map is now built once.
+- Help: `New-DhDashboard -NavTitle` no longer claims to default to `-Title`
+  (it defaults to no nav title, as it always has). README and help now say
+  "self-contained except the optional XLSX/PDF libraries" instead of
+  "no CDN": those two buttons load SheetJS / jsPDF from cdnjs (2.2.0 makes
+  this optional).
+
+### Tooling
+
+- `Add-DhRangeBar`, which shipped in 2.1.0, was missing from `Update-DhScript`
+  and `Tools/Test-DhV2Upgrade.ps1` (block cmdlet lists) and from
+  `Build-DhReference.ps1`. **DashHtml.Design 2.1.1.**
+
+### Tests
+
+- **`Tests/js/nav.test.js`** drives the **shipped** runtime under Node: it
+  extracts the nav matcher and the table-collapse binding from
+  `Get-DhJsNav.ps1` by their sentinel comments. A Pester wrapper generates
+  the truth table from the PowerShell `Test-DhNavMatch`, so the JS mirror is
+  pinned to the PowerShell source of truth; it is skipped when `node` is not
+  on PATH. Until now only a spike tested a private copy of the matcher.
+- New `Describe 'v2.1.4 fixes'`.
+- The duplicate-Id test now covers every block cmdlet (it said "all" but
+  covered 6).
+- New `Tests/DhTestHelpers.ps1` (`Export-DhTestHtml`, `Get-DhTestJsFunction`).
+
 ## [2.1.3]
 
 ### Fixed — `Add-DhBarChart -ClickFilters` never worked

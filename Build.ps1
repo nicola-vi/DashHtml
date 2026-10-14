@@ -121,11 +121,17 @@ function Copy-DhModuleToDist {
             Copy-Item -Destination $DestDir
     }
 
-    # Sub-folders (Public, Private, ...)
+    # Sub-folders (Public, Private, ...): only *.ps1, so stray backups and
+    # scratch files never ship.
+    # v2.2.0 - Vendor\ is the exception: it holds the export libraries that
+    # Export-DhDashboard -ExportLibraries Embed inlines, plus their licences,
+    # and must ship whole. Without this the staged module would silently lose
+    # them and Embed would fail on every machine that installed from dist\.
     foreach ($subDir in (Get-ChildItem -Path $SourceDir -Directory)) {
         $dest = Join-Path $DestDir $subDir.Name
         New-Item -ItemType Directory -Path $dest -Force | Out-Null
-        Get-ChildItem -Path $subDir.FullName -Filter '*.ps1' |
+        $filter = if ($subDir.Name -eq 'Vendor') { '*' } else { '*.ps1' }
+        Get-ChildItem -Path $subDir.FullName -Filter $filter -File |
             Copy-Item -Destination $dest
     }
 

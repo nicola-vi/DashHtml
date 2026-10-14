@@ -40,6 +40,15 @@ function Add-DhSummary {
               SparklineMin   = 0                         # optional Y-axis min (default: series min)
               SparklineMax   = 100                       # optional Y-axis max (default: series max)
               SparklineStyle = 'line'                    # 'line' (default) | 'area' | 'bars'
+
+              # ---- Tile style — optional ----
+              Style    = 'tile'           # 'tile' (default) | 'bignumber' | 'gauge' | 'verdict'
+              Caption  = '3 critical'     # bignumber / verdict: small text under the value
+
+              # ---- Verdict (v2.2.0) — Style='verdict', full-width overall assessment ----
+              Counts   = @{ critical=3; warning=5; info=2 }   # one chip per non-zero count
+                                          # (aliases high/medium/low accepted); without
+                                          # Class, the colour follows the worst count
           }
 
     .PARAMETER Collapsible
@@ -179,10 +188,35 @@ function Add-DhSummary {
             $t['Style'] = 'tile'
         } else {
             $style = ([string]$t['Style']).ToLowerInvariant()
-            if ($style -notin @('tile','bignumber','gauge')) {
-                throw "Add-DhSummary: tile '$($t.Label)' — Style must be 'tile', 'bignumber', or 'gauge'. Got: $($t['Style'])"
+            if ($style -notin @('tile','bignumber','gauge','verdict')) {
+                throw "Add-DhSummary: tile '$($t.Label)' — Style must be 'tile', 'bignumber', 'gauge' or 'verdict'. Got: $($t['Style'])"
             }
             $t['Style'] = $style
+        }
+
+        # ---- Verdict (v2.2.0) — full-width overall assessment with severity chips ----
+        # Counts=@{critical=3;warning=5;info=2;ok=0} (aliases high/medium/low
+        # accepted). Without an explicit Class the colour follows the worst
+        # non-zero count: critical -> cell-danger, warning -> cell-warn, else cell-ok.
+        if ($t['Style'] -eq 'verdict') {
+            $vc = [ordered]@{}
+            if ($t.Contains('Counts') -and $null -ne $t['Counts']) {
+                if ($t['Counts'] -isnot [System.Collections.IDictionary]) {
+                    throw "Add-DhSummary: tile '$($t.Label)' — Counts must be a hashtable like @{ critical=3; warning=5 }."
+                }
+                foreach ($k in $t['Counts'].Keys) {
+                    $sev = ConvertTo-DhSeverity -Severity ([string]$k) -Context "Add-DhSummary: tile '$($t.Label)' Counts"
+                    $cnt = 0
+                    if (-not [int]::TryParse([string]$t['Counts'][$k], [ref]$cnt) -or $cnt -lt 0) {
+                        throw "Add-DhSummary: tile '$($t.Label)' — Counts.$k must be a whole number >= 0. Got: $($t['Counts'][$k])"
+                    }
+                    $vc[$sev] = $(if ($vc.Contains($sev)) { $vc[$sev] } else { 0 }) + $cnt
+                }
+            }
+            $t['Counts'] = $vc
+            if ([string]::IsNullOrWhiteSpace([string]$t['Class'])) {
+                $t['Class'] = if ($vc['critical'] -gt 0) { 'cell-danger' } elseif ($vc['warning'] -gt 0) { 'cell-warn' } else { 'cell-ok' }
+            }
         }
 
         # Bignumber-specific: optional Caption (small text below the hero value)

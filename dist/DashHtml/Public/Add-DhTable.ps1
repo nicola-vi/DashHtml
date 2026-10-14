@@ -22,8 +22,14 @@ function Add-DhTable {
           Align       = 'right'           # 'left'(default) | 'center' | 'right'
 
           # Cell type
-          CellType    = 'progressbar'     # 'text'(default) | 'progressbar' | 'badge'
+          CellType    = 'progressbar'     # 'text'(default) | 'progressbar' | 'badge' | 'sparkline' | 'link'
           ProgressMax = 100               # denominator for progressbar
+
+          # Link cells (v2.2.0, CellType='link')
+          UrlField    = 'DocUrl'          # property holding the URL (default: this column's value);
+                                          #   may be a property that is not a visible column
+          LinkText    = 'MS Learn'        # fixed link text (default: the cell value)
+                                          # only http(s) and mailto URLs become links
 
           # Number / value formatting  (displayed in cell and exported)
           Format      = 'number'          # see Format values below
@@ -70,7 +76,13 @@ function Add-DhTable {
           RowHighlight = $true
 
     .PARAMETER Charts
-        Array of chart definitions: @{ Title='X'; Field='Y'; Type='pie' }
+        Array of chart definitions: @{ Title='X'; Field='Y'; Type='donut' }
+        Type is 'donut' (the default when omitted), 'pie' (solid, from 2.1.4)
+        or 'bar' (from 2.2.0). Any other Type is skipped with a warning.
+        A bar chart takes the optional keys of Add-DhBarChart:
+          @{ Field='Site'; Type='bar'; ValueField='DiskGB'; Aggregate='sum'; TopN=5; Unit='GB'; Decimals=0 }
+        Aggregate is count (default) | sum | avg | min | max; ValueField alone
+        means sum.
 
     .PARAMETER ExportFileName
         Custom base filename for downloaded exports (without extension).
@@ -190,10 +202,19 @@ function Add-DhTable {
         if (-not $c.Contains('CellType'))     { $c['CellType']     = 'text'     }
         # v1.4 F8 — explicit validation now that the set is widened to include 'sparkline'
         $ctNorm = ([string]$c['CellType']).ToLowerInvariant()
-        if ($ctNorm -notin @('text','progressbar','badge','sparkline')) {
-            throw "Add-DhTable: column '$($c.Field)' — CellType must be 'text', 'progressbar', 'badge', or 'sparkline'. Got: $($c['CellType'])"
+        if ($ctNorm -notin @('text','progressbar','badge','sparkline','link')) {
+            throw "Add-DhTable: column '$($c.Field)' — CellType must be 'text', 'progressbar', 'badge', 'sparkline' or 'link'. Got: $($c['CellType'])"
         }
         $c['CellType'] = $ctNorm
+
+        # v2.2.0 — link cells. UrlField names the property holding the URL
+        # (default: this column's own value); LinkText is fixed link text
+        # (default: the cell value). Only http(s) and mailto URLs become links,
+        # checked in the browser; anything else renders as plain text.
+        if ($ctNorm -eq 'link') {
+            $c['UrlField'] = if ($c.Contains('UrlField') -and -not [string]::IsNullOrWhiteSpace([string]$c['UrlField'])) { [string]$c['UrlField'] } else { [string]$c.Field }
+            $c['LinkText'] = if ($c.Contains('LinkText')) { [string]$c['LinkText'] } else { '' }
+        }
 
         # v1.4 F8 — sparkline-specific column keys
         # SortBy: how to reduce an array of values to a comparable scalar
@@ -259,10 +280,45 @@ function Add-DhTable {
         $h
     }
 
-    # Normalise charts
+    # v2.2.0 — a link column's UrlField must exist in the data (case-sensitive,
+    # as the browser reads it). Checked only when there is data to check.
+    if (@($normData).Count -gt 0) {
+        $dataFields = Get-DhTableFieldNames -Table @{ Id = $TableId; Columns = @($normCols); Data = @($normData) }
+        foreach ($c in @($normCols)) {
+            if ($c.CellType -eq 'link' -and $c.UrlField -cnotin $dataFields) {
+                throw "Add-DhTable: column '$($c.Field)' — UrlField '$($c.UrlField)' is not a property of the data. Fields: $($dataFields -join ', ')"
+            }
+        }
+    }
+
+    # Normalise charts.
+    # v2.1.4 - Type is validated. Before 2.1.4 the runtime rendered only 'pie'
+    # (always drawn as a donut) and silently dropped anything else. A missing
+    # Type still draws a donut, so existing reports look the same; an explicit
+    # 'pie' now draws a solid pie. Unknown types warn and are dropped rather
+    # than throwing, so a script that runs today keeps running.
+    # v2.2.0 - 'bar' renders, with optional ValueField / Aggregate / TopN /
+    # Unit / Decimals (same rules as Add-DhBarChart).
+    $thisTable = @{ Id = $TableId; Columns = @($normCols); Data = @($normData) }
     $normCharts = foreach ($ch in $Charts) {
         $c = @{} + $ch
-        if (-not $c.Contains('Type'))  { $c['Type']  = 'pie' }
+        $type = if ($c.Contains('Type') -and -not [string]::IsNullOrWhiteSpace([string]$c['Type'])) {
+            ([string]$c['Type']).Trim().ToLowerInvariant()
+        } else { 'donut' }
+        if ($type -eq 'bar') {
+            $aggDecl = Assert-DhBarAggregate -ValueField ([string]$c['ValueField']) -Aggregate ([string]$c['Aggregate']) `
+                           -Table $thisTable -Context "Add-DhTable '$TableId' chart '$($c['Field'])'"
+            $c['ValueField'] = $aggDecl.ValueField
+            $c['Aggregate']  = $aggDecl.Aggregate
+            $c['TopN']       = if ($c.Contains('TopN') -and [int]$c['TopN'] -ge 1) { [int]$c['TopN'] } else { 10 }
+            $c['Unit']       = if ($c.Contains('Unit')) { [string]$c['Unit'] } else { '' }
+            $c['Decimals']   = if ($c.Contains('Decimals') -and $null -ne $c['Decimals']) { [int]$c['Decimals'] } else { -1 }
+        }
+        if ($type -notin @('pie','donut','bar')) {
+            Write-Warning "Add-DhTable: '$TableId' chart '$($c['Field'])' has unknown Type '$($c['Type'])' (expected pie, donut or bar). The chart is skipped."
+            continue
+        }
+        $c['Type'] = $type
         if (-not $c.Contains('Title')) { $c['Title'] = $c['Field'] }
         $c
     }

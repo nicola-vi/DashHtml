@@ -103,6 +103,8 @@ function Add-DhFilterCard {
         }
     }
 
+    # Skipped while no table exists yet; Export-DhDashboard's link lint
+    # (v2.1.4) reports a TargetTableId that never gets a table.
     if ($Report.Tables -and -not ($Report.Tables | Where-Object { $_.Id -eq $TargetTableId })) {
         throw "Add-DhFilterCard: Target table '$TargetTableId' not found. Add the table before the filter grid."
     }

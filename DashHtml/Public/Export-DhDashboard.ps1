@@ -4,7 +4,8 @@ function Export-DhDashboard {
         Write the self-contained HTML dashboard to disk.
 
     .DESCRIPTION
-        Generates a single self-contained HTML file. Both the light and dark CSS
+        Generates a single HTML file, self-contained except for the optional
+        XLSX/PDF export libraries listed below. Both the light and dark CSS
         themes are embedded directly inside the HTML — no external CSS file is
         ever written. A toggle button in the nav bar lets viewers switch themes
         at runtime.
@@ -14,14 +15,16 @@ function Export-DhDashboard {
           - The full JavaScript table engine (sort / filter / page / link / export)
           - The logo as a Base64 data URI (if supplied to New-DhDashboard)
 
-        External JS libraries referenced from cdnjs (internet required for export):
+        XLSX and PDF export use three JavaScript libraries:
           - SheetJS  xlsx  v0.18.5  - XLSX export
           - jsPDF         v2.5.1   - PDF export
           - jsPDF-AutoTable v3.8.2 - PDF table formatting
+        -ExportLibraries decides how they reach the reader (v2.2.0). CSV export
+        needs none of them and always works.
 
-        If the machine opening the report has no internet access, CSV export
-        (pure JS, no CDN dependency) continues to work; XLSX and PDF buttons
-        will show an alert.
+        Every TableId / LinkTableId / Action.TableId that names a table not in
+        the report, and every unknown block type, is reported as a warning
+        (v2.1.4): in the browser each of them would be a silent no-op.
 
     .PARAMETER Report
         Dashboard object built with New-DhDashboard / Add-DhTable / Set-DhTableLink.
@@ -35,6 +38,24 @@ function Export-DhDashboard {
     .PARAMETER OpenInBrowser
         Attempt to open the dashboard in the default browser after writing.
 
+    .PARAMETER ExportLibraries
+        v2.2.0. How the XLSX / PDF export libraries reach the reader.
+          Cdn   (default) Loaded from cdnjs the first time a reader clicks XLSX
+                or PDF, checked against a pinned SRI hash. The page itself never
+                waits on the network. Offline, the two buttons turn grey and say
+                "Needs internet: use CSV".
+          Embed The libraries are inlined into the report (about 1.3 MB), so
+                XLSX and PDF work with no network at all. For air-gapped readers.
+          None  No XLSX or PDF buttons; CSV only.
+        Before 2.2.0 the libraries were blocking script tags in the page head,
+        so an offline reader waited for them to time out before the page
+        appeared.
+
+    .PARAMETER PrintMaxRows
+        v2.2.0. When the report is printed, each table prints its filtered rows
+        up to this many (default 200), with a note when rows were left out.
+        The interactive view is unaffected.
+
     .EXAMPLE
         Export-DhDashboard -Report $report -OutputPath 'C:\Reports\dashboard.html' -Force
         Export-DhDashboard -Report $report -OutputPath '.\report.html' -Force -OpenInBrowser
@@ -44,7 +65,11 @@ function Export-DhDashboard {
         [Parameter(Mandatory)] [System.Collections.Specialized.OrderedDictionary] $Report,
         [Parameter(Mandatory)] [string]    $OutputPath,
         [switch] $Force,
-        [switch] $OpenInBrowser
+        [switch] $OpenInBrowser,
+        [ValidateSet('Cdn','Embed','None')]
+        [string] $ExportLibraries = 'Cdn',
+        [ValidateRange(1, 100000)]
+        [int]    $PrintMaxRows = 200
     )
 
     # Resolve module version dynamically so the HTML footer stays accurate after bumps
@@ -65,6 +90,8 @@ function Export-DhDashboard {
     $theme          = if ($Report.Contains('Theme'))          { $Report.Theme          } else { 'DefaultLight' }
     $alternateTheme = if ($Report.Contains('AlternateTheme')) { $Report.AlternateTheme } else { 'DefaultDark'  }
     $themeFamily    = if ($Report.Contains('ThemeFamily'))    { $Report.ThemeFamily    } else { 'Default'      }
+    # v2.2.0 - opening theme when the reader has not chosen one (light | dark | auto)
+    $themeMode      = if ($Report.Contains('ThemeMode') -and $Report.ThemeMode -in 'light','dark','auto') { $Report.ThemeMode } else { 'light' }
     Write-Verbose "Export-DhDashboard: [CSS ] Themes embedded: $theme (light) + $alternateTheme (dark)"
 
     # ---- Build table JSON ---------------------------------------------------------
@@ -95,6 +122,8 @@ function Export-DhDashboard {
             # v1.4 F8 — sparkline cell column extras (sortBy + sparklineStyle)
             $sb  = if ($col.Contains('SortBy') -and $col.SortBy)         { ",`"sortBy`":$(ConvertTo-DhJsonString $col.SortBy)"                       } else { '' }
             $sps = if ($col.Contains('SparklineStyle') -and $col.SparklineStyle) { ",`"sparklineStyle`":$(ConvertTo-DhJsonString $col.SparklineStyle)" } else { '' }
+            # v2.2.0 — link cell extras (only on CellType='link' columns)
+            $sps += if ($col.Contains('UrlField') -and $col.UrlField) { ",`"urlField`":$(ConvertTo-DhJsonString $col.UrlField),`"linkText`":$(ConvertTo-DhJsonString $col.LinkText)" } else { '' }
 
             # Thresholds — supports both numeric (Min/Max) and string (Value) rules
             $thJson = ''
@@ -174,7 +203,12 @@ function Export-DhDashboard {
             $chartsJson = ($t.Charts | ForEach-Object {
                 $ch     = $_
                 $chType = if ($ch.Contains('Type') -and $ch.Type) { $ch.Type } else { 'pie' }
-                "{`"title`":$(ConvertTo-DhJsonString $ch.Title),`"field`":$(ConvertTo-DhJsonString $ch.Field),`"type`":$(ConvertTo-DhJsonString $chType)}"
+                # v2.2.0 - bar charts carry their aggregation and size
+                $barJson = ''
+                if ($chType -eq 'bar') {
+                    $barJson = ",`"valueField`":$(ConvertTo-DhJsonString $ch.ValueField),`"aggregate`":$(ConvertTo-DhJsonString $ch.Aggregate),`"topN`":$([int]$ch.TopN),`"unit`":$(ConvertTo-DhJsonString $ch.Unit),`"decimals`":$([int]$ch.Decimals)"
+                }
+                "{`"title`":$(ConvertTo-DhJsonString $ch.Title),`"field`":$(ConvertTo-DhJsonString $ch.Field),`"type`":$(ConvertTo-DhJsonString $chType)$barJson}"
             }) -join ','
         }
 
@@ -202,80 +236,21 @@ function Export-DhDashboard {
     # ---- Build summary JSON --------------------------------------------------------
     $summaryConfigJson = '[]'
     if ($Report.Contains('Summary') -and $Report.Summary.Count -gt 0) {
-        $summaryItems = ($Report.Summary | ForEach-Object {
-            $s = $_
-            $val = if ($null -eq $s.Value) { 'null' } `
-                   elseif ($s.Value -is [bool])    { $s.Value.ToString().ToLower() } `
-                   elseif ($s.Value -is [int] -or $s.Value -is [long] -or $s.Value -is [double] -or $s.Value -is [float] -or $s.Value -is [decimal]) { [string]$s.Value } `
-                   else { ConvertTo-DhJsonString ([string]$s.Value) }
-            $dec = if ($s.Contains('Decimals') -and $s.Decimals -ge 0) { $s.Decimals } else { -1 }
-
-            # Trend / delta (v1.4 F1) — emit only when Previous or an explicit Trend is supplied
-            $deltaJson = ''
-            $hasPrev   = $s.Contains('Previous')   -and $null -ne $s.Previous
-            $hasTrend  = $s.Contains('Trend')      -and $s.Trend -ne 'auto'
-            if ($hasPrev -or $hasTrend) {
-                $prevJson = if ($hasPrev) { [string]$s.Previous } else { 'null' }
-                $trendStr = if ($s.Contains('Trend') -and $s.Trend) { [string]$s.Trend } else { 'auto' }
-                $tigJson  = if ($null -ne $s.TrendIsGood) { ([bool]$s.TrendIsGood).ToString().ToLower() } else { 'null' }
-                $dfStr    = if ($s.Contains('DeltaFormat') -and $s.DeltaFormat) { [string]$s.DeltaFormat } else { 'both' }
-                $deltaJson = ",`"previous`":$prevJson,`"trend`":$(ConvertTo-DhJsonString $trendStr),`"trendIsGood`":$tigJson,`"deltaFormat`":$(ConvertTo-DhJsonString $dfStr)"
-            }
-
-            # Sparkline (v1.4 F2) — emit only when the series is non-empty
-            $sparkJson = ''
-            if ($s.Contains('Sparkline') -and $s.Sparkline -and @($s.Sparkline).Count -gt 0) {
-                $sparkValues  = ((@($s.Sparkline) | ForEach-Object { [string]$_ }) -join ',')
-                $sparkMinJson = if ($null -ne $s.SparklineMin) { [string]$s.SparklineMin } else { 'null' }
-                $sparkMaxJson = if ($null -ne $s.SparklineMax) { [string]$s.SparklineMax } else { 'null' }
-                $sparkStyle   = if ($s.Contains('SparklineStyle') -and $s.SparklineStyle) { [string]$s.SparklineStyle } else { 'line' }
-                $sparkJson = ",`"sparkline`":[$sparkValues],`"sparklineMin`":$sparkMinJson,`"sparklineMax`":$sparkMaxJson,`"sparklineStyle`":$(ConvertTo-DhJsonString $sparkStyle)"
-            }
-
-            # Tile style (v1.4 F3 + F4) — always emit; default 'tile' preserves the existing renderer
-            $styleStr = if ($s.Contains('Style') -and $s.Style) { [string]$s.Style } else { 'tile' }
-            $styleJson = ",`"style`":$(ConvertTo-DhJsonString $styleStr)"
-
-            # Bignumber caption (only when style is bignumber and caption is set)
-            $captionJson = ''
-            if ($styleStr -eq 'bignumber' -and $s.Contains('Caption') -and -not [string]::IsNullOrWhiteSpace([string]$s.Caption)) {
-                $captionJson = ",`"caption`":$(ConvertTo-DhJsonString $s.Caption)"
-            }
-
-            # Gauge fields (only when style is gauge)
-            $gaugeJson = ''
-            if ($styleStr -eq 'gauge') {
-                $minJson  = if ($null -ne $s.Min)  { [string]$s.Min }  else { '0' }
-                $maxJson  = if ($null -ne $s.Max)  { [string]$s.Max }  else { '100' }
-                $unitStr  = if ($s.Contains('Unit') -and $s.Unit) { [string]$s.Unit } else { '' }
-                $thJson   = ''
-                if ($s.Contains('Thresholds') -and @($s.Thresholds).Count -gt 0) {
-                    $thItems = (@($s.Thresholds) | ForEach-Object {
-                        $th = $_
-                        $minPart = if ($th.Contains('Min')) { "`"min`":$([string]$th.Min)," } else { '' }
-                        $maxPart = if ($th.Contains('Max')) { "`"max`":$([string]$th.Max)," } else { '' }
-                        "{$minPart$maxPart`"class`":$(ConvertTo-DhJsonString $th.Class)}"
-                    }) -join ','
-                    $thJson = ",`"thresholds`":[$thItems]"
-                } else {
-                    $thJson = ',"thresholds":[]'
-                }
-                # ragNoData (v1.4 F13) — when true the gauge paints itself cell-nodata
-                # if the value is null/NaN or outside [min,max]
-                $rndJson = if ($s.Contains('RagNoData') -and $s.RagNoData) { ',"ragNoData":true' } else { '' }
-                $gaugeJson = ",`"min`":$minJson,`"max`":$maxJson,`"unit`":$(ConvertTo-DhJsonString $unitStr)$thJson$rndJson"
-            }
-
-            # Per-tile Action (v1.4.2 — click-to-jump) — emit only when set
-            $actionJson = ''
-            if ($s.Contains('Action') -and $null -ne $s.Action) {
-                $a = $s.Action
-                $actionJson = ",`"action`":{`"label`":$(ConvertTo-DhJsonString $a.Label),`"tableId`":$(ConvertTo-DhJsonString $a.TableId),`"filter`":$(ConvertTo-DhJsonString $a.Filter),`"url`":$(ConvertTo-DhJsonString $a.Url)}"
-            }
-
-            "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $s.Icon),`"subLabel`":$(ConvertTo-DhJsonString $s.SubLabel),`"class`":$(ConvertTo-DhJsonString $s.Class),`"format`":$(ConvertTo-DhJsonString $s.Format),`"locale`":$(ConvertTo-DhJsonString $s.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $s.Currency)$styleJson$captionJson$gaugeJson$deltaJson$sparkJson$actionJson}"
-        }) -join ','
+        # v2.2.0 - one serialiser for both strips (Private/ConvertTo-DhTileJson.ps1)
+        $summaryItems = ($Report.Summary | ForEach-Object { ConvertTo-DhTileJson -Item $_ }) -join ','
         $summaryConfigJson = "[$summaryItems]"
+    }
+
+    # ---- Cross-reference lint (v2.1.4) -----------------------------------------
+    # A TableId / LinkTableId / Action.TableId naming a table that does not
+    # exist, or an unknown BlockType, renders as a silent no-op in the browser.
+    # Warn here, against the finished report, whatever the declaration order.
+    # Keep this list in sync with the switch below.
+    $knownBlockTypes = @('html','collapsible','filtercardgrid','barchart','heatmap','rangebar','tabs',
+                         'topologymap','statusgrid','summarystrip','eventfeed','linechart','bullet','piechart',
+                         'findings')
+    foreach ($msg in (Test-DhReportLinks -Report $Report -KnownBlockTypes $knownBlockTypes)) {
+        Write-Warning "Export-DhDashboard: $msg"
     }
 
     # ---- Build blocks JSON ---------------------------------------------------------
@@ -321,7 +296,13 @@ function Export-DhDashboard {
                     $stStr   = if ($b.Contains('Stacked'))     { ([bool]$b.Stacked).ToString().ToLower() } else { 'false' }
                     $sfStr   = if ($b.Contains('SeriesField') -and $b.SeriesField) { [string]$b.SeriesField } else { '' }
                     $stacked = ",`"stacked`":$stStr,`"seriesField`":$(ConvertTo-DhJsonString $sfStr)"
-                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr$stacked,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
+                    # v2.2.0 - value aggregation; emitted only when it is not the
+                    # default row count, so a counting chart's JSON is unchanged
+                    $aggJson = ''
+                    if ($b.Contains('Aggregate') -and $b.Aggregate -and $b.Aggregate -ne 'count') {
+                        $aggJson = ",`"valueField`":$(ConvertTo-DhJsonString $b.ValueField),`"aggregate`":$(ConvertTo-DhJsonString $b.Aggregate),`"unit`":$(ConvertTo-DhJsonString $b.Unit),`"decimals`":$([int]$b.Decimals)"
+                    }
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr$stacked$aggJson,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'heatmap' {
                     # v1.5 — rows × columns matrix with sequential / diverging colour scale.
@@ -408,76 +389,8 @@ function Export-DhDashboard {
                     # differs (per-block instead of #report-summary).
                     $stItems = ''
                     if ($b.Items -and @($b.Items).Count -gt 0) {
-                        $stItems = (@($b.Items) | ForEach-Object {
-                            $it = $_
-
-                            # Mirrors the summary-tile JSON in $summaryItems above —
-                            # delta + sparkline + style + gauge fields all included.
-                            $val = if ($null -eq $it.Value) { 'null' } `
-                                   elseif ($it.Value -is [bool])    { $it.Value.ToString().ToLower() } `
-                                   elseif ($it.Value -is [int] -or $it.Value -is [long] -or $it.Value -is [double] -or $it.Value -is [float] -or $it.Value -is [decimal]) { [string]$it.Value } `
-                                   else { ConvertTo-DhJsonString ([string]$it.Value) }
-                            $dec = if ($it.Contains('Decimals') -and $it.Decimals -ge 0) { $it.Decimals } else { -1 }
-
-                            # Trend / delta
-                            $deltaJson2 = ''
-                            $hasPrev2   = $it.Contains('Previous')   -and $null -ne $it.Previous
-                            $hasTrend2  = $it.Contains('Trend')      -and $it.Trend -ne 'auto'
-                            if ($hasPrev2 -or $hasTrend2) {
-                                $prevJson2 = if ($hasPrev2) { [string]$it.Previous } else { 'null' }
-                                $trendStr2 = if ($it.Contains('Trend') -and $it.Trend) { [string]$it.Trend } else { 'auto' }
-                                $tigJson2  = if ($null -ne $it.TrendIsGood) { ([bool]$it.TrendIsGood).ToString().ToLower() } else { 'null' }
-                                $dfStr2    = if ($it.Contains('DeltaFormat') -and $it.DeltaFormat) { [string]$it.DeltaFormat } else { 'both' }
-                                $deltaJson2 = ",`"previous`":$prevJson2,`"trend`":$(ConvertTo-DhJsonString $trendStr2),`"trendIsGood`":$tigJson2,`"deltaFormat`":$(ConvertTo-DhJsonString $dfStr2)"
-                            }
-
-                            # Sparkline
-                            $sparkJson2 = ''
-                            if ($it.Contains('Sparkline') -and $it.Sparkline -and @($it.Sparkline).Count -gt 0) {
-                                $sparkValues2 = ((@($it.Sparkline) | ForEach-Object { [string]$_ }) -join ',')
-                                $sparkMinJson2 = if ($null -ne $it.SparklineMin) { [string]$it.SparklineMin } else { 'null' }
-                                $sparkMaxJson2 = if ($null -ne $it.SparklineMax) { [string]$it.SparklineMax } else { 'null' }
-                                $sparkStyle2   = if ($it.Contains('SparklineStyle') -and $it.SparklineStyle) { [string]$it.SparklineStyle } else { 'line' }
-                                $sparkJson2 = ",`"sparkline`":[$sparkValues2],`"sparklineMin`":$sparkMinJson2,`"sparklineMax`":$sparkMaxJson2,`"sparklineStyle`":$(ConvertTo-DhJsonString $sparkStyle2)"
-                            }
-
-                            # Style + style-specific fields (bignumber caption, gauge fields)
-                            $styleStr2  = if ($it.Contains('Style') -and $it.Style) { [string]$it.Style } else { 'tile' }
-                            $styleJson2 = ",`"style`":$(ConvertTo-DhJsonString $styleStr2)"
-                            $captionJson2 = ''
-                            if ($styleStr2 -eq 'bignumber' -and $it.Contains('Caption') -and -not [string]::IsNullOrWhiteSpace([string]$it.Caption)) {
-                                $captionJson2 = ",`"caption`":$(ConvertTo-DhJsonString $it.Caption)"
-                            }
-                            $gaugeJson2 = ''
-                            if ($styleStr2 -eq 'gauge') {
-                                $minJson2 = if ($null -ne $it.Min) { [string]$it.Min } else { '0' }
-                                $maxJson2 = if ($null -ne $it.Max) { [string]$it.Max } else { '100' }
-                                $unitStr2 = if ($it.Contains('Unit') -and $it.Unit) { [string]$it.Unit } else { '' }
-                                $thJson2  = ''
-                                if ($it.Contains('Thresholds') -and @($it.Thresholds).Count -gt 0) {
-                                    $thItems2 = (@($it.Thresholds) | ForEach-Object {
-                                        $th = $_
-                                        $minPart = if ($th.Contains('Min')) { "`"min`":$([string]$th.Min)," } else { '' }
-                                        $maxPart = if ($th.Contains('Max')) { "`"max`":$([string]$th.Max)," } else { '' }
-                                        "{$minPart$maxPart`"class`":$(ConvertTo-DhJsonString $th.Class)}"
-                                    }) -join ','
-                                    $thJson2 = ",`"thresholds`":[$thItems2]"
-                                } else {
-                                    $thJson2 = ',"thresholds":[]'
-                                }
-                                $rndJson2 = if ($it.Contains('RagNoData') -and $it.RagNoData) { ',"ragNoData":true' } else { '' }
-                                $gaugeJson2 = ",`"min`":$minJson2,`"max`":$maxJson2,`"unit`":$(ConvertTo-DhJsonString $unitStr2)$thJson2$rndJson2"
-                            }
-
-                            # Per-tile Action (v1.4.2) — same shape as the top-of-page strip
-                            $actionJson2 = ''
-                            if ($it.Contains('Action') -and $null -ne $it.Action) {
-                                $a2 = $it.Action
-                                $actionJson2 = ",`"action`":{`"label`":$(ConvertTo-DhJsonString $a2.Label),`"tableId`":$(ConvertTo-DhJsonString $a2.TableId),`"filter`":$(ConvertTo-DhJsonString $a2.Filter),`"url`":$(ConvertTo-DhJsonString $a2.Url)}"
-                            }
-
-                            "{`"label`":$(ConvertTo-DhJsonString $it.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $it.Icon),`"subLabel`":$(ConvertTo-DhJsonString $it.SubLabel),`"class`":$(ConvertTo-DhJsonString $it.Class),`"format`":$(ConvertTo-DhJsonString $it.Format),`"locale`":$(ConvertTo-DhJsonString $it.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $it.Currency)$styleJson2$captionJson2$gaugeJson2$deltaJson2$sparkJson2$actionJson2}"
-                        }) -join ','
+                        # v2.2.0 - same serialiser as the top-of-page strip
+                        $stItems = (@($b.Items) | ForEach-Object { ConvertTo-DhTileJson -Item $_ }) -join ','
                     }
                     $collStr = ([bool]$b.Collapsible).ToString().ToLower()
                     $doStr   = ([bool]$b.DefaultOpen).ToString().ToLower()
@@ -560,6 +473,22 @@ function Export-DhDashboard {
                     }
                     "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"style`":$(ConvertTo-DhJsonString $b.Style),`"mode`":$(ConvertTo-DhJsonString $b.Mode),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"clickFilters`":$cfStr,`"slices`":[$slicesJson],`"showTotal`":$stStr,`"showLegend`":$slStr,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
+                'findings' {
+                    # v2.2.0 - Add-DhFindings
+                    $fJson = (@($b.Findings) | ForEach-Object {
+                        $f = $_
+                        $affJson  = (@($f.Affected) | ForEach-Object { ConvertTo-DhJsonString $_ }) -join ','
+                        $refsJson = (@($f.References) | ForEach-Object { "{`"label`":$(ConvertTo-DhJsonString $_.Label),`"url`":$(ConvertTo-DhJsonString $_.Url)}" }) -join ','
+                        "{`"id`":$(ConvertTo-DhJsonString $f.Id),`"severity`":$(ConvertTo-DhJsonString $f.Severity),`"title`":$(ConvertTo-DhJsonString $f.Title),`"area`":$(ConvertTo-DhJsonString $f.Area),`"description`":$(ConvertTo-DhJsonString $f.Description),`"recommendation`":$(ConvertTo-DhJsonString $f.Recommendation),`"affected`":[$affJson],`"affectedCount`":$([int]$f.AffectedCount),`"affectedTableId`":$(ConvertTo-DhJsonString $f.AffectedTableId),`"affectedFilter`":$(ConvertTo-DhJsonString $f.AffectedFilter),`"references`":[$refsJson]}"
+                    }) -join ','
+                    $expJson = (@($b.ExpandSeverity) | ForEach-Object { ConvertTo-DhJsonString $_ }) -join ','
+                    $scJson  = ([bool]$b.ShowCounters).ToString().ToLower()
+                    $fiJson  = ([bool]$b.Filterable).ToString().ToLower()
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"groupBy`":$(ConvertTo-DhJsonString $b.GroupBy),`"showCounters`":$scJson,`"filterable`":$fiJson,`"expandSeverity`":[$expJson],`"maxAffectedShown`":$([int]$b.MaxAffectedShown),`"findings`":[$fJson],`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
+                }
+                # An unknown BlockType emits nothing; Test-DhReportLinks above
+                # has already warned about it.
+                default { }
             }
         }) -join ','
         $blocksConfigJson = "[$blockItems]"
@@ -616,12 +545,23 @@ function Export-DhDashboard {
     $js = [regex]::Replace($js,    '/\*%%ALERTS_CONFIG%%\*/\[\]',  { param($m) $alertsConfigJson  })
     $js = [regex]::Replace($js,    '/\*%%GLOBALFILTER_CONFIG%%\*/\[\]', { param($m) $globalFilterJson })
 
+    # v2.2.0 - export libraries and print settings
+    $libMode         = $ExportLibraries.ToLowerInvariant()
+    $exportLibsJson  = Get-DhExportLibraryConfigJson -Mode $libMode
+    $printCoverJson  = if ($Report.Contains('PrintCover') -and $Report.PrintCover) { 'true' } else { 'false' }
+    $printConfigJson = "{`"maxRows`":$PrintMaxRows,`"cover`":$printCoverJson,`"title`":$(ConvertTo-DhJsonString $Report.Title)}"
+    $js = [regex]::Replace($js, '/\*%%EXPORT_LIBS%%\*/\{[^\n]*?\}\};', { param($m) "$exportLibsJson;" })
+    $js = [regex]::Replace($js, '/\*%%PRINT_CONFIG%%\*/\{[^\n]*?\};',  { param($m) "$printConfigJson;" })
+    $embeddedLibs    = if ($libMode -eq 'embed') { Get-DhEmbeddedExportLibraries } else { '' }
+
     # ---- Build theme style tag (light primary, dark alternate, always embedded) --
     $primaryCss    = Get-DhThemeCss -Theme $theme
     $alternateCss  = Get-DhThemeCss -Theme $alternateTheme
     $themeStyleTag = @"
   <style id="theme-primary"   data-theme="$theme">$primaryCss</style>
   <style id="theme-alternate" data-theme="$alternateTheme" media="none">$alternateCss</style>
+  <script>/* v2.1.4 - apply a saved theme before first paint (URL hash, then localStorage, then -ThemeMode). The runtime re-applies it and labels the toggle. */
+  (function(){try{var m='',h=decodeURIComponent((location.hash||'').replace('#',''));if(h&&h.charAt(0)==='{'){var s=JSON.parse(h);if(s.theme==='light'||s.theme==='dark')m=s.theme;}if(!m){var l=window.localStorage?localStorage.getItem('dh-theme'):null;if(l==='light'||l==='dark')m=l;}if(!m){var d=document.documentElement.getAttribute('data-theme-mode');if(d==='dark')m='dark';else if(d==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)m='dark';}if(m==='dark'){document.getElementById('theme-primary').media='none';document.getElementById('theme-alternate').media='';}}catch(e){}})();</script>
 "@
 
     # ---- Logo HTML ---------------------------------------------------------------
@@ -700,7 +640,7 @@ function Export-DhDashboard {
 
     # ---- Table section shells ---------------------------------------------------
     $tableSections = if ($Report.Tables.Count -gt 0) {
-        Build-DhTableSections -Tables $Report.Tables -NavInitialPath $navInitial -NavSeq $navSeq
+        Build-DhTableSections -Tables $Report.Tables -NavInitialPath $navInitial -NavSeq $navSeq -ExportLibraries $libMode
     } else { '' }
 
     # Build block section HTML shells
@@ -746,7 +686,7 @@ function Export-DhDashboard {
     # ---- Assemble HTML ----------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme-mode="$themeMode">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -755,15 +695,9 @@ function Export-DhDashboard {
 $autoRefreshTag
   <title>$([System.Web.HttpUtility]::HtmlEncode($Report.Title))</title>
 $themeStyleTag
-  <!-- Export libraries (cdnjs - internet required for XLSX/PDF export).
-       v1.5.3: SRI integrity= attributes pinned so a compromised CDN cannot inject
-       arbitrary script. Hashes are tied to the exact versions below; bumping a
-       library version requires regenerating the matching sha384 base64 digest. -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <!-- Bridge: jsPDF 2.x UMD exposes window.jspdf.jsPDF but AutoTable looks for window.jsPDF -->
-  <script>if(window.jspdf&&window.jspdf.jsPDF&&!window.jsPDF){window.jsPDF=window.jspdf.jsPDF;}</script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- v2.2.0: no blocking export-library tags here any more. -ExportLibraries Cdn
+       loads them on first XLSX/PDF click (SRI-pinned); Embed inlines them at the end
+       of <body>; None removes the two buttons. -->
 </head>
 <body>
 
@@ -791,6 +725,7 @@ $themeStyleTag
       <button class="nav-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679; Top</button>
       <button class="nav-utility-btn" id="btn-density-toggle" title="Toggle table row density">&#8862; Normal</button>
       <button class="nav-utility-btn" id="btn-theme-toggle" data-primary="$theme" data-alternate="$alternateTheme" title="Toggle theme">&#9790; Dark</button>
+      <button class="nav-utility-btn" id="btn-print" type="button" title="Print, or save as PDF from the print dialog">&#128424; Print</button>
     </div>
     <div class="nav-strips" id="nav-strips"></div>
     <div class="nav-crumb" id="nav-crumb" style="display:none" aria-label="Breadcrumb"></div>
@@ -812,7 +747,7 @@ $tableSections
   <script>
 $js
   </script>
-</body>
+$embeddedLibs</body>
 </html>
 "@
 

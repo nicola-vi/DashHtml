@@ -1,6 +1,6 @@
 # DashHtml
 
-A PowerShell 7 module for generating **interactive, self-contained HTML dashboards** from any structured data — sortable/filterable tables, KPI tiles, bar charts, collapsible sections, and clickable filter cards. The output is a single HTML file with all data and styles embedded — no external dependencies at viewing time.
+A PowerShell 7 module for generating **interactive, self-contained HTML dashboards** from any structured data — sortable/filterable tables, KPI tiles, bar charts, collapsible sections, and clickable filter cards. The output is a single HTML file with all data, styles and script embedded. The only external requests are the optional XLSX/PDF export libraries (cdnjs); everything else works offline.
 
 ---
 
@@ -17,10 +17,12 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 - **Two-tier (or three-tier) navigation** — flat nav, grouped primary-tabs + subnav strip, optional subgroup pills
 - **Per-NavGroup summary strips and alert banners** — each panel gets its own KPI hero row and banner set
 - **Auto-refresh** — `New-DhDashboard -AutoRefresh '30s' / '5m' / '1h'` for wall-display ops dashboards
-- **Client-side export** — CSV (no CDN), XLSX and PDF (cdnjs, requires internet)
-- **Light/dark theme toggle** — both variants embedded, switchable at runtime
+- **Assessment reports (2.2+)** — `Add-DhFindings` (severity, description, recommendation, affected objects, "show in table", reference links), a full-width **verdict** tile, and bar charts that **measure a value** (sum / average / min / max) instead of counting rows
+- **Print and PDF (2.2+)** — a Print button; printed output shows every section in menu order, every finding expanded, tables unpaged, an optional cover page
+- **Client-side export** — CSV (built in, works offline), XLSX and PDF. The XLSX/PDF libraries load from cdnjs on first click, or are embedded for air-gapped readers (`Export-DhDashboard -ExportLibraries Cdn|Embed|None`, 2.2+)
+- **Light/dark theme toggle** — both variants embedded, switchable at runtime; the reader's choice is remembered (2.1.4+), and `New-DhDashboard -ThemeMode Light|Dark|Auto` sets the default (2.2+)
 - **Six theme families** — Default, Azure, VMware, Grey, Company, Rag (the v1.4 family using the Office/Excel-compatible RAG palette)
-- **Column features** — progress bars, badges, threshold colouring (unified `-Rag` parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells
+- **Column features** — progress bars, badges, link cells (2.2+), threshold colouring (unified `-Rag` parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells
 
 ---
 
@@ -92,15 +94,18 @@ Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenIn
 
 ## Declaration order (important)
 
-**Always declare a table _before_ any object that references it.** This is the single most common source of "filter does nothing" / "chart is empty" / "link broken" issues.
+**Declare a table _before_ any object that references it.** It is the safe habit, because the cmdlets below check the table id when they run:
 
-The cmdlets below depend on a previously declared table identified by its `-TableId` / `-TargetTableId` / `-MasterTableId` / `-DetailTableId`. If the referenced table has not been added yet when the dependent cmdlet runs, the binding silently fails (the referenced data simply isn't available to bind against):
+- If **other** tables already exist but this one does not yet, the cmdlet **throws** ("Source table not found").
+- If **no** table exists yet, the check is skipped. The chart still works: the browser renders table-fed charts after every table is loaded.
+- Since 2.1.4, `Export-DhDashboard` **warns** about every reference to a table that never appears in the report, whatever the order. In the browser those would be silent no-ops.
 
 | Dependent cmdlet | Depends on |
 |------------------|------------|
-| `Add-DhFilterCard` | `-TargetTableId` must already exist |
-| `Add-DhBarChart` | `-TableId` must already exist |
-| `Set-DhTableLink` | both `-MasterTableId` and `-DetailTableId` must already exist |
+| `Add-DhFilterCard` | `-TargetTableId` |
+| `Add-DhBarChart` | `-TableId` (and `-ValueField` must be a field of that table) |
+| `Add-DhPieChart` (from a table) | `-TableId` |
+| `Set-DhTableLink` | both `-MasterTableId` and `-DetailTableId` (always throws if either is missing) |
 
 ### Correct order
 
@@ -115,7 +120,7 @@ Add-DhBarChart   -Report $report -Id 'status-bc' -TableId 'items' -Field 'Status
 Set-DhTableLink  -Report $report -MasterTableId 'groups' -DetailTableId 'items' -MasterField 'GroupId' -DetailField 'GroupId'
 ```
 
-### Wrong order (filter / chart / link will not work)
+### Wrong order (throws when another table already exists)
 
 ```powershell
 # ❌ FilterCard declared before its target table
@@ -149,6 +154,9 @@ When using `-NavGroup`, a filter card or bar chart will still render **above** i
 | `Add-DhHeatmap` *(v1.5)* | Add a rows × columns numeric heatmap (sequential / diverging colour scale) |
 | `Add-DhTopologyMap` *(v1.5)* | Add a parent-child topology tree (AD forest, vCenter cluster, etc.) |
 | `Add-DhTabs` *(v1.5)* | Add an inline tabbed content block (local pivot within one section) |
+| `Add-DhGlobalFilter` *(v1.9)* | Add a page-level filter (dropdown or date range) that filters every table with that field |
+| `Add-DhRangeBar` *(v2.1)* | Add min / avg / max range bars on a shared 0–100 axis |
+| `Add-DhFindings` *(v2.2)* | Add assessment findings: severity, description, recommendation, affected objects, references |
 | `Set-DhTableLink` | Link a master table to a detail table |
 | `Export-DhDashboard` | Write the self-contained HTML file |
 | `Get-DhTheme` | List or inspect built-in theme families |
@@ -249,6 +257,11 @@ Every theme now defines `--cell-nodata-fg` / `--cell-nodata-bg` so missing / unm
 
 ---
 
+### Opening theme: `-ThemeMode` (2.2+)
+
+`New-DhDashboard -ThemeMode Light|Dark|Auto` sets the theme a report opens in. The default is `Light`, as before. `Auto` follows the reader's system light/dark setting, live, until they use the toggle. A choice made with the toggle always wins: it is kept in the URL, so a shared link carries it, and in the browser's local storage, since 2.1.4.
+---
+
 ## Tables
 
 ### Basic table
@@ -318,6 +331,18 @@ Add-DhTable -Report $report -TableId 'accessi' -Title 'Access by user' -Data $ro
 
 Nothing needs enabling — this applies to every text column in every table.
 
+### Link cells (2.2+)
+
+`CellType='link'` turns a column into links. The URL comes from `UrlField`, which can be a property that is not a visible column; the default is the column's own value. `LinkText` sets fixed link text; the default is the cell value.
+
+```powershell
+-Columns @(
+    @{ Field='Check'; Label='Check' }
+    @{ Field='Reference'; Label='Reference'; CellType='link'; UrlField='DocUrl'; LinkText='Microsoft Learn' }
+)
+```
+
+Only `http:`, `https:` and `mailto:` URLs become links. Anything else, `javascript:` included, renders as plain text. Links open in a new tab with `rel="noopener noreferrer"`. `UrlField` must exist in the data.
 ### Sparkline cells (v1.4+)
 
 Set `CellType='sparkline'` and feed the column **arrays** of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (`SPARK.build`), so the look stays consistent between summary tiles and table cells.
@@ -449,7 +474,7 @@ NavGroup-specific keys:
 
 ### Tile styles (v1.4+)
 
-By default each item renders as the compact tile that has shipped since 1.3.x. Pass `Style='bignumber'` or `Style='gauge'` to switch to one of the new variants for hero metrics or threshold visualisations.
+By default each item renders as the compact tile that has shipped since 1.3.x. Pass `Style='bignumber'`, `Style='gauge'` or (2.2+) `Style='verdict'` to switch to one of the other variants for hero metrics, threshold visualisations or an overall assessment.
 
 ```powershell
 Add-DhSummary -Report $report -Items @(
@@ -483,6 +508,14 @@ Add-DhSummary -Report $report -Items @(
 - `'tile'` (default) — the compact strip tile.
 - `'bignumber'` — full-width tile, 2.4–3.6rem value typography, optional `Caption` line.
 - `'gauge'` — 140×80 semicircle SVG, background arc + filled arc coloured by the matching threshold. Defaults `Min=0`, `Max=100`. `Unit` is appended after the centre readout. `Value` must be numeric.
+- `'verdict'` *(2.2+)* — full-width overall assessment: a text `Value` ("Action required"), an optional `Caption`, and one chip per non-zero severity in `Counts=@{ critical=2; warning=5; info=1 }` (aliases `high` / `medium` / `low` accepted). Without a `Class` the colour follows the worst count: critical → `cell-danger`, warning → `cell-warn`, otherwise `cell-ok`. With `New-DhDashboard -PrintCover` the first verdict tile is repeated on the printed cover page.
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+    @{ Style='verdict'; Label='Overall'; Value='Action required'
+       Caption='Fix the critical findings first.'; Counts=@{ critical=2; warning=5; info=1 } }
+)
+```
 
 **Threshold matching:** mirrors `Add-DhTable` column thresholds. A band matches when `Min ≤ value < Max` (either bound may be omitted). When multiple bands match, the one with the highest `Min` wins — so the spec-friendly "Min-only" pattern in the example above does the intuitive thing.
 
@@ -632,10 +665,33 @@ Add-DhBarChart -Report $report -Id 'region-chart' `
     -Title 'Items by Region' `
     -TableId 'items' -Field 'Region' -ClickFilters
 
+# v2.2 — bars that measure a value: average lag per DC, in minutes
+Add-DhBarChart -Report $report -Id 'lag' -Title 'Replication lag by DC' `
+    -TableId 'repl' -Field 'DC' -ValueField 'LagMinutes' -Aggregate avg -Unit 'min' -Decimals 1
+
 # v1.4 — stacked: bars represent Region, segments coloured by Status
 Add-DhBarChart -Report $report -Id 'by-region-stacked' `
     -Title 'Items by Region (stacked by Status)' `
     -TableId 'items' -Field 'Region' -SeriesField 'Status' -Stacked
+```
+
+**Value aggregation (2.2+):** by default each bar is the number of rows in its group. `-ValueField` with `-Aggregate sum|avg|min|max` makes each bar the sum, average, minimum or maximum of a numeric column instead. Use it whenever the title promises a quantity ("lag in minutes", "GB used"); a counting chart under such a title shows the wrong number.
+
+- `-ValueField` on its own means `sum`. Any aggregate other than `count` needs a `-ValueField`.
+- `-ValueField` must be a field of the table. It is case-sensitive, and a property that is not a visible column also works.
+- Non-numeric and empty values are ignored. A group with no numeric value at all is left out of `avg` / `min` / `max`.
+- `-Unit 'ms'` is appended to the value. `-Decimals n` fixes the decimal places; by default `avg` shows up to 2 decimals and the others up to 3.
+- `-ShowPercent` is a share of the row count for `count` and of the grand total for `sum`. It is not shown for `avg` / `min` / `max`, because "percent of total" has no meaning there.
+- Stacked charts allow `count` or `sum`. With `sum` the segments add up values.
+- Aggregation runs over the table's **filtered** rows, so the chart follows every filter.
+
+The same options work for a bar chart inside a table's chart strip:
+
+```powershell
+Add-DhTable -Report $report -TableId 'vols' -Title 'Volumes' -Data $vols -Charts @(
+    @{ Field='Site'; Type='bar'; ValueField='UsedGB'; Aggregate='sum'; Unit='GB'; TopN=5 }
+    @{ Field='Tier' }                                  # no Type: donut, as before
+)
 ```
 
 **Stacked mode (v1.4+):** pass `-SeriesField` to break each primary bar into colour-coded segments. The legend below the chart maps each series value to its colour. The `-Stacked` switch is optional — supplying `-SeriesField` alone implies it. Click-to-filter (`-ClickFilters`) is single-series only; stacked bars have no single value to filter by. Series colours are pulled from the active theme's chart palette and assigned in alphabetical order, so the legend stays stable across renders.
@@ -1056,6 +1112,68 @@ Full runnable example: [`Examples/Demo-Feature-RangeBar.ps1`](Examples/Demo-Feat
 
 ---
 
+## Findings (2.2+)
+
+`Add-DhFindings` is the block an audit or assessment report is built around. Each finding is one row: a severity badge, the title, an area and the affected count. Expanding the row shows:
+
+- what is wrong and what to do about it;
+- which objects are affected, with "+N more" past `-MaxAffectedShown`;
+- a **Show in table** button that jumps to the evidence table, filtered;
+- reference links, for example Microsoft Learn.
+
+```powershell
+Add-DhFindings -Report $report -Id 'sec' -Title 'Security findings' -NavPath 'Findings' `
+    -GroupBy Area -ExpandSeverity critical -Findings @(
+      @{ Severity='critical'; Title='AS-REP roastable accounts'; Area='Accounts'
+         Description='Accounts with DoesNotRequirePreAuth expose crackable hashes.'
+         Recommendation='Clear DONT_REQ_PREAUTH on every listed account.'
+         Affected=@('svc_old','test1'); AffectedTableId='accounts'; AffectedFilter='AS-REP'
+         References=@(@{ Label='MS Learn'; Url='https://learn.microsoft.com/' }) }
+      @{ Severity='medium'; Title='Stale computer objects'; Area='Hygiene'; AffectedCount=148 }
+    )
+```
+
+- **Severity** is `critical`, `warning`, `info` or `ok`, the same scale as alert banners. `high`, `medium` and `low` are accepted as aliases for pasting output from other tools.
+- **Sorting** is critical → ok, then by affected count, largest first. `-SortBy None` keeps your order.
+- **Counters** above the list filter by severity: click one, or several. A text box filters over every field.
+- **Options:** `-GroupBy Area|Severity` adds group headers. `-ExpandSeverity critical` opens those findings at load. `-HideOk` drops the passed checks.
+- **References** must be http(s), mailto, tel or an in-page `#anchor`. Anything else throws.
+- **Text is always HTML-encoded.** There is no `-AllowHtml`, because finding text usually comes from collected data.
+- **When printed**, every finding is shown expanded.
+
+`Examples/Demo-Feature-Findings.ps1` builds a complete assessment report: verdict, findings, value bar charts, link cells and the print cover.
+
+---
+
+## Printing and PDF (2.2+)
+
+Every report has a **🖨 Print** button, and Ctrl+P works the same way. Choose "Save as PDF" in the print dialog for a PDF. While printing, the page is rearranged, then put back afterwards:
+
+- light theme, whatever the reader was using;
+- **every** nav view, in menu order, each under a heading with its path;
+- every collapsible section, tab panel and finding expanded;
+- tables unpaged, up to `Export-DhDashboard -PrintMaxRows` rows (default 200), with "Showing N of M rows" when rows were left out;
+- the nav bar, toolbars, filters and dismiss buttons hidden; table headers repeat on every page; page numbers in the footer;
+- with `New-DhDashboard -PrintCover`, a cover page first: title, subtitle, logo, info fields and the verdict tile.
+
+Pipelines that render PDFs with a headless browser (`msedge --headless --print-to-pdf=...`) get the same layout: headless Edge runs the same print handlers.
+
+---
+
+## Offline export: `-ExportLibraries` (2.2+)
+
+CSV export is built in. XLSX and PDF need three JavaScript libraries (SheetJS, jsPDF, jsPDF-AutoTable). `Export-DhDashboard -ExportLibraries` decides how they reach the reader:
+
+| Value | Behaviour |
+|---|---|
+| `Cdn` (default) | Loaded from cdnjs the **first time** a reader clicks XLSX or PDF, checked against a pinned SRI hash. The page itself never waits on the network. Offline, the two buttons turn grey with "Needs internet: use CSV". |
+| `Embed` | The libraries are inlined into the report, about 1.3 MB, so XLSX and PDF work with no network at all. Use it for air-gapped readers. The files ship in `DashHtml/Vendor/` and are checked against the same hashes every time they are embedded. |
+| `None` | No XLSX or PDF buttons; CSV only. |
+
+Before 2.2.0 the libraries were blocking script tags in the page head: on a network without internet access the report stayed blank until the CDN request timed out.
+
+---
+
 ## Global filters (1.9.0+)
 
 `Add-DhGlobalFilter` puts a control in a bar above the whole report. Changing it re-filters **every table that has the named field at once** — and any chart built from those tables re-aggregates. Tables that don't have the field are left untouched. Multiple global filters combine with **AND**, and the selection is saved in the URL so a shared link or reload keeps it applied.
@@ -1450,7 +1568,7 @@ DashHtml/
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
 Tests/
-  DashHtml.Tests.ps1               # 474 tests at 2.0.0
+  DashHtml.Tests.ps1               # 524 tests at 2.2.0 (598 across the three suites)
 Examples/                            # Demo-<Domain> = a realistic report
                                      # Demo-Feature-* = one capability, isolated
   Demo-ActiveDirectory.ps1           # AD ops report

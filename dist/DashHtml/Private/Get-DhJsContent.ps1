@@ -3,7 +3,7 @@ function Get-DhJsContent {
     .SYNOPSIS  Returns the complete dashboard runtime JavaScript.
     .DESCRIPTION
         The runtime is authored across several Get-DhJs*.ps1 fragment files
-        (Core / Blocks / Nav / Table / Boot) purely for maintainability; they
+        (Core / Blocks / Nav / Table / Print / Boot) purely for maintainability; they
         are concatenated here into a single script injected into one <script>
         block by Export-DhDashboard. The split points are top-level function
         boundaries, so the assembled output is a single shared scope exactly as
@@ -16,6 +16,7 @@ function Get-DhJsContent {
         Get-DhJsBlocks
         Get-DhJsNav
         Get-DhJsTable
+        Get-DhJsPrint      # v2.2.0
         Get-DhJsBoot
     ) -join "`n"
 }

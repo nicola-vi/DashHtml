@@ -12,23 +12,31 @@ function Get-DhJsCore {
   var BLOCKS_CONFIG  = /*%%BLOCKS_CONFIG%%*/[];
   var ALERTS_CONFIG  = /*%%ALERTS_CONFIG%%*/[];
   var GLOBALFILTER_CONFIG = /*%%GLOBALFILTER_CONFIG%%*/[];
+  /* v2.2.0 — { mode: 'cdn'|'embed'|'none', libs: { key: { url, sri } } } */
+  var EXPORT_LIBS    = /*%%EXPORT_LIBS%%*/{"mode":"none","libs":{}};
+  /* v2.2.0 — { maxRows, cover } for the print view */
+  var PRINT_CONFIG   = /*%%PRINT_CONFIG%%*/{"maxRows":200,"cover":false};
 
   /* =========================================================================
      GLOBAL STATE
      ========================================================================= */
   var engines         = {};        /* tableId -> TableEngine */
   var cardFilters     = {};        /* filterId -> { field, values[] } */
-  var currentTheme    = 'default'; /* 'default' or 'light' */
+  var themeMode       = 'light';   /* 'light' (primary style) | 'dark' (alternate) */
+  var themeChosen     = false;     /* true once the reader picked or restored a theme */
   var tableDensity    = 'normal';  /* 'compact' | 'normal' | 'comfortable' */
   var currentGroup    = '';        /* active nav group in two-tier mode */
   var currentSubGroup = '';        /* active nav sub-group in three-tier mode */
   var dismissedAlerts = {};        /* alertId -> true; persisted in URL hash */
 
   /* esc() — HTML-encode a value before inserting into innerHTML.
-     Prevents XSS when data originates from external sources (Azure tags, resource names, etc.) */
+     Prevents XSS when data originates from external sources (Azure tags, resource names, etc.)
+     v2.1.4 — also encodes ' so the result is safe inside a single-quoted
+     attribute too. Every attribute today is double-quoted; this is defence
+     in depth, not a fix for a live sink. */
   function esc(s) {
     if (s == null) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   /* =========================================================================
@@ -172,6 +180,8 @@ function Get-DhJsCore {
         if (Object.keys(cardFilters).length) state.cardFilters = cardFilters;
         /* density */
         if (tableDensity !== 'normal') state.density = tableDensity;
+        /* theme (v2.1.4) — only once chosen, so a report's default still applies */
+        if (themeChosen) state.theme = themeMode;
         /* dismissed alert banners — array of ids */
         var dismissed = Object.keys(dismissedAlerts);
         if (dismissed.length) state.alerts = dismissed;
@@ -298,78 +308,103 @@ function Get-DhJsCore {
        1. Dual-embed: both <style> tags present (data-theme attrs) — swap disabled
        2. Single CSS fallback: toggle CSS variable overrides via body class
      ========================================================================= */
+  /* v2.1.4 — the theme choice persists. Before 2.1.4 the toggle called
+     URLState.save() but _write had no theme key, so a reload always came back
+     in the primary theme. Precedence on load: the URL hash (a shared link)
+     beats localStorage (this browser's last choice) beats the report default.
+     'light' means the primary <style> (New-DhDashboard always makes the
+     primary the light variant), 'dark' the alternate. */
+  var THEME_STORE_KEY = 'dh-theme';
+
+  function themeLabel(name) {
+    if (/dark$/i.test(name))  return '☾ Dark';
+    if (/light$/i.test(name)) return '☀ Light';
+    return '⇄ ' + name;
+  }
+
+  function themeStoreGet() {
+    try { return window.localStorage ? window.localStorage.getItem(THEME_STORE_KEY) : null; } catch (e) { return null; }
+  }
+  function themeStoreSet(mode) {
+    try { if (window.localStorage) window.localStorage.setItem(THEME_STORE_KEY, mode); } catch (e) {}
+  }
+
+  /* Apply 'light' | 'dark'. Safe to call before DOMContentLoaded: the two
+     <style> tags live in <head>, and the button is labelled only if present. */
+  function applyThemeMode(mode) {
+    var p   = document.getElementById('theme-primary');
+    var a   = document.getElementById('theme-alternate');
+    var btn = document.getElementById('btn-theme-toggle');
+    themeMode = (mode === 'dark') ? 'dark' : 'light';
+    if (p && a) {
+      var useAlt = (themeMode === 'dark');
+      p.media = useAlt ? 'none' : '';
+      a.media = useAlt ? '' : 'none';
+      var next = useAlt ? (p.dataset.theme || 'Light') : (a.dataset.theme || 'Dark');
+      if (btn) { btn.textContent = themeLabel(next); btn.title = 'Switch to ' + next; }
+    } else if (document.body) {
+      /* Single-CSS fallback (no alternate <style>): body-class overrides. */
+      document.body.classList.toggle('theme-forced-dark',  themeMode === 'dark');
+      document.body.classList.toggle('theme-forced-light', themeMode === 'light');
+      if (btn) {
+        btn.textContent = themeMode === 'dark' ? '☀ Light' : '☾ Dark';
+        btn.title       = themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+      }
+    }
+  }
+
+  /* The saved choice, or '' when there is none. */
+  function savedThemeMode() {
+    var s = URLState.load();
+    if (s.theme === 'light' || s.theme === 'dark') return s.theme;
+    var ls = themeStoreGet();
+    return (ls === 'light' || ls === 'dark') ? ls : '';
+  }
+
   function initThemeToggle() {
     var btn = document.getElementById('btn-theme-toggle');
     if (!btn) return;
-
-    var primaryStyle   = document.getElementById('theme-primary');
-    var alternateStyle = document.getElementById('theme-alternate');
-    var isDual         = primaryStyle && alternateStyle;
-
-    /* ── Dual-embed mode ────────────────────────────────────────────── */
-    if (isDual) {
-      var primaryName   = primaryStyle.dataset.theme   || 'Theme A';
-      var alternateName = alternateStyle.dataset.theme || 'Theme B';
-      var usingPrimary  = true;
-
-      /* Initial button label */
-      btn.textContent   = '⇄ ' + alternateName;
-      btn.title         = 'Switch to ' + alternateName;
-
-      btn.addEventListener('click', function () {
-        usingPrimary = !usingPrimary;
-        if (usingPrimary) {
-          primaryStyle.media   = '';       /* activate primary */
-          alternateStyle.media = 'none';   /* suppress alternate */
-          btn.textContent = '⇄ ' + alternateName;
-          btn.title       = 'Switch to ' + alternateName;
-        } else {
-          alternateStyle.media = '';       /* activate alternate */
-          primaryStyle.media   = 'none';   /* suppress primary */
-          btn.textContent = '⇄ ' + primaryName;
-          btn.title       = 'Switch to ' + primaryName;
-        }
-        URLState.save();
-      });
-      return;
-    }
-
-    /* ── Single-CSS fallback mode (basic variable overrides) ────────── */
-    var lightActive = false;
-    btn.textContent = '☀ Light';
-    btn.title       = 'Switch to light mode';
+    applyThemeMode(themeMode);              /* label the button for the current state */
     btn.addEventListener('click', function () {
-      lightActive = !lightActive;
-      if (lightActive) {
-        document.body.classList.add('theme-forced-light');
-        document.body.classList.remove('theme-forced-dark');
-        btn.textContent = '🌙 Dark';
-        btn.title       = 'Switch to dark mode';
-      } else {
-        document.body.classList.add('theme-forced-dark');
-        document.body.classList.remove('theme-forced-light');
-        btn.textContent = '☀ Light';
-        btn.title       = 'Switch to light mode';
-      }
+      applyThemeMode(themeMode === 'dark' ? 'light' : 'dark');
+      themeChosen = true;
+      themeStoreSet(themeMode);
+      URLState.save();
     });
   }
 
   /* =========================================================================
      DENSITY TOGGLE
      ========================================================================= */
+  /* v2.1.4 — one table of modes and labels, and the cycle position lives here
+     rather than in a closure. Before 2.1.4 the URL restore in Boot applied a
+     saved density without moving the toggle's private counter (and used a
+     different glyph for Spacious), so the first click after a reload either
+     did nothing visible or left two density classes on <body>. */
+  var DENSITY = {
+    modes:  ['normal', 'compact', 'comfortable'],
+    labels: { normal: '⊞ Normal', compact: '⊟ Compact', comfortable: '⊠ Spacious' },
+    index:  0,
+    set: function (mode) {
+      var i = this.modes.indexOf(mode);
+      if (i === -1) return false;
+      var self = this;
+      this.modes.forEach(function (m) { document.body.classList.remove('density-' + m); });
+      this.index   = i;
+      tableDensity = mode;
+      if (mode !== 'normal') document.body.classList.add('density-' + mode);
+      var btn = document.getElementById('btn-density-toggle');
+      if (btn) btn.textContent = self.labels[mode];
+      return true;
+    }
+  };
+
   function initDensityToggle() {
     var btn = document.getElementById('btn-density-toggle');
     if (!btn) return;
-    var states = ['normal','compact','comfortable'];
-    var labels = { normal:'⊞ Normal', compact:'⊟ Compact', comfortable:'⊠ Spacious' };
-    var i = 0;
-    btn.textContent = labels['normal'];
+    btn.textContent = DENSITY.labels[DENSITY.modes[DENSITY.index]];
     btn.addEventListener('click', function () {
-      document.body.classList.remove('density-'+states[i]);
-      i = (i+1) % states.length;
-      tableDensity = states[i];
-      document.body.classList.add('density-'+states[i]);
-      btn.textContent = labels[states[i]];
+      DENSITY.set(DENSITY.modes[(DENSITY.index + 1) % DENSITY.modes.length]);
       URLState.save();
     });
   }
@@ -641,23 +676,101 @@ function Get-DhJsCore {
             window.open(alert.action.url, '_blank', 'noopener');
             return;
           }
-          if (alert.action.tableId && window._showPanel) {
-            window._showPanel(alert.action.tableId);
-            /* Apply filter text if requested */
-            if (alert.action.filter && engines[alert.action.tableId]) {
-              var eng = engines[alert.action.tableId];
-              var inp = document.getElementById('filter-' + alert.action.tableId);
-              eng.filterText = alert.action.filter;
-              if (inp) inp.value = alert.action.filter;
-              eng.currentPage = 1;
-              eng.render();
-              URLState.save();
-            }
-          }
+          if (alert.action.tableId) jumpToTable(alert.action.tableId, alert.action.filter);
         });
       }
 
       container.appendChild(banner);
+    });
+  }
+
+  /* =========================================================================
+     JUMP TO TABLE (v2.1.4) — the ONE path for "show this table, filtered".
+     Alert actions, tile actions, status-grid cells and topology nodes all
+     call this. Before 2.1.4 each carried its own copy that set filterText
+     directly, so the clear (x) button stayed hidden and linked charts went
+     stale. Filtering goes through applyTextFilter; add a step there or here,
+     never in a caller. Exposed as window._dhJumpToTable.
+     ========================================================================= */
+  function jumpToTable(tableId, filterText) {
+    if (!tableId) return;
+    if (window._showPanel) window._showPanel(tableId);
+    /* a folded collapsible table would hide the result — unfold it */
+    var tgl = document.getElementById('tsect-toggle-' + tableId);
+    var bdy = document.getElementById('tsect-body-' + tableId);
+    if (tgl && bdy && !bdy.classList.contains('open')) tgl.click();
+    var eng = engines[tableId];
+    if (eng && filterText !== undefined && filterText !== null && String(filterText) !== '') {
+      eng.applyTextFilter(String(filterText));
+    }
+    var sec = document.getElementById('section-' + tableId);
+    if (sec && sec.getBoundingClientRect && sec.scrollIntoView) {
+      var r = sec.getBoundingClientRect();
+      if (r.top < 0 || r.top > (window.innerHeight || 0) * 0.8) sec.scrollIntoView({ block: 'start' });
+    }
+  }
+  window._dhJumpToTable = jumpToTable;
+
+  /* =========================================================================
+     EXPORT LIBRARIES (v2.2.0) — SheetJS / jsPDF / AutoTable on demand.
+     Before 2.2.0 they were blocking <script> tags in <head>: an offline
+     reader stared at a blank page until cdnjs timed out, then got an
+     alert() on click. Now:
+       cdn   — injected on the FIRST XLSX/PDF click, with the pinned SRI hash
+               and crossorigin=anonymous; the page never waits for them.
+       embed — already inlined at the end of <body>; nothing to fetch.
+       none  — the buttons are not emitted at all.
+     A failed load disables every button that needs that library, with a
+     tooltip pointing at CSV, instead of an alert().
+     ========================================================================= */
+  var _libLoads = {};
+  var LIB_PRESENT = {
+    xlsx:      function () { return typeof window.XLSX !== 'undefined'; },
+    jspdf:     function () { return !!(window.jspdf && window.jspdf.jsPDF) || typeof window.jsPDF === 'function'; },
+    autotable: function () {
+      var J = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+      try { return !!J && typeof (new J()).autoTable === 'function'; } catch (e) { return false; }
+    }
+  };
+  function _bridgeJsPdf() {
+    if (window.jspdf && window.jspdf.jsPDF && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
+  }
+  function loadExportLib(key) {
+    if (_libLoads[key]) return _libLoads[key];
+    _libLoads[key] = new Promise(function (resolve, reject) {
+      if (LIB_PRESENT[key] && LIB_PRESENT[key]()) { resolve(); return; }
+      var lib = EXPORT_LIBS.libs && EXPORT_LIBS.libs[key];
+      if (EXPORT_LIBS.mode !== 'cdn' || !lib) { reject(new Error('library ' + key + ' not available')); return; }
+      var s = document.createElement('script');
+      s.src = lib.url;
+      s.integrity = lib.sri;
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+      s.async = true;
+      s.onload  = function () { _bridgeJsPdf(); (LIB_PRESENT[key] && !LIB_PRESENT[key]()) ? reject(new Error(key + ' loaded but not usable')) : resolve(); };
+      s.onerror = function () { reject(new Error('could not load ' + lib.url)); };
+      document.head.appendChild(s);
+    });
+    /* a failure is final for this page view: retrying would just wait again */
+    return _libLoads[key];
+  }
+  /* jsPDF first: AutoTable patches it when it loads */
+  function loadPdfLibs() {
+    return loadExportLib('jspdf').then(function () { _bridgeJsPdf(); return loadExportLib('autotable'); });
+  }
+  function markExportUnavailable(kind) {
+    var sel = (kind === 'xlsx') ? '.btn-export.btn-xlsx' : '.btn-export.btn-pdf';
+    document.querySelectorAll(sel).forEach(function (b) {
+      b.disabled = true;
+      b.classList.add('btn-export-unavailable');
+      b.title = 'Needs internet: the ' + (kind === 'xlsx' ? 'Excel' : 'PDF') + ' library could not load. Use CSV.';
+    });
+  }
+  function setExportBusy(kind, busy) {
+    var sel = (kind === 'xlsx') ? '.btn-export.btn-xlsx' : '.btn-export.btn-pdf';
+    document.querySelectorAll(sel).forEach(function (b) {
+      b.classList.toggle('btn-export-busy', busy);
+      if (busy) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
     });
   }
 
@@ -812,11 +925,40 @@ function Get-DhJsCore {
     return tile;
   }
 
+  /* Verdict tile (v2.2.0) — full-width overall assessment ("Action required")
+     with one chip per severity count. Colour comes from item.class, which
+     Add-DhSummary derives from the counts when the author gives none. */
+  function buildVerdictTile(item) {
+    var tile = document.createElement('div');
+    tile.className = 'summary-tile tile-verdict'+(item['class']?' '+item['class']:'');
+    var labels = { critical: 'Critical', warning: 'Warning', info: 'Info', ok: 'OK' };
+    var chips = '';
+    if (item.counts) {
+      ['critical','warning','info','ok'].forEach(function (s) {
+        if (item.counts[s] > 0) {
+          chips += '<span class="verdict-chip verdict-chip-'+s+'"><b>'+esc(item.counts[s])+'</b> '+esc(labels[s])+'</span>';
+        }
+      });
+    }
+    tile.innerHTML =
+      '<div class="verdict-main">'+
+        (item.icon?'<span class="summary-icon verdict-icon">'+esc(item.icon)+'</span>':'')+
+        '<div class="verdict-text">'+
+          '<span class="summary-label">'+esc(item.label)+'</span>'+
+          '<div class="verdict-value">'+esc(tileFormatValue(item))+'</div>'+
+          (item.caption?'<div class="verdict-caption">'+esc(item.caption)+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      (chips?'<div class="verdict-chips">'+chips+'</div>':'');
+    return tile;
+  }
+
   function buildTile(item) {
     var tile;
     switch ((item.style || 'tile').toLowerCase()) {
       case 'bignumber': tile = buildBignumberTile(item); break;
       case 'gauge':     tile = buildGaugeTile(item);     break;
+      case 'verdict':   tile = buildVerdictTile(item);   break;   /* v2.2.0 */
       default:          tile = buildStandardTile(item);  break;
     }
     /* v1.4.2 — per-tile Action makes the whole tile clickable.
@@ -831,18 +973,7 @@ function Get-DhJsCore {
           window.open(item.action.url, '_blank', 'noopener');
           return;
         }
-        if (item.action.tableId && window._showPanel) {
-          window._showPanel(item.action.tableId);
-          if (item.action.filter && engines[item.action.tableId]) {
-            var eng = engines[item.action.tableId];
-            var inp = document.getElementById('filter-' + item.action.tableId);
-            eng.filterText = item.action.filter;
-            if (inp) inp.value = item.action.filter;
-            eng.currentPage = 1;
-            eng.render();
-            URLState.save();
-          }
-        }
+        if (item.action.tableId) jumpToTable(item.action.tableId, item.action.filter);
       };
       tile.addEventListener('click', fire);
       tile.addEventListener('keydown', function (e) {

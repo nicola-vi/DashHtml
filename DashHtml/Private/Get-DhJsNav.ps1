@@ -30,19 +30,32 @@ function Get-DhJsNav {
     document.documentElement.style.setProperty('--header-height', header.offsetHeight + 'px');
   }
 
-  /* ── Collapsible table chrome (unchanged from 1.x) ──────────────── */
+  /* ── Collapsible table chrome ──────────────────────────────────────
+     Build-DhTableSections emits button#tsect-toggle-<id> and
+     div#tsect-body-<id>; .open on the body is what the CSS unfolds.
+     2.0.0 bound a class that was never emitted (.table-collapse-toggle),
+     so a -DefaultOpen:$false table could never be opened. Fixed in 2.1.4;
+     this is the 1.5.1 binding again. */
+  /* ==== DH-TABLE-COLLAPSE-START ==== (driven by Tests/js/nav.test.js) */
   function initTableCollapsibles() {
-    document.querySelectorAll('.table-section-collapsible .table-collapse-toggle').forEach(function (btn) {
+    document.querySelectorAll('.table-section-toggle').forEach(function (btn) {
       if (btn._dhWired) return;
+      var body = document.getElementById(btn.id.replace(/^tsect-toggle-/, 'tsect-body-'));
+      if (!body) return;
       btn._dhWired = true;
+      var chev = btn.querySelector('.table-section-chevron');
       btn.addEventListener('click', function () {
-        var sec = btn.closest('.table-section');
-        if (!sec) return;
-        var open = sec.classList.toggle('table-collapsed');
-        btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        var open = body.classList.toggle('open');
+        btn.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (chev) chev.innerHTML = open ? '&#9662;' : '&#9656;';
+        /* a table first laid out while folded measured nothing — re-render */
+        var eng = engines[btn.id.replace(/^tsect-toggle-/, '')];
+        if (open && eng) eng.render();
       });
     });
   }
+  /* ==== DH-TABLE-COLLAPSE-END ==== */
 
   /* ─────────────────────────────────────────────────────────────────
      THE MATCHER — mirrors Test-DhNavMatch in PowerShell exactly.

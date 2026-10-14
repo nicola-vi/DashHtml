@@ -4,9 +4,12 @@ function Add-DhBarChart {
         Add a horizontal bar chart aggregating values from a table field.
 
     .DESCRIPTION
-        Counts occurrences of each distinct value in the specified field across
-        all rows of the source table, then renders the top-N results as horizontal
-        proportional bars, sorted highest to lowest.
+        Groups the source table's rows by -Field and draws one horizontal bar per
+        group, top-N, largest first. By default each bar is the number of rows in
+        the group. From 2.2.0, -ValueField with -Aggregate sum|avg|min|max draws
+        the sum / average / minimum / maximum of a numeric column instead.
+        Aggregation runs in the browser over the table's FILTERED rows, so the
+        chart follows every filter.
 
         The chart renders as a standalone block in the dashboard flow and is
         re-calculated at page load from the table's full dataset.
@@ -21,6 +24,19 @@ function Add-DhBarChart {
     .PARAMETER ShowPercent  Show the percentage of total beside each bar (default $false).
     .PARAMETER ClickFilters When $true, clicking a bar sets the source table's text filter.
                             (Single-series mode only — ignored when -Stacked.)
+
+    .PARAMETER ValueField   v2.2.0. Numeric column to aggregate per bar instead of
+                            counting rows. Must be a field of the table (hidden
+                            properties count). Non-numeric values are ignored.
+    .PARAMETER Aggregate    v2.2.0. count (default) | sum | avg | min | max.
+                            Anything but count needs -ValueField; -ValueField on
+                            its own means sum. With -Stacked only count and sum
+                            are allowed. Percentages (-ShowPercent) are a share
+                            of the row count for count, of the grand total for
+                            sum, and are not shown for avg / min / max.
+    .PARAMETER Unit         v2.2.0. Suffix for aggregated values, e.g. 'ms', 'GB'.
+    .PARAMETER Decimals     v2.2.0. Fixed decimal places for aggregated values
+                            (default: up to 2 for avg, 3 otherwise).
 
     .PARAMETER Stacked      v1.4+ switch. When set, each primary bar is split
                             into colour-coded segments by -SeriesField. Useful
@@ -45,6 +61,11 @@ function Add-DhBarChart {
             -ClickFilters $true
 
     .EXAMPLE
+        # v2.2.0 - average replication lag per DC, in minutes
+        Add-DhBarChart -Report $report -Id 'repl-lag' -Title 'Replication lag by DC' `
+            -TableId 'repl' -Field 'DC' -ValueField 'LagMinutes' -Aggregate avg -Unit 'min' -Decimals 1
+
+    .EXAMPLE
         # v1.4 — stacked: items per Region, segments coloured by Status
         Add-DhBarChart -Report $report -Id 'by-region-stacked' `
             -Title 'Items by Region (stacked by Status)' `
@@ -66,6 +87,13 @@ function Add-DhBarChart {
         [switch] $ClickFilters,
         [switch] $Stacked,
         [string] $SeriesField    = '',
+        # ---- v2.2.0 value aggregation ----
+        [string] $ValueField     = '',
+        [ValidateSet('','count','sum','avg','min','max')]
+        [string] $Aggregate      = '',
+        [string] $Unit           = '',
+        [ValidateRange(-1, 10)]
+        [int]    $Decimals       = -1,
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
         [ValidateRange(0,12)]
@@ -91,6 +119,10 @@ function Add-DhBarChart {
     if (-not $Report.Contains('_DhNavSeq')) { $Report['_DhNavSeq'] = 0 }
     $navSeqNo = [int]$Report['_DhNavSeq']; $Report['_DhNavSeq'] = $navSeqNo + 1
 
+    # With no table declared yet the check is skipped: declaring the chart
+    # first works (the runtime renders it after every table engine exists).
+    # A TableId that never gets a table is reported by Export-DhDashboard's
+    # link lint (v2.1.4), whatever the declaration order.
     if ($Report.Tables -and -not ($Report.Tables | Where-Object { $_.Id -eq $TableId })) {
         throw "Add-DhBarChart: Source table '$TableId' not found. Add the table before the bar chart."
     }
@@ -103,6 +135,14 @@ function Add-DhBarChart {
     $isStacked = $Stacked.IsPresent -or -not [string]::IsNullOrWhiteSpace($SeriesField)
     if ($isStacked -and -not [string]::IsNullOrWhiteSpace($SeriesField) -and $SeriesField -eq $Field) {
         throw "Add-DhBarChart: -SeriesField ('$SeriesField') must be different from -Field ('$Field')."
+    }
+
+    # v2.2.0 - value aggregation (same rules as Add-DhTable -Charts Type='bar')
+    $srcTable = @($Report.Tables | Where-Object { $_.Id -eq $TableId } | Select-Object -First 1)
+    $aggDecl  = Assert-DhBarAggregate -ValueField $ValueField -Aggregate $Aggregate `
+                    -Table $(if ($srcTable.Count) { $srcTable[0] } else { $null }) -Context "Add-DhBarChart '$Id'"
+    if ($isStacked -and $aggDecl.Aggregate -notin 'count', 'sum') {
+        throw "Add-DhBarChart '$Id': a stacked chart adds its segments up, so -Aggregate must be count or sum. Got: $($aggDecl.Aggregate)"
     }
 
     if (-not $Report.Contains('Blocks')) {
@@ -128,6 +168,10 @@ function Add-DhBarChart {
         ClickFilters = $ClickFilters
         Stacked      = [bool]$isStacked
         SeriesField  = $SeriesField
+        ValueField   = $aggDecl.ValueField
+        Aggregate    = $aggDecl.Aggregate
+        Unit         = $Unit
+        Decimals     = $Decimals
         NavGroup     = $NavGroup
         NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
@@ -140,7 +184,7 @@ function Add-DhBarChart {
         Collapsible = $Collapsible
         DefaultOpen = $DefaultOpen
     })
-    Write-Verbose "Add-DhBarChart: '$Id' from table '$TableId' field '$Field' (top $TopN)$(if ($isStacked) { " stacked by '$SeriesField'" })."
+    Write-Verbose "Add-DhBarChart: '$Id' from table '$TableId' field '$Field' (top $TopN, $($aggDecl.Aggregate)$(if ($aggDecl.ValueField) { " of $($aggDecl.ValueField)" }))$(if ($isStacked) { " stacked by '$SeriesField'" })."
 }
 
 

@@ -49,7 +49,9 @@ $htmlCmds = @('Add-DhHtmlBlock','Add-DhCollapsible','Add-DhAlertBanner','Add-DhT
 $blockCmds = @(
     'Add-DhBarChart','Add-DhPieChart','Add-DhLineChart','Add-DhBullet','Add-DhSummary',
     'Add-DhHtmlBlock','Add-DhCollapsible','Add-DhStatusGrid','Add-DhHeatmap',
-    'Add-DhTopologyMap','Add-DhEventFeed','Add-DhTabs','Add-DhFilterCard','Add-DhAlertBanner'
+    'Add-DhTopologyMap','Add-DhEventFeed','Add-DhTabs','Add-DhFilterCard','Add-DhAlertBanner',
+        'Add-DhRangeBar',  # v2.1.4 - missed when Add-DhRangeBar shipped in 2.1.0
+        'Add-DhFindings'   # DashHtml 2.2.0
 )
 
 $files = foreach ($p in $Path) {

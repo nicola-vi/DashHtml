@@ -161,8 +161,11 @@ body {
 .report-grid > #global-filter-bar,
 .report-grid > #report-summary { grid-column: 1 / -1; }
 @media (max-width: 900px) {
-  .report-body.report-grid { grid-template-columns: 1fr; }
-  .report-body.report-grid > * { grid-column: 1 / -1 !important; }
+  /* v2.2.0 - minmax(0, 1fr), not 1fr: a bare 1fr track can never shrink below
+     its content, so a wide table stretched the whole page sideways on a phone
+     instead of scrolling inside its own .table-wrapper. */
+  .report-body.report-grid { grid-template-columns: minmax(0, 1fr); }
+  .report-body.report-grid > * { grid-column: 1 / -1 !important; min-width: 0; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -3471,6 +3474,319 @@ body.theme-forced-dark {
   font-weight: var(--weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* ===========================================================================
+   v2.2.0 ADDITIONS — findings, verdict tile, table bar charts, link cells,
+   export-library states, print.
+   Colours come only from tokens every theme already defines (cell-* and
+   accent-*), so all 12 theme files work unchanged. Severity mapping, shared
+   with Add-DhAlertBanner: critical = danger, warning = warn, info = accent,
+   ok = ok.
+   =========================================================================== */
+
+/* ── Findings ─────────────────────────────────────────────────────────── */
+.findings-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-lg) var(--space-md);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-xs);
+}
+.findings-title {
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: var(--space-sm);
+}
+.findings-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+.findings-counters { display: flex; flex-wrap: wrap; gap: 6px; }
+.findings-chip {
+  font: inherit;
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  border: 1px solid var(--border-medium);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 99px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.findings-chip-count { font-family: var(--font-mono); }
+.findings-chip-critical { color: var(--cell-danger-fg); border-color: var(--cell-danger-fg); }
+.findings-chip-warning  { color: var(--cell-warn-fg);   border-color: var(--cell-warn-fg);   }
+.findings-chip-info     { color: var(--accent-primary); border-color: var(--accent-primary); }
+.findings-chip-ok       { color: var(--cell-ok-fg);     border-color: var(--cell-ok-fg);     }
+.findings-chip[aria-pressed="true"] { color: var(--bg-surface); }
+.findings-chip-critical[aria-pressed="true"] { background: var(--cell-danger-fg); }
+.findings-chip-warning[aria-pressed="true"]  { background: var(--cell-warn-fg); }
+.findings-chip-info[aria-pressed="true"]     { background: var(--accent-primary); }
+.findings-chip-ok[aria-pressed="true"]       { background: var(--cell-ok-fg); }
+.findings-chip:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.findings-filter {
+  flex: 1 1 200px;
+  max-width: 320px;
+  margin-left: auto;
+  font: inherit;
+  font-size: var(--size-sm);
+  padding: 5px 10px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  background: var(--bg-input, var(--bg-surface));
+  color: var(--text-primary);
+}
+.findings-list { display: flex; flex-direction: column; gap: 6px; }
+.findings-group { display: flex; flex-direction: column; gap: 6px; margin-top: var(--space-xs); }
+.findings-group-header {
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 4px 0;
+}
+.findings-group-count { font-family: var(--font-mono); margin-left: 4px; }
+.finding {
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.finding-critical { border-left-color: var(--cell-danger-fg); }
+.finding-warning  { border-left-color: var(--cell-warn-fg); }
+.finding-info     { border-left-color: var(--accent-primary); }
+.finding-ok       { border-left-color: var(--cell-ok-fg); }
+.finding-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 8px var(--space-md);
+  cursor: pointer;
+}
+.finding-head:hover { background: var(--bg-hover, rgba(127,127,127,0.06)); }
+.finding-head:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+.finding-badge {
+  flex-shrink: 0;
+  min-width: 64px;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid currentColor;
+}
+.finding-badge-critical { color: var(--cell-danger-fg); background: var(--cell-danger-bg); }
+.finding-badge-warning  { color: var(--cell-warn-fg);   background: var(--cell-warn-bg); }
+.finding-badge-info     { color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
+.finding-badge-ok       { color: var(--cell-ok-fg);     background: var(--cell-ok-bg); }
+.finding-title { flex: 1; min-width: 0; font-weight: var(--weight-medium); color: var(--text-primary); }
+.finding-area  { flex-shrink: 0; font-size: var(--size-xs); color: var(--text-muted); }
+.finding-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  background: var(--progress-track-bg);
+  border-radius: 99px;
+  padding: 1px 8px;
+}
+.finding-chevron { flex-shrink: 0; color: var(--text-muted); font-size: 0.85rem; }
+.finding-body {
+  padding: 4px var(--space-md) var(--space-md) calc(var(--space-md) + 72px);
+  font-size: var(--size-sm);
+  color: var(--text-secondary);
+}
+.finding-section { margin-top: var(--space-sm); }
+.finding-section p { margin: 2px 0 0; line-height: 1.5; white-space: pre-line; }
+.finding-label {
+  font-size: 0.68rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.finding-affected {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.finding-affected li {
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  background: var(--progress-track-bg);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+.finding-affected li.finding-more { font-family: inherit; font-style: italic; background: transparent; }
+.finding-links { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.finding-jump {
+  font: inherit;
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  color: var(--accent-primary-fg, #fff);
+  background: var(--accent-primary);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.finding-ref { font-size: var(--size-xs); color: var(--accent-primary); }
+.finding-ref-blocked { color: var(--text-muted); }
+.finding-empty, .findings-none { color: var(--text-muted); font-size: var(--size-sm); margin: var(--space-sm) 0 0; }
+
+@media (max-width: 700px) {
+  .finding-head { flex-wrap: wrap; }
+  .finding-area { order: 5; width: 100%; padding-left: 72px; }
+  .finding-body { padding-left: var(--space-md); }
+  .findings-filter { max-width: none; margin-left: 0; }
+}
+
+/* ── Verdict tile ─────────────────────────────────────────────────────── */
+.summary-tile.tile-verdict {
+  flex: 1 0 100%;
+  max-width: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+}
+.summary-tile.tile-verdict.cell-danger { background: var(--cell-danger-bg); }
+.summary-tile.tile-verdict.cell-warn   { background: var(--cell-warn-bg); }
+.summary-tile.tile-verdict.cell-ok     { background: var(--cell-ok-bg); }
+.verdict-main { display: flex; align-items: center; gap: var(--space-md); }
+.verdict-icon { font-size: 2rem; }
+.verdict-text { display: flex; flex-direction: column; gap: 2px; }
+.verdict-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+.summary-tile.tile-verdict.cell-danger .verdict-value { color: var(--cell-danger-fg); }
+.summary-tile.tile-verdict.cell-warn   .verdict-value { color: var(--cell-warn-fg); }
+.summary-tile.tile-verdict.cell-ok     .verdict-value { color: var(--cell-ok-fg); }
+.verdict-caption { font-size: var(--size-sm); color: var(--text-muted); }
+.verdict-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.verdict-chip {
+  font-size: var(--size-xs);
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  padding: 3px 10px;
+  background: var(--bg-surface);
+}
+.verdict-chip b { font-family: var(--font-mono); }
+.verdict-chip-critical { color: var(--cell-danger-fg); }
+.verdict-chip-warning  { color: var(--cell-warn-fg); }
+.verdict-chip-info     { color: var(--accent-primary); }
+.verdict-chip-ok       { color: var(--cell-ok-fg); }
+
+/* ── Bar chart inside a table's chart strip (-Charts Type='bar') ────────── */
+.chart-panel.chart-panel-bar { min-width: 260px; max-width: 420px; }
+.chart-panel-bar .bar-chart { gap: 6px; }
+
+/* ── Link cells (CellType='link') ─────────────────────────────────────── */
+.cell-link { color: var(--accent-primary); text-decoration: none; }
+.cell-link:hover, .cell-link:focus-visible { text-decoration: underline; }
+
+/* ── Export buttons: loading on demand / unavailable offline ────────────── */
+.btn-export.btn-export-busy { opacity: 0.6; cursor: progress; }
+.btn-export.btn-export-unavailable,
+.btn-export.btn-export-unavailable:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* ── Print ────────────────────────────────────────────────────────────────
+   The JS print module (Get-DhJsPrint) reorders views and unpages tables;
+   everything below is pure CSS, so folded content also prints for a printer
+   that never runs those handlers. */
+.dh-print-cover, .dh-print-path, .dh-print-note { display: none; }
+
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  html, body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* chrome that only makes sense on screen */
+  .report-nav, .nav-sidebar, .nav-crumb, #global-filter-bar, .global-filter-bar,
+  .table-toolbar, .table-pagination, .findings-toolbar, .alert-dismiss-btn,
+  .collapsible-chevron, .table-section-chevron, .finding-chevron, .finding-jump,
+  .topo-toolbar, .ctx-menu, .nav-top-btn { display: none !important; }
+  .report-header { position: static !important; box-shadow: none !important; }
+  /* the table header gradient starts from a hard-coded dark colour; flat on paper */
+  .table-section-header, .table-section-toggle { background: none !important; }
+
+  /* every folded thing open */
+  .table-section-body, .collapsible-body, .alert-collapsible-body {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .finding[hidden], .finding-body[hidden], .findings-group[hidden] { display: block !important; }
+  .findings-none { display: none !important; }
+  .tabs-panel { display: block !important; }
+  .tabs-panel + .tabs-panel { margin-top: 10pt; }
+
+  /* tables: repeat the header row on every page, never split a row */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, td, th { break-inside: avoid; }
+  .table-wrapper { overflow: visible !important; max-height: none !important; }
+
+  /* keep small things whole */
+  .summary-tile, .finding, .chart-panel, .bar-item, .verdict-chips,
+  .sg-cell, .event-row { break-inside: avoid; }
+  .summary-tile, .block-section, .table-section { box-shadow: none !important; }
+
+  /* print-only elements added by the print module */
+  .dh-print-path {
+    display: block;
+    font-size: 14pt;
+    margin: 14pt 0 6pt;
+    padding-bottom: 3pt;
+    border-bottom: 1px solid #999;
+    break-after: avoid;
+  }
+  .dh-print-note { display: block; font-size: 8pt; font-style: italic; color: #555; margin: 4pt 0 0; }
+  .dh-print-cover {
+    display: flex;
+    flex-direction: column;
+    gap: 12pt;
+    min-height: 240mm;
+    justify-content: center;
+    break-after: page;
+  }
+  .dh-print-cover h1 { font-size: 28pt; margin: 0; }
+  .dh-print-cover .report-logo { max-height: 60pt; width: auto; align-self: flex-start; }
+  .dh-print-cover .summary-tile { max-width: none; }
 }
 
 '@

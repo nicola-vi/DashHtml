@@ -75,6 +75,7 @@ function Get-DhJsBlocks {
         case 'heatmap':        renderHeatmap(container, b); break;
         case 'topologymap':    renderTopologyMap(container, b); break;
         case 'rangebar':       renderRangeBar(container, b); break;
+        case 'findings':       renderFindings(container, b); break;   /* v2.2.0 */
       }
     });
   }
@@ -1171,17 +1172,7 @@ function Get-DhJsBlocks {
           if (dragMoved) return;   /* the mousedown→up was a pan, not a click */
           var tableId = el.getAttribute('data-link-table');
           var filter  = el.getAttribute('data-link-filter');
-          if (!tableId || !window._showPanel) return;
-          window._showPanel(tableId);
-          if (filter && engines[tableId]) {
-            var eng = engines[tableId];
-            var inp = document.getElementById('filter-' + tableId);
-            eng.filterText = filter;
-            if (inp) inp.value = filter;
-            eng.currentPage = 1;
-            eng.render();
-            URLState.save();
-          }
+          if (tableId) jumpToTable(tableId, filter);
         });
       });
       root.querySelectorAll('.topo-node').forEach(function (el) {
@@ -1449,17 +1440,7 @@ function Get-DhJsBlocks {
       el.addEventListener('click', function () {
         var tableId = el.getAttribute('data-link-table');
         var filter  = el.getAttribute('data-link-filter');
-        if (!tableId || !window._showPanel) return;
-        window._showPanel(tableId);
-        if (filter && engines[tableId]) {
-          var eng = engines[tableId];
-          var inp = document.getElementById('filter-' + tableId);
-          eng.filterText = filter;
-          if (inp) inp.value = filter;
-          eng.currentPage = 1;
-          eng.render();
-          URLState.save();
-        }
+        if (tableId) jumpToTable(tableId, filter);
       });
     });
   }
@@ -1601,6 +1582,122 @@ function Get-DhJsBlocks {
   }
 
   /* ── Bar Chart ──────────────────────────────────────────────────── */
+
+  /* v2.2.0 — value aggregation. A bar chart used to COUNT rows per category
+     only, so a chart titled "replication lag (min)" drew row counts. With
+     block.valueField + block.aggregate it now sums / averages / takes the
+     min or max of a numeric column instead. 'count' (the default) is the
+     old behaviour, byte for byte. Same semantics as the table footer
+     aggregates (_renderFoot): parseFloat, non-numeric values ignored.
+
+     aggregateBars(rows, field, opts) -> { entries, total }
+       opts.valueField  numeric column to aggregate ('' = count rows)
+       opts.aggregate   'count' (default) | 'sum' | 'avg' | 'min' | 'max'
+       opts.topN        keep the N largest (default 10)
+       entries : [{label, value, count}] sorted by value, largest first
+       total   : what a percentage is a share of — the row count for
+                 'count', the sum of every value for 'sum', null otherwise
+                 ("percent of total" means nothing for avg / min / max) */
+  function aggregateBars(rows, field, opts) {
+    opts = opts || {};
+    var agg = (opts.aggregate || 'count').toLowerCase();
+    var vf  = (agg === 'count') ? '' : (opts.valueField || '');
+    var groups = {};
+    var grandSum = 0;
+    rows.forEach(function (row) {
+      var k = (row[field] != null) ? String(row[field]) : '(empty)';
+      var g = groups[k];
+      if (!g) { g = groups[k] = { count: 0, n: 0, sum: 0, min: Infinity, max: -Infinity }; }
+      g.count += 1;
+      if (vf) {
+        var raw = row[vf];
+        var v = (raw === null || raw === undefined || raw === '') ? NaN : parseFloat(raw);
+        if (!isNaN(v)) {
+          g.n += 1; g.sum += v; grandSum += v;
+          if (v < g.min) g.min = v;
+          if (v > g.max) g.max = v;
+        }
+      }
+    });
+    var entries = [];
+    /* Object.keys order, as before 2.2.0: integer-like labels first */
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k], val;
+      switch (agg) {
+        case 'sum': val = g.sum; break;
+        case 'avg': val = g.n ? g.sum / g.n : null; break;
+        case 'min': val = g.n ? g.min : null; break;
+        case 'max': val = g.n ? g.max : null; break;
+        default:    val = g.count;
+      }
+      if (vf && agg !== 'sum' && val === null) return;   /* no numeric value at all in this group */
+      entries.push({ label: k, value: val, count: g.count });
+    });
+    /* stable sort, so equal values keep first-seen order (as before 2.2.0) */
+    entries.sort(function (a, b) { return b.value - a.value; });
+    entries = entries.slice(0, opts.topN || 10);
+    var total = (agg === 'count') ? rows.length : (agg === 'sum' ? grandSum : null);
+    return { entries: entries, total: total };
+  }
+
+  /* Format an aggregated value for display. Counts print as before. */
+  function formatBarValue(v, opts) {
+    var agg = (opts.aggregate || 'count').toLowerCase();
+    if (agg === 'count') return String(v);
+    var d = (opts.decimals !== undefined && opts.decimals >= 0) ? opts.decimals : null;
+    var nf = (d !== null)
+      ? { minimumFractionDigits: d, maximumFractionDigits: d }
+      : { maximumFractionDigits: (agg === 'avg' ? 2 : 3) };
+    var txt;
+    try { txt = new Intl.NumberFormat(undefined, nf).format(v); } catch (e) { txt = String(v); }
+    return opts.unit ? txt + ' ' + opts.unit : txt;
+  }
+
+  /* buildBarHtml — pure renderer, the bar counterpart of buildPieSvg.
+       entries : from aggregateBars
+       opts    : { total, aggregate, unit, decimals, showCount, showPercent, clickable }
+     Returns the .bar-item markup (no wrapper, no title). Listeners are the
+     caller's job, bound after the markup is written. */
+  function buildBarHtml(entries, opts) {
+    opts = opts || {};
+    var maxVal = 0;
+    entries.forEach(function (e) { if (e.value > maxVal) maxVal = e.value; });
+    if (!maxVal) maxVal = 1;
+    /* v2.1.3 — the click affordance is a fixed pair of attributes; the label
+       never reaches an event-handler attribute (see renderBarChart). */
+    var clickAttr = opts.clickable ? ' role="button" tabindex="0"' : '';
+    var hasPct = (opts.total !== null && opts.total !== undefined);
+    return entries.map(function (e) {
+      var pct = (Math.max(e.value, 0) / maxVal * 100).toFixed(1);
+      var shown = formatBarValue(e.value, opts);
+      var pctTotal = hasPct ? (opts.total ? (e.value / opts.total * 100) : 0).toFixed(0) : null;
+      /* v1.4.2 — native hover tooltip with label / value / percentage */
+      var tip = e.label + ': ' + shown + (pctTotal !== null ? ' (' + pctTotal + '%)' : '');
+      return '<div class="bar-item'+(opts.clickable?' bar-clickable':'')+'"'+clickAttr+' title="'+esc(tip)+'">'+
+        '<div class="bar-label">'+
+          '<span class="bar-label-text">'+esc(e.label)+'</span>'+
+          (opts.showCount!==false?'<span class="bar-label-count">'+esc(shown)+'</span>':'')+
+          (opts.showPercent && pctTotal !== null?'<span class="bar-label-pct">'+esc(pctTotal)+'%</span>':'')+
+        '</div>'+
+        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div>'+
+      '</div>';
+    }).join('');
+  }
+
+  /* Bind click + Enter/Space on rendered bars. */
+  function bindBarClicks(container, entries, onPick) {
+    var barEls = container.querySelectorAll('.bar-item');
+    for (var bi = 0; bi < barEls.length && bi < entries.length; bi++) {
+      (function (el, label) {
+        function applyBar() { onPick(label); }
+        el.addEventListener('click', applyBar);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); applyBar(); }
+        });
+      })(barEls[bi], entries[bi].label);
+    }
+  }
+
   function renderBarChart(container, block) {
     container.className = 'bar-chart-section';
     /* Aggregate from engine data */
@@ -1613,77 +1710,54 @@ function Get-DhJsBlocks {
       return;
     }
 
-    var counts = {};
-    engine._getFiltered().forEach(function (row) {
-      var v = (row[block.field]!=null)?String(row[block.field]):'(empty)';
-      counts[v]=(counts[v]||0)+1;
-    });
-    var entries = Object.keys(counts).map(function(k){return{label:k,count:counts[k]};})
-      .sort(function(a,b){return b.count-a.count;}).slice(0,block.topN||10);
-    var maxCount = entries[0]?entries[0].count:1;
-    var total = engine._getFiltered().length;
-
-    /* v2.1.3 — the click affordance is a fixed pair of attributes; the label
-       never reaches the markup. It used to be spliced into an inline onclick,
-       which (a) ran in global scope where `engines` is not visible, so the
-       handler always threw, and (b) escaped only single quotes, so a label
-       containing a double quote broke out of the attribute and the rest of the
-       JS was parsed as HTML attributes. The listener below closes over the
-       label as a value, so there is nothing left to escape. */
-    var clickAttr = block.clickFilters ? ' role="button" tabindex="0"' : '';
-
-    var barsHtml = entries.map(function (e) {
-      var pct = (e.count/maxCount*100).toFixed(1);
-      var pctTotal = (e.count/total*100).toFixed(0);
-      /* v1.4.2 — native hover tooltip with label / count / percentage */
-      var tip = e.label + ': ' + e.count + ' (' + pctTotal + '%)';
-      return '<div class="bar-item'+(block.clickFilters?' bar-clickable':'')+'"'+clickAttr+' title="'+esc(tip)+'">'+
-        '<div class="bar-label">'+
-          '<span class="bar-label-text">'+esc(e.label)+'</span>'+
-          (block.showCount!==false?'<span class="bar-label-count">'+esc(e.count)+'</span>':'')+
-          (block.showPercent?'<span class="bar-label-pct">'+esc(pctTotal)+'%</span>':'')+
-        '</div>'+
-        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div>'+
-      '</div>';
-    }).join('');
+    var opts = { valueField: block.valueField, aggregate: block.aggregate, topN: block.topN,
+                 unit: block.unit, decimals: block.decimals,
+                 showCount: block.showCount, showPercent: block.showPercent, clickable: !!block.clickFilters };
+    var agg = aggregateBars(engine._getFiltered(), block.field, opts);
+    opts.total = agg.total;
 
     container.innerHTML =
       (block.title ? '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>' : '')+
-      '<div class="bar-chart">'+barsHtml+'</div>';
+      '<div class="bar-chart">'+buildBarHtml(agg.entries, opts)+'</div>';
 
     /* Bind AFTER the innerHTML assignment — the elements do not exist before
        it. renderBarChart is re-entered by _refreshLinkedBarCharts on every
        filter change, which replaces these nodes wholesale, so no listener
-       accumulates across renders. */
+       accumulates across renders. v2.1.3: never an inline onclick — it ran in
+       global scope where `engines` is invisible, and splicing the label into
+       an attribute was an injection sink. Closing over the value fixes both. */
     if (block.clickFilters) {
-      var barEls = container.querySelectorAll('.bar-item');
-      for (var bi = 0; bi < barEls.length && bi < entries.length; bi++) {
-        (function (el, label) {
-          function applyBar() { engine.applyTextFilter(label); }
-          el.addEventListener('click', applyBar);
-          el.addEventListener('keydown', function (ev) {
-            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); applyBar(); }
-          });
-        })(barEls[bi], entries[bi].label);
-      }
+      bindBarClicks(container, agg.entries, function (label) { engine.applyTextFilter(label); });
     }
   }
 
   /* Stacked variant — each primary bar is segmented by block.seriesField.
      Series values are coloured from chartPalette() in alphabetical order so
      the legend stays stable across renders. clickFilters is intentionally
-     ignored in stacked mode (the bar has no single Field value to filter by). */
+     ignored in stacked mode (the bar has no single Field value to filter by).
+     v2.2.0 — with valueField + aggregate 'sum' the segments add up values
+     instead of rows (Add-DhBarChart allows only count / sum when stacked). */
   function renderBarChartStacked(container, block, engine) {
-    /* Two-level aggregation: primary[field][series] = count */
+    var useSum = (String(block.aggregate || 'count').toLowerCase() === 'sum') && !!block.valueField;
+    var fmtOpts = { aggregate: useSum ? 'sum' : 'count', unit: block.unit, decimals: block.decimals };
+    /* Two-level aggregation: primary[field][series] = count (or sum) */
     var primary = {};
     var seriesSet = {};
+    var grandTotal = 0;
     engine._getFiltered().forEach(function (row) {
       var pv = (row[block.field]      != null) ? String(row[block.field])      : '(empty)';
       var sv = (row[block.seriesField] != null) ? String(row[block.seriesField]) : '(empty)';
+      var w = 1;
+      if (useSum) {
+        var raw = row[block.valueField];
+        w = (raw === null || raw === undefined || raw === '') ? NaN : parseFloat(raw);
+        if (isNaN(w)) return;
+      }
       if (!primary[pv]) primary[pv] = { total: 0, byS: {} };
-      primary[pv].total += 1;
-      primary[pv].byS[sv] = (primary[pv].byS[sv] || 0) + 1;
+      primary[pv].total += w;
+      primary[pv].byS[sv] = (primary[pv].byS[sv] || 0) + w;
       seriesSet[sv] = true;
+      grandTotal += w;
     });
     var seriesValues = Object.keys(seriesSet).sort();
     var primaryEntries = Object.keys(primary).map(function (k) {
@@ -1692,7 +1766,7 @@ function Get-DhJsBlocks {
 
     /* Largest total drives the bar width scale */
     var maxTotal = primaryEntries[0] ? primaryEntries[0].total : 1;
-    var grandTotal = engine._getFiltered().length;
+    if (!maxTotal) maxTotal = 1;
 
     /* Colour map: deterministic alphabetic series → palette index */
     var palette = chartPalette();
@@ -1700,20 +1774,20 @@ function Get-DhJsBlocks {
     seriesValues.forEach(function (sv, i) { colorOf[sv] = palette[i % palette.length]; });
 
     var barsHtml = primaryEntries.map(function (p) {
-      var widthPct = (p.total / maxTotal * 100).toFixed(2);
-      var pctTotal = (p.total / grandTotal * 100).toFixed(0);
+      var widthPct = (Math.max(p.total, 0) / maxTotal * 100).toFixed(2);
+      var pctTotal = (grandTotal ? (p.total / grandTotal * 100) : 0).toFixed(0);
       /* Segments — each is sized in proportion to its share of THIS bar's total */
       var segHtml = seriesValues.map(function (sv) {
         var c = p.byS[sv] || 0;
         if (c === 0) return '';
-        var segPct = (c / p.total * 100).toFixed(2);
-        var tip = sv + ': ' + c;
+        var segPct = (p.total ? (c / p.total * 100) : 0).toFixed(2);
+        var tip = sv + ': ' + formatBarValue(c, fmtOpts);
         return '<div class="bar-segment" style="width:'+segPct+'%;background:'+esc(colorOf[sv])+'" title="'+esc(tip)+'"></div>';
       }).join('');
       return '<div class="bar-item bar-item-stacked">'+
         '<div class="bar-label">'+
           '<span class="bar-label-text" title="'+esc(p.label)+'">'+esc(p.label)+'</span>'+
-          (block.showCount  !== false ? '<span class="bar-label-count">'+esc(p.total)+'</span>' : '')+
+          (block.showCount  !== false ? '<span class="bar-label-count">'+esc(formatBarValue(p.total, fmtOpts))+'</span>' : '')+
           (block.showPercent          ? '<span class="bar-label-pct">'+esc(pctTotal)+'%</span>' : '')+
         '</div>'+
         '<div class="bar-track bar-track-stacked" style="width:'+widthPct+'%">'+segHtml+'</div>'+
@@ -1732,6 +1806,180 @@ function Get-DhJsBlocks {
       (block.title ? '<h3 class="bar-chart-title">'+esc(block.title)+'</h3>' : '')+
       '<div class="bar-chart bar-chart-stacked">'+barsHtml+'</div>'+
       legendHtml;
+  }
+
+  /* ── Findings (v2.2.0, Add-DhFindings) ──────────────────────────────
+     A severity counter strip that filters, a text filter, optional group
+     headers, and one expandable row per finding. Every string goes through
+     esc(); reference URLs were validated in PowerShell and are checked
+     again here, so a hand-edited BLOCKS_CONFIG cannot inject a javascript:
+     link. "Show in table" goes through jumpToTable. */
+  var FINDING_SEV = {
+    critical: { label: 'Critical', rank: 0 },
+    warning:  { label: 'Warning',  rank: 1 },
+    info:     { label: 'Info',     rank: 2 },
+    ok:       { label: 'OK',       rank: 3 }
+  };
+  var FINDING_URL_OK = /^(https?:|mailto:|tel:|#)/i;
+
+  function renderFindings(container, block) {
+    container.className = 'findings-section';
+    var list = block.findings || [];
+    var expand = {};
+    (block.expandSeverity || []).forEach(function (s) { expand[s] = true; });
+    var maxShown = (block.maxAffectedShown >= 0) ? block.maxAffectedShown : 20;
+    var uid = 'fnd-' + block.id;
+
+    /* counters */
+    var counts = { critical: 0, warning: 0, info: 0, ok: 0 };
+    list.forEach(function (f) { if (counts[f.severity] !== undefined) counts[f.severity]++; });
+
+    function bodyHtml(f, i) {
+      var h = '';
+      if (f.description)    h += '<div class="finding-section"><div class="finding-label">Description</div><p>'+esc(f.description)+'</p></div>';
+      if (f.recommendation) h += '<div class="finding-section"><div class="finding-label">Recommendation</div><p>'+esc(f.recommendation)+'</p></div>';
+      var aff = f.affected || [];
+      if (aff.length || f.affectedCount) {
+        var shown = aff.slice(0, maxShown);
+        var more  = Math.max((f.affectedCount || aff.length) - shown.length, 0);
+        h += '<div class="finding-section"><div class="finding-label">Affected ('+esc(f.affectedCount || aff.length)+')</div>';
+        if (shown.length) {
+          h += '<ul class="finding-affected">'+shown.map(function (a) { return '<li>'+esc(a)+'</li>'; }).join('')+
+               (more ? '<li class="finding-more">+'+esc(more)+' more</li>' : '')+'</ul>';
+        }
+        h += '</div>';
+      }
+      var links = '';
+      if (f.affectedTableId) {
+        links += '<button type="button" class="finding-jump" data-fi="'+i+'">Show in table &#8594;</button>';
+      }
+      (f.references || []).forEach(function (r) {
+        if (FINDING_URL_OK.test(String(r.url || ''))) {
+          links += '<a class="finding-ref" href="'+esc(r.url)+'" target="_blank" rel="noopener noreferrer">'+esc(r.label || r.url)+'</a>';
+        } else {
+          links += '<span class="finding-ref finding-ref-blocked">'+esc(r.label || r.url)+'</span>';
+        }
+      });
+      if (links) h += '<div class="finding-links">'+links+'</div>';
+      return h || '<p class="finding-empty">No further detail.</p>';
+    }
+
+    function rowHtml(f, i) {
+      var sev = FINDING_SEV[f.severity] ? f.severity : 'info';
+      var open = !!expand[sev];
+      var fid = uid + '-' + i;
+      return '<div class="finding finding-'+sev+(open?' open':'')+'" data-fi="'+i+'" data-sev="'+sev+'" id="'+esc(fid)+'" data-finding-id="'+esc(f.id)+'">'+
+        '<button type="button" class="finding-head" aria-expanded="'+(open?'true':'false')+'" aria-controls="'+esc(fid)+'-body">'+
+          '<span class="finding-badge finding-badge-'+sev+'">'+esc(FINDING_SEV[sev].label)+'</span>'+
+          '<span class="finding-title">'+esc(f.title)+'</span>'+
+          (f.area ? '<span class="finding-area">'+esc(f.area)+'</span>' : '')+
+          ((f.affectedCount || (f.affected||[]).length) ? '<span class="finding-count" title="Affected objects">'+esc(f.affectedCount || f.affected.length)+'</span>' : '')+
+          '<span class="finding-chevron" aria-hidden="true">'+(open?'&#9662;':'&#9656;')+'</span>'+
+        '</button>'+
+        '<div class="finding-body" id="'+esc(fid)+'-body"'+(open?'':' hidden')+'>'+bodyHtml(f, i)+'</div>'+
+      '</div>';
+    }
+
+    /* list markup, with optional group headers */
+    var groupBy = block.groupBy || 'none';
+    var rows = '';
+    if (groupBy === 'area' || groupBy === 'severity') {
+      var groups = {}, order = [];
+      list.forEach(function (f, i) {
+        var k = groupBy === 'area' ? (f.area || 'Other') : (FINDING_SEV[f.severity] ? FINDING_SEV[f.severity].label : f.severity);
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(i);
+      });
+      order.forEach(function (k) {
+        rows += '<div class="findings-group" data-group="'+esc(k)+'"><div class="findings-group-header">'+esc(k)+
+                ' <span class="findings-group-count">'+groups[k].length+'</span></div>'+
+                groups[k].map(function (i) { return rowHtml(list[i], i); }).join('')+'</div>';
+      });
+    } else {
+      rows = list.map(rowHtml).join('');
+    }
+
+    var counters = '';
+    if (block.showCounters !== false) {
+      counters = '<div class="findings-counters" role="group" aria-label="Show severity">'+
+        ['critical','warning','info','ok'].filter(function (s) { return counts[s] > 0; }).map(function (s) {
+          return '<button type="button" class="findings-chip findings-chip-'+s+'" data-sev="'+s+'" aria-pressed="false">'+
+                 '<span class="findings-chip-count">'+counts[s]+'</span> '+esc(FINDING_SEV[s].label)+'</button>';
+        }).join('')+'</div>';
+    }
+    var filterBox = (block.filterable !== false)
+      ? '<input type="search" class="findings-filter" placeholder="Filter findings&#8230;" aria-label="Filter findings">'
+      : '';
+
+    container.innerHTML =
+      (block.title ? '<h3 class="findings-title">'+esc(block.title)+'</h3>' : '')+
+      ((counters || filterBox) ? '<div class="findings-toolbar">'+counters+filterBox+'</div>' : '')+
+      (list.length
+        ? '<div class="findings-list">'+rows+'</div><p class="findings-none" hidden>No findings match the filter.</p>'
+        : '<p class="findings-none">No findings.</p>');
+
+    /* expand / collapse */
+    function setOpen(el, open) {
+      el.classList.toggle('open', open);
+      var head = el.querySelector('.finding-head'), body = el.querySelector('.finding-body');
+      if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (body) { if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', ''); }
+      var chev = el.querySelector('.finding-chevron');
+      if (chev) chev.innerHTML = open ? '&#9662;' : '&#9656;';
+    }
+    container.querySelectorAll('.finding-head').forEach(function (head) {
+      head.addEventListener('click', function () {
+        var el = head.parentNode;
+        setOpen(el, !el.classList.contains('open'));
+      });
+    });
+    container.querySelectorAll('.finding-jump').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var f = list[parseInt(btn.getAttribute('data-fi'), 10)];
+        if (f) jumpToTable(f.affectedTableId, f.affectedFilter);
+      });
+    });
+
+    /* filtering: severity chips (none pressed = all) AND text */
+    var activeSev = {};
+    var input = container.querySelector('.findings-filter');
+    function haystack(f) {
+      return [f.title, f.area, f.description, f.recommendation, (f.affected || []).join(' '), f.severity]
+        .join('\n').toLowerCase();
+    }
+    var hay = list.map(haystack);
+    function applyFilter() {
+      var term = input ? input.value.trim().toLowerCase() : '';
+      var anySev = Object.keys(activeSev).length > 0;
+      var visible = 0;
+      container.querySelectorAll('.finding').forEach(function (el) {
+        var i = parseInt(el.getAttribute('data-fi'), 10);
+        var ok = (!anySev || activeSev[el.getAttribute('data-sev')]) && (!term || hay[i].indexOf(term) !== -1);
+        el.hidden = !ok;
+        if (ok) visible++;
+      });
+      container.querySelectorAll('.findings-group').forEach(function (g) {
+        g.hidden = !g.querySelector('.finding:not([hidden])');
+      });
+      var none = container.querySelector('.findings-none');
+      if (none && list.length) none.hidden = visible > 0;
+    }
+    container.querySelectorAll('.findings-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var s = chip.getAttribute('data-sev');
+        if (activeSev[s]) delete activeSev[s]; else activeSev[s] = true;
+        chip.setAttribute('aria-pressed', activeSev[s] ? 'true' : 'false');
+        applyFilter();
+      });
+    });
+    if (input) input.addEventListener('input', applyFilter);
+
+    /* for print and search: open one finding by its stable id */
+    container._dhOpenFinding = function (findingId) {
+      var el = container.querySelector('.finding[data-finding-id="'+String(findingId).replace(/["\\]/g, '')+'"]');
+      if (el) { setOpen(el, true); if (el.scrollIntoView) el.scrollIntoView({ block: 'center' }); }
+      return !!el;
+    };
   }
 
 '@

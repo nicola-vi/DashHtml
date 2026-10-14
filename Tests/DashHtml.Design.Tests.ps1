@@ -335,3 +335,37 @@ Describe 'Design round-trip integrity' {
         Remove-Item $f1, $scriptFile -Force -ErrorAction SilentlyContinue
     }
 }
+
+# ===========================================================================
+#  DashHtml 2.2.0 blocks survive the YAML round-trip
+# ===========================================================================
+Describe 'Round-trip of the DashHtml 2.2.0 additions' {
+    It 'keeps findings, a verdict tile and a value-aggregated bar chart' {
+        $r = New-DhDashboard -Title 'RT 220'
+        Add-DhSummary -Report $r -Items @(@{ Label = 'Overall'; Value = 'Review'; Style = 'verdict'; Counts = @{ warning = 2 } })
+        Add-DhTable -Report $r -TableId 'repl' -Title 'Repl' -Data @(
+            [pscustomobject]@{ DC = 'a'; Lag = 4 }, [pscustomobject]@{ DC = 'b'; Lag = 9 })
+        Add-DhBarChart -Report $r -Id 'lag' -Title 'Lag' -TableId 'repl' -Field 'DC' -ValueField 'Lag' -Aggregate avg -Unit 'min'
+        Add-DhFindings -Report $r -Id 'f' -Title 'Findings' -Findings @(
+            @{ Severity = 'high'; Title = 'Round trip finding'; Area = 'X'; Affected = @('u1', 'u2'); AffectedTableId = 'repl' })
+
+        $yamlFile = Join-Path ([IO.Path]::GetTempPath()) ('rt220_' + [guid]::NewGuid().ToString('N') + '.yaml')
+        $outHtml  = Join-Path ([IO.Path]::GetTempPath()) ('rt220_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            Set-Content -Path $yamlFile -Value (ConvertTo-DhYaml -Report $r -IncludeData) -Encoding UTF8
+            $ps = ConvertFrom-DhYaml -Path $yamlFile -OutputPath 'IGNORED.html'
+            $ps | Should -Match 'Add-DhFindings'
+            $body = ($ps -split "`n" | Where-Object { $_ -notmatch '^\s*#Requires' -and $_ -notmatch '^\s*Import-Module\s+DashHtml' }) -join "`n"
+            $body = $body -replace 'IGNORED\.html', ($outHtml -replace '\\', '\\')
+            & ([scriptblock]::Create($body))
+            $html = Get-Content $outHtml -Raw
+            $html | Should -Match '"blockType":"findings"'
+            $html | Should -Match 'Round trip finding'
+            $html | Should -Match '"severity":"critical"'
+            $html | Should -Match '"aggregate":"avg"'
+            $html | Should -Match '"style":"verdict"'
+        } finally {
+            foreach ($f in $yamlFile, $outHtml) { if (Test-Path $f) { Remove-Item $f -Force } }
+        }
+    }
+}

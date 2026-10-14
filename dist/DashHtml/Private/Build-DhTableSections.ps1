@@ -10,7 +10,10 @@ function Build-DhTableSections {
         [string[]] $NavInitialPath = @(),
         # "<kind>:<id>" -> declaration index, so menu order follows the order the
         # author wrote things rather than the order sections happen to be emitted.
-        [hashtable] $NavSeq = @{}
+        [hashtable] $NavSeq = @{},
+        # v2.2.0 - 'none' drops the XLSX and PDF buttons (CSV only)
+        [ValidateSet('cdn','embed','none')]
+        [string] $ExportLibraries = 'cdn'
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -18,6 +21,10 @@ function Build-DhTableSections {
     foreach ($t in $Tables) {
         $id       = $t.Id
         $titleEsc = [System.Web.HttpUtility]::HtmlEncode($t.Title)
+        $libButtonsHtml = if ($ExportLibraries -eq 'none') { '' } else {
+            "            <button class=`"btn-export btn-xlsx`" id=`"exp-xlsx-$id`" title=`"Download filtered data as Excel`">&#8595;&thinsp;XLSX</button>`n" +
+            "            <button class=`"btn-export btn-pdf`"  id=`"exp-pdf-$id`"  title=`"Download filtered data as PDF`">&#8595;&thinsp;PDF</button>"
+        }
         $ngAttr   = if ($t.NavGroup) { " data-navgroup=`"$([System.Web.HttpUtility]::HtmlEncode($t.NavGroup))`"" } else { '' }
         $sgAttr   = if ($t.Contains('NavSubGroup') -and $t.NavSubGroup) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($t.NavSubGroup))`"" } else { '' }
         # v2.0.0 - canonical nav attributes + server-stamped initial visibility
@@ -96,8 +103,7 @@ $chartsHtml
           </div>
           <div class="export-group" title="Export currently filtered data">
             <button class="btn-export btn-csv"  id="exp-csv-$id"  title="Download filtered data as CSV">&#8595;&thinsp;CSV</button>
-            <button class="btn-export btn-xlsx" id="exp-xlsx-$id" title="Download filtered data as Excel">&#8595;&thinsp;XLSX</button>
-            <button class="btn-export btn-pdf"  id="exp-pdf-$id"  title="Download filtered data as PDF">&#8595;&thinsp;PDF</button>
+$libButtonsHtml
           </div>
         </div>
       </div>

@@ -36,9 +36,8 @@ function New-DhDashboard {
 
     .PARAMETER NavTitle
         Text shown in the sticky nav bar alongside the navigation links.
-        Defaults to the dashboard Title.
-        Set to an empty string to suppress the label entirely (logo + links only).
-          -NavTitle ''             # hide entirely
+        Defaults to no label (the header already shows the Title); pass a
+        short form to show one.
           -NavTitle 'My Dashboard' # short form
 
     .PARAMETER InfoFields
@@ -48,6 +47,16 @@ function New-DhDashboard {
 
     .PARAMETER GeneratedBy
         Optional script/tool name shown in the report footer.
+
+    .PARAMETER ThemeMode
+        v2.2.0. The theme the report opens in when the reader has not chosen
+        one: Light (default) | Dark | Auto (follow the system's light/dark
+        setting). A choice made with the toggle button always wins.
+
+    .PARAMETER PrintCover
+        v2.2.0. When the report is printed (or saved as PDF from the browser),
+        start with a cover page: title, subtitle, logo, info fields and the
+        first verdict tile, if the report has one.
 
     .EXAMPLE
         $report = New-DhDashboard -Title 'Infrastructure Dashboard' -Theme Azure
@@ -108,7 +117,19 @@ function New-DhDashboard {
         # architectural limit: the matcher, URL state and renderer are all
         # depth-agnostic, so raising this costs nothing but layout.
         [ValidateRange(1,5)]
-        [int]      $NavMaxDepth = 3
+        [int]      $NavMaxDepth = 3,
+
+        # ---- v2.2.0 ----
+        # Theme the report opens in when the reader has not picked one.
+        # Light (default, as before) | Dark | Auto (follow the OS / browser
+        # prefers-color-scheme until the reader toggles). A choice the reader
+        # made with the toggle button always wins (URL hash, then localStorage).
+        [ValidateSet('Light','Dark','Auto')]
+        [string]   $ThemeMode = 'Light',
+
+        # Print a cover page first: title, subtitle, logo, info fields, and the
+        # first verdict tile (Add-DhSummary Style='verdict') when there is one.
+        [switch]   $PrintCover
     )
 
     # Map theme family to internal light/dark CSS names
@@ -187,6 +208,8 @@ function New-DhDashboard {
         AutoRefreshSec = $autoRefreshSeconds   # 0 = disabled
         NavLayout      = $NavLayout            # v2.0.0 Auto | Strips | Sidebar
         NavMaxDepth    = $NavMaxDepth          # v2.0.0 policy cap (1-5)
+        ThemeMode      = $ThemeMode.ToLowerInvariant()   # v2.2.0 light | dark | auto
+        PrintCover     = [bool]$PrintCover               # v2.2.0
     }
 }
 

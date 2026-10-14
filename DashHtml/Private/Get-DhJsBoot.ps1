@@ -4,6 +4,27 @@ function Get-DhJsBoot {
   /* =========================================================================
      BOOT
      ========================================================================= */
+
+  /* v2.1.4 — restore a saved theme NOW, while the script is parsed, so the
+     page does not paint in the default theme first and then flash. The two
+     theme <style> tags are already in <head>. */
+  (function () {
+    var m = savedThemeMode();
+    if (m) { themeChosen = true; applyThemeMode(m); return; }
+    /* v2.2.0 — no saved choice: New-DhDashboard -ThemeMode decides. 'auto'
+       follows the system setting, live, until the reader toggles. */
+    var def = document.documentElement.getAttribute('data-theme-mode') || 'light';
+    if (def === 'auto' && window.matchMedia) {
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      applyThemeMode(mq.matches ? 'dark' : 'light');
+      var follow = function (e) { if (!themeChosen) applyThemeMode(e.matches ? 'dark' : 'light'); };
+      if (mq.addEventListener) mq.addEventListener('change', follow);
+      else if (mq.addListener) mq.addListener(follow);
+    } else if (def === 'dark') {
+      applyThemeMode('dark');
+    }
+  })();
+
   document.addEventListener('DOMContentLoaded', function () {
     renderSummary();
     renderBlocks();
@@ -65,6 +86,7 @@ function Get-DhJsBoot {
     window.addEventListener('resize', syncNavTop);
     initThemeToggle();
     initDensityToggle();
+    initPrint();           /* v2.2.0 */
     initTableCollapsibles();
 
     /* Alert banners — initNav() has now exposed window._showPanel,
@@ -74,15 +96,8 @@ function Get-DhJsBoot {
     /* ── Restore URL state: density + card filters ── */
     var _saved = URLState.load();
     if (_saved.density) {
-      /* Apply saved density class */
-      var _densityStates = ['normal','compact','comfortable'];
-      var _densityLabels = { normal:'⊞ Normal', compact:'⊟ Compact', comfortable:'⊚ Spacious' };
-      if (_densityStates.indexOf(_saved.density) !== -1) {
-        tableDensity = _saved.density;
-        document.body.classList.add('density-' + tableDensity);
-        var _db = document.getElementById('btn-density-toggle');
-        if (_db) _db.textContent = _densityLabels[tableDensity];
-      }
+      /* v2.1.4 — DENSITY.set moves the toggle's position too */
+      DENSITY.set(_saved.density);
     }
     if (_saved.cardFilters) {
       /* Re-apply saved card filters — mark active cards and update engines */

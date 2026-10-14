@@ -23,6 +23,7 @@ $script:DhTypeToCmdlet = @{
     heatmap        = 'Add-DhHeatmap'
     rangebar       = 'Add-DhRangeBar'
     topologymap    = 'Add-DhTopologyMap'
+    findings       = 'Add-DhFindings'      # DashHtml 2.2.0
 }
 
 $script:DhCommonParams = @(

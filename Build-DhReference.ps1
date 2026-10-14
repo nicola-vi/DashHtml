@@ -82,6 +82,8 @@ $cmdMeta = [ordered]@{
     'Add-DhPieChart'     = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
     'Add-DhLineChart'    = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
     'Add-DhBullet'       = @{ Tag = 'BULLET'; Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
+    'Add-DhRangeBar'     = @{ Tag = 'RANGE';  Color = '#d2a8ff'; Group = 'Charts'          }   # v2.1
+    'Add-DhFindings'     = @{ Tag = 'FIND';   Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.2
     'Add-DhStatusGrid'   = @{ Tag = 'GRID';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.4
     'Add-DhHeatmap'      = @{ Tag = 'HEAT';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5
     'Add-DhTopologyMap'  = @{ Tag = 'TOPO';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5

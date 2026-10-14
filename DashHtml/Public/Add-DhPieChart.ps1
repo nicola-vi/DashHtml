@@ -166,6 +166,8 @@ function Add-DhPieChart {
         if ([string]::IsNullOrWhiteSpace($Field)) {
             throw "Add-DhPieChart: -Field is required when -TableId is used."
         }
+        # Skipped while no table exists yet; Export-DhDashboard's link lint
+        # (v2.1.4) reports a TableId that never gets a table.
         if ($Report.Tables -and -not ($Report.Tables | Where-Object { $_.Id -eq $TableId })) {
             throw "Add-DhPieChart: Source table '$TableId' not found. Add the table before the pie chart."
         }

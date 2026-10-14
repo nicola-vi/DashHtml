@@ -8,6 +8,11 @@ function Get-DhJsTable {
     this.id          = cfg.id;
     this.title       = cfg.title||cfg.id;
     this.allData     = cfg.data.slice();
+    /* v2.1.4 — row -> position in allData, built once. Every row render used
+       to call allData.indexOf(row), a linear scan per row: O(n^2) per render
+       on a large page or virtual window. allData is never reordered. */
+    this._rowIdx     = new Map();
+    for (var ri = 0; ri < this.allData.length; ri++) this._rowIdx.set(this.allData[ri], ri);
     this.columns     = cfg.columns;
     this.pageSize    = cfg.pageSize||15;
     this.multiSelect = cfg.multiSelect||false;
@@ -65,6 +70,12 @@ function Get-DhJsTable {
         if (rbT.container) renderRangeBar(rbT.container, rbT.block);
       }
     });
+  };
+
+  /* Position of a row object in allData (-1 when it is not one of ours). */
+  TableEngine.prototype._idxOf = function (row) {
+    var i = this._rowIdx.get(row);
+    return (i === undefined) ? -1 : i;
   };
 
   /* ── Visible columns ────────────────────────────────────────────── */
@@ -163,14 +174,38 @@ function Get-DhJsTable {
     if (!tbody) return;
     var self = this;
 
-    /* Custom context menu element — created once and reused */
+    /* Custom context menu element — one per table. v2.1.4: the items carry
+       classes, not ids; with fixed ids every table after the first put a
+       duplicate id into the document. */
     var ctxMenu = document.createElement('div');
     ctxMenu.className = 'ctx-menu';
     ctxMenu.style.display = 'none';
     ctxMenu.innerHTML =
-      '<div class="ctx-item" id="ctx-copy-cell">&#128203; Copy cell value</div>' +
-      '<div class="ctx-item" id="ctx-copy-csv">&#128190; Copy table as CSV</div>';
+      '<div class="ctx-item ctx-copy-cell">&#128203; Copy cell value</div>' +
+      '<div class="ctx-item ctx-copy-csv">&#128190; Copy table as CSV</div>';
     document.body.appendChild(ctxMenu);
+
+    /* Clipboard write with a fallback for file:// pages and browsers where
+       navigator.clipboard is missing or refuses (it needs a secure context). */
+    function copyText(text, onDone) {
+      function legacy() {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        if (ok && onDone) onDone();
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { if (onDone) onDone(); }, legacy);
+      } else {
+        legacy();
+      }
+    }
 
     var targetTd = null;
 
@@ -187,22 +222,22 @@ function Get-DhJsTable {
     });
 
     /* Copy single cell */
-    ctxMenu.querySelector('#ctx-copy-cell').addEventListener('click', function() {
+    ctxMenu.querySelector('.ctx-copy-cell').addEventListener('click', function() {
       if (!targetTd) return;
-      var text = (targetTd.textContent || targetTd.innerText || '').trim();
-      if (text && navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(function() {
-          targetTd.classList.add('cell-copied');
-          setTimeout(function(){ targetTd.classList.remove('cell-copied'); }, 600);
+      var td   = targetTd;
+      var text = (td.textContent || td.innerText || '').trim();
+      if (text) {
+        copyText(text, function() {
+          td.classList.add('cell-copied');
+          setTimeout(function(){ td.classList.remove('cell-copied'); }, 600);
         });
       }
       closeMenu();
     });
 
     /* Copy entire filtered table as CSV */
-    ctxMenu.querySelector('#ctx-copy-csv').addEventListener('click', function() {
+    ctxMenu.querySelector('.ctx-copy-csv').addEventListener('click', function() {
       var r    = self._exportRows();
-      var BOM  = '';
       var lines = [r.cols.map(function(c){ return '"'+c.label.replace(/"/g,'""')+'"'; }).join(',')];
       r.rows.forEach(function(row){
         lines.push(r.cols.map(function(c){
@@ -211,17 +246,14 @@ function Get-DhJsTable {
           return '"'+v.replace(/"/g,'""')+'"';
         }).join(','));
       });
-      var csv = lines.join('\r\n');
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(csv).then(function(){
-          /* Brief visual feedback on the table */
-          var tbl = document.getElementById('tbl-'+self.id);
-          if (tbl) {
-            tbl.classList.add('table-copied');
-            setTimeout(function(){ tbl.classList.remove('table-copied'); }, 800);
-          }
-        });
-      }
+      copyText(lines.join('\r\n'), function(){
+        /* Brief visual feedback on the table */
+        var tbl = document.getElementById('tbl-'+self.id);
+        if (tbl) {
+          tbl.classList.add('table-copied');
+          setTimeout(function(){ tbl.classList.remove('table-copied'); }, 800);
+        }
+      });
       closeMenu();
     });
   };
@@ -351,7 +383,7 @@ function Get-DhJsTable {
   };
 
   /* ── Cell rendering ─────────────────────────────────────────────── */
-  TableEngine.prototype._renderCell = function (col,rawVal) {
+  TableEngine.prototype._renderCell = function (col,rawVal,row) {
     var td=document.createElement('td');
     var cellType=(col.cellType||'text').toLowerCase();
     var isSparklineCell = (cellType === 'sparkline');
@@ -395,6 +427,26 @@ function Get-DhJsTable {
         });
       } else {
         td.innerHTML = '<span class="td-sparkline-empty">—</span>';
+      }
+    } else if(cellType==='link'){
+      /* v2.2.0 — link cell. The URL comes from col.urlField (default: this
+         column's value), possibly a property that is not a visible column.
+         Only http(s) and mailto become links; anything else, javascript:
+         included, is shown as plain text. Built with DOM calls, never
+         innerHTML, so neither the URL nor the text can inject markup. */
+      var url = row && col.urlField ? row[col.urlField] : rawVal;
+      url = (url !== null && url !== undefined) ? String(url).trim() : '';
+      var linkTxt = col.linkText || dispVal || url;
+      if (url && /^(https?:|mailto:)/i.test(url)) {
+        var a = document.createElement('a');
+        a.href = url;
+        a.textContent = linkTxt;
+        a.className = 'cell-link';
+        if (!/^mailto:/i.test(url)) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+        a.title = url;
+        td.appendChild(a);
+      } else {
+        td.textContent = dispVal || url;
       }
     } else {
       td.textContent=dispVal;
@@ -542,7 +594,7 @@ function Get-DhJsTable {
           ?filtered.slice((self.currentPage-1)*self.pageSize,(self.currentPage-1)*self.pageSize+self.pageSize)
           :filtered;
         pageRows.forEach(function(row){
-          var idx=self.allData.indexOf(row);
+          var idx=self._idxOf(row);
           if(checked){if(self.selected.indexOf(idx)===-1)self.selected.push(idx);}
           else{self.selected=self.selected.filter(function(i){return i!==idx;});}
         });self.render();
@@ -725,7 +777,7 @@ function Get-DhJsTable {
       tdChk.appendChild(chk);tr.appendChild(tdChk);
     }
 
-    visCols.forEach(function(col){tr.appendChild(self._renderCell(col,row[col.field]));});
+    visCols.forEach(function(col){tr.appendChild(self._renderCell(col,row[col.field],row));});
     return tr;
   };
 
@@ -753,13 +805,25 @@ function Get-DhJsTable {
       td.textContent='No matching records found.';tr.appendChild(td);tbody.appendChild(tr);return;
     }
 
+    /* v2.2.0 — print path: the first _printRows filtered rows, plainly, no
+       pages and no virtual window (a printout cannot scroll). Set and cleared
+       by the beforeprint / afterprint handlers in the print module. */
+    if(this._printRows){
+      this._teardownVirtual();
+      tbody.innerHTML='';
+      filtered.slice(0,this._printRows).forEach(function(row){
+        tbody.appendChild(self._buildRow(row, self._idxOf(row)));
+      });
+      return;
+    }
+
     /* Paginated path (default) — unchanged: render only the current page. */
     if(this.pageable){
       this._teardownVirtual();
       tbody.innerHTML='';
       var start=(this.currentPage-1)*this.pageSize;
       filtered.slice(start,start+this.pageSize).forEach(function(row){
-        tbody.appendChild(self._buildRow(row, self.allData.indexOf(row)));
+        tbody.appendChild(self._buildRow(row, self._idxOf(row)));
       });
       return;
     }
@@ -770,7 +834,7 @@ function Get-DhJsTable {
     if(filtered.length<=VIRTUALISE_ABOVE){
       this._teardownVirtual();
       tbody.innerHTML='';
-      filtered.forEach(function(row){ tbody.appendChild(self._buildRow(row, self.allData.indexOf(row))); });
+      filtered.forEach(function(row){ tbody.appendChild(self._buildRow(row, self._idxOf(row))); });
       return;
     }
     this._renderVirtual(filtered, colSpan);
@@ -785,14 +849,14 @@ function Get-DhJsTable {
     var wrapper=document.getElementById('tbl-'+this.id).closest('.table-wrapper');
     if(!wrapper){ /* no scroll container — fall back to rendering all */
       tbody.innerHTML='';
-      filtered.forEach(function(row){ tbody.appendChild(self._buildRow(row, self.allData.indexOf(row))); });
+      filtered.forEach(function(row){ tbody.appendChild(self._buildRow(row, self._idxOf(row))); });
       return;
     }
     wrapper.classList.add('table-virtual');
 
     /* Measure a representative row height once. */
     tbody.innerHTML='';
-    var probe=this._buildRow(filtered[0], this.allData.indexOf(filtered[0]));
+    var probe=this._buildRow(filtered[0], this._idxOf(filtered[0]));
     tbody.appendChild(probe);
     var rowH=probe.getBoundingClientRect().height||34;
 
@@ -814,7 +878,7 @@ function Get-DhJsTable {
       botSpacer.firstChild.style.height=((filtered.length-last)*rowH)+'px';
       tbody.innerHTML='';
       tbody.appendChild(topSpacer);
-      for(var i=first;i<last;i++){ tbody.appendChild(self._buildRow(filtered[i], self.allData.indexOf(filtered[i]))); }
+      for(var i=first;i<last;i++){ tbody.appendChild(self._buildRow(filtered[i], self._idxOf(filtered[i]))); }
       tbody.appendChild(botSpacer);
     }
 
@@ -924,14 +988,37 @@ function Get-DhJsTable {
     if (!container) return;
     container.innerHTML = '';
     var self = this;
+    /* v2.1.4 - 'pie' draws solid, 'donut' (the default) draws a donut.
+       v2.2.0 - 'bar' draws through the shared aggregateBars / buildBarHtml.
+       Add-DhTable validates Type and drops anything else with a warning. */
     this.charts.forEach(function (chart) {
-      if ((chart.type || 'pie').toLowerCase() === 'pie') {
-        container.appendChild(self._buildPieChart(chart));
+      var t = (chart.type || 'donut').toLowerCase();
+      if (t === 'pie' || t === 'donut') {
+        container.appendChild(self._buildPieChart(chart, t));
+      } else if (t === 'bar') {
+        container.appendChild(self._buildBarChart(chart));
       }
     });
   };
 
-  TableEngine.prototype._buildPieChart = function (chart) {
+  /* v2.2.0 — a bar chart inside the table's chart strip. Same aggregation
+     as Add-DhBarChart, over this table's filtered rows. */
+  TableEngine.prototype._buildBarChart = function (chart) {
+    var opts = { valueField: chart.valueField, aggregate: chart.aggregate, topN: chart.topN || 10,
+                 unit: chart.unit, decimals: chart.decimals, showCount: true, showPercent: false, clickable: false };
+    var agg = aggregateBars(this._getFiltered(), chart.field, opts);
+    opts.total = agg.total;
+    var panel = document.createElement('div');
+    panel.className = 'chart-panel chart-panel-bar';
+    var title = chart.title || chart.field;
+    panel.innerHTML = (title ? '<div class="chart-title">'+esc(title)+'</div>' : '')+
+      (agg.entries.length
+        ? '<div class="bar-chart">'+buildBarHtml(agg.entries, opts)+'</div>'
+        : '<div class="chart-body chart-empty">No data</div>');
+    return panel;
+  };
+
+  TableEngine.prototype._buildPieChart = function (chart, style) {
     var palette = chartPalette();
     var counts = {};
     this._getFiltered().forEach(function (row) {
@@ -942,7 +1029,7 @@ function Get-DhJsTable {
       return { label: k, count: counts[k], color: palette[i % palette.length] };
     }).sort(function (a, b) { return b.count - a.count; });
     return buildPieSvg(entries, {
-      style:      'donut',
+      style:      style === 'pie' ? 'pie' : 'donut',
       title:      chart.title || chart.field,
       showTotal:  true,
       showLegend: true
@@ -961,11 +1048,19 @@ function Get-DhJsTable {
     var r=this._exportRows(),BOM='\uFEFF';
     var lines=[r.cols.map(function(c){return'"'+c.label.replace(/"/g,'""')+'"';}).join(',')];
     r.rows.forEach(function(row){lines.push(r.cols.map(function(c){var v=FMT.forExport(c,row[c.field]);v=(v!==null&&v!==undefined)?String(v):'';return'"'+v.replace(/"/g,'""')+'"';}).join(','));});
-    this._triggerDownload(URL.createObjectURL(new Blob([BOM+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'})),this.id+'.csv');
+    this._triggerDownload(URL.createObjectURL(new Blob([BOM+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'})),this.exportFileName+'.csv');
   };
 
+  /* v2.2.0 — the library is loaded on demand (see loadExportLib); a failure
+     disables the button with a tooltip instead of raising an alert(). */
   TableEngine.prototype.exportExcel=function(){
-    if(typeof XLSX==='undefined'){alert('SheetJS did not load. Internet required for XLSX export.');return;}
+    var self=this;
+    setExportBusy('xlsx',true);
+    loadExportLib('xlsx').then(function(){ setExportBusy('xlsx',false); self._writeExcel(); },
+                               function(){ setExportBusy('xlsx',false); markExportUnavailable('xlsx'); });
+  };
+
+  TableEngine.prototype._writeExcel=function(){
     var r=this._exportRows();
     var aoa=[r.cols.map(function(c){return c.label;})];
     r.rows.forEach(function(row){aoa.push(r.cols.map(function(c){
@@ -986,10 +1081,14 @@ function Get-DhJsTable {
   };
 
   TableEngine.prototype.exportPdf=function(){
-    var JsPDF=(typeof window.jsPDF!=='undefined')?window.jsPDF:(typeof jspdf!=='undefined'&&jspdf.jsPDF)?jspdf.jsPDF:null;
-    if(!JsPDF){alert('jsPDF did not load.\nInternet access required (cdnjs.cloudflare.com).');return;}
-    var _test=new JsPDF();
-    if(typeof _test.autoTable!=='function'){alert('jsPDF-AutoTable did not load.\nInternet access required (cdnjs.cloudflare.com).\nTry reloading the page.');return;}
+    var self=this;
+    setExportBusy('pdf',true);
+    loadPdfLibs().then(function(){ setExportBusy('pdf',false); self._writePdf(); },
+                       function(){ setExportBusy('pdf',false); markExportUnavailable('pdf'); });
+  };
+
+  TableEngine.prototype._writePdf=function(){
+    var JsPDF=window.jsPDF||(window.jspdf&&window.jspdf.jsPDF);
     var r=this._exportRows();
     var orient=(r.cols.length>6||r.rows.length>30)?'landscape':'portrait';
     var doc=new JsPDF({orientation:orient,unit:'mm',format:'a4'});

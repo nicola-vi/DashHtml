@@ -41,7 +41,7 @@ function ConvertFrom-DhScript {
         'add-dhbarchart'='barchart'; 'add-dhpiechart'='piechart'; 'add-dhbullet'='bullet';
         'add-dhlinechart'='linechart'; 'add-dheventfeed'='eventfeed'; 'add-dhstatusgrid'='statusgrid';
         'add-dhtabs'='tabs'; 'add-dhheatmap'='heatmap'; 'add-dhtopologymap'='topologymap';
-        'add-dhrangebar'='rangebar'
+        'add-dhrangebar'='rangebar'; 'add-dhfindings'='findings'
     }
 
     $commands = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)

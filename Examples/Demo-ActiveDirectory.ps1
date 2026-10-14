@@ -92,6 +92,12 @@ $events = @(
 # unset for a clean iconless tile (used here for readability).
 # ============================================================================
 Add-DhSummary -Report $report -Title 'Active Directory health at a glance' -Items @(
+    # v2.2 — the overall verdict, full width, one chip per severity. Without a
+    # Class the colour follows the worst non-zero count (here: critical = red).
+    @{ Style='verdict'; Label='Overall'; Value='Attention needed'
+       Caption='Replication on DC03 and two account findings need action.'
+       Counts=@{ critical=1; warning=2; info=1 } }
+
     @{ Style='bignumber'; Label='Current AD uptime'; Value='99.94%'
        Caption='Target 99.9% — met over the last 30 days'; Class='cell-ok' }
 
@@ -225,6 +231,11 @@ Add-DhTable -Report $report -TableId 'top-dcs' -Title 'Top DCs — load & headro
        Rag=@{ Green=@{ Min=30 }; Amber=@{ Min=15; Max=30 }; Red=@{ Max=15 }; NoData=$true } }
 )
 
+# v2.2 — a bar chart that measures a value: average LDAP bind time per site,
+# not the number of DCs per site. DC06 has no reading and is ignored.
+Add-DhBarChart -Report $report -Id 'ldap-by-site' -Title 'Average LDAP bind time by site' `
+    -TableId 'top-dcs' -Field 'Site' -ValueField 'LdapMs' -Aggregate avg -Unit 'ms' -Decimals 0
+
 # ============================================================================
 # Row 4 — FSMO roles + capacity bullets
 # ============================================================================
@@ -269,5 +280,23 @@ Add-DhEventFeed -Report $report -Id 'recent-events' -Title 'Recent events (24h)'
 # ============================================================================
 # Render
 # ============================================================================
+# v2.2 — findings: what is wrong, what to do, who is affected, and a jump to
+# the evidence. Critical findings start expanded.
+Add-DhFindings -Report $report -Id 'ad-findings' -Title 'Findings' -ExpandSeverity critical -Findings @(
+    @{ Severity='critical'; Title='Inbound replication stalled on DC03'; Area='Replication'
+       Description='DC03 has not completed inbound replication from DC01 for 12 minutes (error 1722, RPC server unavailable).'
+       Recommendation='Check RPC connectivity DC03 -> DC01, then run repadmin /syncall DC03 /AdeP.'
+       Affected=@('DC03'); AffectedTableId='top-dcs'; AffectedFilter='DC03'
+       References=@(@{ Label='Troubleshoot replication error 1722'; Url='https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/replication-error-1722-rpc-server-unavailable' }) }
+    @{ Severity='warning'; Title='NTDS volume low on DC03'; Area='Capacity'
+       Description='18% free on the NTDS volume.'; Recommendation='Extend the volume or move the logs.'
+       Affected=@('DC03'); AffectedTableId='top-dcs'; AffectedFilter='DC03' }
+    @{ Severity='warning'; Title='Slow LDAP binds on DC02 and DC03'; Area='Performance'
+       Recommendation='Review expensive LDAP queries (field engineering logging level 5).'
+       Affected=@('DC02','DC03') }
+    @{ Severity='info'; Title='No reading from DC06'; Area='Monitoring'
+       Description='The APAC DC returned no performance data in this run.'; Affected=@('DC06') }
+)
+
 Export-DhDashboard -Report $report -OutputPath $OutputPath -Force -OpenInBrowser:$OpenInBrowser
 Write-Host "Wrote $OutputPath"

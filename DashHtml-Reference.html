@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Build-DhReference.ps1">
-<title>DashHtml v2.1.3 — PowerShell Module Reference</title>
+<title>DashHtml v2.2.0 — PowerShell Module Reference</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -275,7 +275,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
       <div class="logo-badge">D</div>
       <span class="sidebar-title">DashHtml</span>
     </div>
-    <span class="sidebar-version">v2.1.3 · PS 7.0+</span>
+    <span class="sidebar-version">v2.2.0 · PS 7.0+</span>
   </div>
   <div class="nav-section-label">Overview</div>
   <a class="nav-item" href="#overview"><span class="nav-dot"></span>Getting started</a>
@@ -287,6 +287,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
   <a class="nav-item" href="#Add-DhTable"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhTable <span class="nav-tag">TABLE</span></a>
   <a class="nav-item" href="#Add-DhSummary"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhSummary <span class="nav-tag">KPI</span></a>
   <a class="nav-item" href="#Add-DhAlertBanner"><span class="nav-dot" style="background:#ff7b72"></span>Add-DhAlertBanner <span class="nav-tag">ALERT</span></a>
+  <a class="nav-item" href="#Add-DhFindings"><span class="nav-dot" style="background:#ff7b72"></span>Add-DhFindings <span class="nav-tag">FIND</span></a>
   <a class="nav-item" href="#Add-DhStatusGrid"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhStatusGrid <span class="nav-tag">GRID</span></a>
   <a class="nav-item" href="#Add-DhHeatmap"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhHeatmap <span class="nav-tag">HEAT</span></a>
   <a class="nav-item" href="#Add-DhTopologyMap"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhTopologyMap <span class="nav-tag">TOPO</span></a>
@@ -295,12 +296,12 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
   <a class="nav-item" href="#Add-DhFilterCard"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhFilterCard <span class="nav-tag">FILTER</span></a>
   <a class="nav-item" href="#Add-DhHtmlBlock"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhHtmlBlock <span class="nav-tag">HTML</span></a>
   <a class="nav-item" href="#Add-DhCollapsible"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhCollapsible <span class="nav-tag">COLL</span></a>
-  <a class="nav-item" href="#Add-DhRangeBar"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhRangeBar <span class="nav-tag">NEW</span></a>
   <div class="nav-section-label">Charts</div>
   <a class="nav-item" href="#Add-DhBarChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBarChart <span class="nav-tag">CHART</span></a>
   <a class="nav-item" href="#Add-DhPieChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhPieChart <span class="nav-tag">CHART</span></a>
   <a class="nav-item" href="#Add-DhLineChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhLineChart <span class="nav-tag">CHART</span></a>
   <a class="nav-item" href="#Add-DhBullet"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBullet <span class="nav-tag">BULLET</span></a>
+  <a class="nav-item" href="#Add-DhRangeBar"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhRangeBar <span class="nav-tag">RANGE</span></a>
   <div class="nav-section-label">Linking</div>
   <a class="nav-item" href="#Add-DhGlobalFilter"><span class="nav-dot" style="background:#3fb950"></span>Add-DhGlobalFilter <span class="nav-tag">GLOBAL</span></a>
   <a class="nav-item" href="#Set-DhTableLink"><span class="nav-dot" style="background:#3fb950"></span>Set-DhTableLink <span class="nav-tag">LINK</span></a>
@@ -322,7 +323,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
     <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles (with sparklines, deltas, big-number and gauge styles), line / area / pie / bullet / stacked-bar charts, RAG status matrix, event feeds, alert banners, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Six theme families (including the v1.4 Rag family with the Office/Excel palette), embedded light/dark variants, no external dependencies at viewing time.</p>
     <div class="module-badges">
       <span class="badge badge-blue">PowerShell 7.0+</span>
-      <span class="badge badge-green">21 exported functions</span>
+      <span class="badge badge-green">22 exported functions</span>
       <span class="badge badge-purple">6 theme families</span>
       <span class="badge badge-orange">MIT License</span>
     </div>
@@ -361,6 +362,14 @@ optional target / threshold annotation.</div>
     </a>    <a class="qr-card" href="#Add-DhBullet">
       <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhBullet</div>
       <div class="qr-cmd-desc">Add a bullet-chart block (actual vs target with performance bands).</div>
+    </a>    <a class="qr-card" href="#Add-DhRangeBar">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhRangeBar</div>
+      <div class="qr-cmd-desc">Add a range-gradient bar chart - min / avg / max per category, normalised
+onto a shared 0-100 axis, coloured by position on that axis.</div>
+    </a>    <a class="qr-card" href="#Add-DhFindings">
+      <div class="qr-cmd-name" style="color:#ff7b72">Add-DhFindings</div>
+      <div class="qr-cmd-desc">Add a list of assessment findings - severity, description, recommendation,
+affected objects and references - as one expandable block.</div>
     </a>    <a class="qr-card" href="#Add-DhStatusGrid">
       <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhStatusGrid</div>
       <div class="qr-cmd-desc">Add a status-matrix / health-grid block — rows &#215; columns of RAG cells.</div>
@@ -392,10 +401,6 @@ optional target / threshold annotation.</div>
       <div class="qr-cmd-name" style="color:#3fb950">Set-DhTableLink</div>
       <div class="qr-cmd-desc">Link a master table to a detail table so that row selection auto-filters
 the detail table.</div>
-    </a>    <a class="qr-card" href="#Add-DhRangeBar">
-      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhRangeBar</div>
-      <div class="qr-cmd-desc">Add a range-gradient bar chart - min / avg / max per category, normalised
-onto a shared 0-100 axis, coloured by position on that axis.</div>
     </a>
   </div>
 
@@ -449,7 +454,9 @@ at runtime without any server round-trip.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-GeneratedBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-AutoRefresh</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLayout</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavMaxDepth</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
+   [<span class='hl-opt'><span class='hl-param'>-NavMaxDepth</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ThemeMode</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-PrintCover</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -492,9 +499,8 @@ Use  Get-DhTheme  to list families and inspect their CSS.</p><span class='param-
           <td><span class="param-type">&lt;Object&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>Text shown in the sticky nav bar alongside the navigation links.
-Defaults to the dashboard Title.
-Set to an empty string to suppress the label entirely (logo + links only).
-  -NavTitle &#39;&#39;             # hide entirely
+Defaults to no label (the header already shows the Title); pass a
+short form to show one.
   -NavTitle &#39;My Dashboard&#39; # short form</p></td>
         </tr>        <tr>
           <td><span class="param-name">-InfoFields</span></td>
@@ -534,6 +540,20 @@ switch automatically.</p><span class='param-default'>default: &#39;Auto&#39;</sp
           <td class="param-desc"><p>Deepest nav path the report will accept. Depth is a POLICY, not an
 architectural limit: the matcher, URL state and renderer are all
 depth-agnostic, so raising this costs nothing but layout.</p><span class='param-default'>default: 3</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ThemeMode</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.2.0. The theme the report opens in when the reader has not chosen
+one: Light (default) | Dark | Auto (follow the system&#39;s light/dark
+setting). A choice made with the toggle button always wins.</p><span class='param-default'>default: &#39;Light&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-PrintCover</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.2.0. When the report is printed (or saved as PDF from the browser),
+start with a cover page: title, subtitle, logo, info fields and the
+first verdict tile, if the report has one.</p></td>
         </tr>
         </tbody>
       </table>
@@ -572,25 +592,30 @@ depth-agnostic, so raising this costs nothing but layout.</p><span class='param-
       <span class="cmd-tag badge-orange">OUT</span>
     </div>
 
-    <div class='desc-block'><p>Generates a single self-contained HTML file. Both the light and dark CSS
+    <div class='desc-block'><p>Generates a single HTML file, self-contained except for the optional
+XLSX/PDF export libraries listed below. Both the light and dark CSS
 themes are embedded directly inside the HTML — no external CSS file is
 ever written. A toggle button in the nav bar lets viewers switch themes
 at runtime.</p><p>The HTML also embeds:
   - All table data as JSON (no server round-trips)
   - The full JavaScript table engine (sort / filter / page / link / export)
-  - The logo as a Base64 data URI (if supplied to New-DhDashboard)</p><p>External JS libraries referenced from cdnjs (internet required for export):
+  - The logo as a Base64 data URI (if supplied to New-DhDashboard)</p><p>XLSX and PDF export use three JavaScript libraries:
   - SheetJS  xlsx  v0.18.5  - XLSX export
   - jsPDF         v2.5.1   - PDF export
-  - jsPDF-AutoTable v3.8.2 - PDF table formatting</p><p>If the machine opening the report has no internet access, CSV export
-(pure JS, no CDN dependency) continues to work; XLSX and PDF buttons
-will show an alert.</p></div>
+  - jsPDF-AutoTable v3.8.2 - PDF table formatting
+-ExportLibraries decides how they reach the reader (v2.2.0). CSV export
+needs none of them and always works.</p><p>Every TableId / LinkTableId / Action.TableId that names a table not in
+the report, and every unknown block type, is reported as a warning
+(v2.1.4): in the browser each of them would be a silent no-op.</p></div>
 
     <div class="syntax-label">Syntax</div>
     <div class="syntax-block"><span class='hl-cmd'>Export-DhDashboard</span>
     <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
     <span class='hl-param'>-OutputPath</span> <span class='hl-type'>&lt;String&gt;</span>
    [<span class='hl-opt'><span class='hl-param'>-Force</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-OpenInBrowser</span></span>]</div>
+   [<span class='hl-opt'><span class='hl-param'>-OpenInBrowser</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ExportLibraries</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-PrintMaxRows</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -618,6 +643,28 @@ will show an alert.</p></div>
           <td><span class="param-type">&lt;switch&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>Attempt to open the dashboard in the default browser after writing.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ExportLibraries</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.2.0. How the XLSX / PDF export libraries reach the reader.
+  Cdn   (default) Loaded from cdnjs the first time a reader clicks XLSX
+        or PDF, checked against a pinned SRI hash. The page itself never
+        waits on the network. Offline, the two buttons turn grey and say
+        &quot;Needs internet: use CSV&quot;.
+  Embed The libraries are inlined into the report (about 1.3 MB), so
+        XLSX and PDF work with no network at all. For air-gapped readers.
+  None  No XLSX or PDF buttons; CSV only.
+Before 2.2.0 the libraries were blocking script tags in the page head,
+so an offline reader waited for them to time out before the page
+appeared.</p><span class='param-default'>default: &#39;Cdn&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-PrintMaxRows</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.2.0. When the report is printed, each table prints its filtered rows
+up to this many (default 200), with a note when rows were left out.
+The interactive view is unaffected.</p><span class='param-default'>default: 200</span></td>
         </tr>
         </tbody>
       </table>
@@ -781,8 +828,11 @@ Full column property reference:</p><p># Identity
   Width       = &#39;120px&#39;           # optional fixed width
   Sortable    = $false            # default $true</p><p># Alignment
   Align       = &#39;right&#39;           # &#39;left&#39;(default) | &#39;center&#39; | &#39;right&#39;</p><p># Cell type
-  CellType    = &#39;progressbar&#39;     # &#39;text&#39;(default) | &#39;progressbar&#39; | &#39;badge&#39;
-  ProgressMax = 100               # denominator for progressbar</p><p># Number / value formatting  (displayed in cell and exported)
+  CellType    = &#39;progressbar&#39;     # &#39;text&#39;(default) | &#39;progressbar&#39; | &#39;badge&#39; | &#39;sparkline&#39; | &#39;link&#39;
+  ProgressMax = 100               # denominator for progressbar</p><p># Link cells (v2.2.0, CellType=&#39;link&#39;)
+  UrlField    = &#39;DocUrl&#39;          # property holding the URL (default: this column&#39;s value);</p><pre class="desc-code">                            #   may be a property that is not a visible column
+</pre><p>LinkText    = &#39;MS Learn&#39;        # fixed link text (default: the cell value)</p><pre class="desc-code">                            # only http(s) and mailto URLs become links
+</pre><p># Number / value formatting  (displayed in cell and exported)
   Format      = &#39;number&#39;          # see Format values below
   Locale      = &#39;en-US&#39;           # BCP-47 locale (default: browser locale)
   Decimals    = 2                 # decimal places
@@ -815,7 +865,13 @@ Full column property reference:</p><p># Identity
           <td><span class="param-name">-Charts</span></td>
           <td><span class="param-type">&lt;Object[]&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Array of chart definitions: @{ Title=&#39;X&#39;; Field=&#39;Y&#39;; Type=&#39;pie&#39; }</p></td>
+          <td class="param-desc"><p>Array of chart definitions: @{ Title=&#39;X&#39;; Field=&#39;Y&#39;; Type=&#39;donut&#39; }
+Type is &#39;donut&#39; (the default when omitted), &#39;pie&#39; (solid, from 2.1.4)
+or &#39;bar&#39; (from 2.2.0). Any other Type is skipped with a warning.
+A bar chart takes the optional keys of Add-DhBarChart:
+  @{ Field=&#39;Site&#39;; Type=&#39;bar&#39;; ValueField=&#39;DiskGB&#39;; Aggregate=&#39;sum&#39;; TopN=5; Unit=&#39;GB&#39;; Decimals=0 }
+Aggregate is count (default) | sum | avg | min | max; ValueField alone
+means sum.</p></td>
         </tr>        <tr>
           <td><span class="param-name">-PageSize</span></td>
           <td><span class="param-type">&lt;Int32&gt;</span></td>
@@ -1029,6 +1085,11 @@ DeltaFormat  = &#39;both&#39;       # &#39;percent&#39; | &#39;absolute&#39; | &
 SparklineMin   = 0                         # optional Y-axis min (default: series min)
 SparklineMax   = 100                       # optional Y-axis max (default: series max)
 SparklineStyle = &#39;line&#39;                    # &#39;line&#39; (default) | &#39;area&#39; | &#39;bars&#39;
+</pre><p># ---- Tile style — optional ----</p><pre class="desc-code">Style    = &#39;tile&#39;           # &#39;tile&#39; (default) | &#39;bignumber&#39; | &#39;gauge&#39; | &#39;verdict&#39;
+Caption  = &#39;3 critical&#39;     # bignumber / verdict: small text under the value
+</pre><pre class="desc-code"># ---- Verdict (v2.2.0) — Style=&#39;verdict&#39;, full-width overall assessment ----
+Counts   = @{ critical=3; warning=5; info=2 }   # one chip per non-zero count
+</pre><p># (aliases high/medium/low accepted); without</p><pre class="desc-code">                            # Class, the colour follows the worst count
 </pre><p>}</p></td>
         </tr>        <tr>
           <td><span class="param-name">-Collapsible</span></td>
@@ -1350,9 +1411,12 @@ explicit sibling ordering; 0 = declaration order</p><span class='param-default'>
       <span class="cmd-tag badge-purple">CHART</span>
     </div>
 
-    <div class='desc-block'><p>Counts occurrences of each distinct value in the specified field across
-all rows of the source table, then renders the top-N results as horizontal
-proportional bars, sorted highest to lowest.</p><p>The chart renders as a standalone block in the dashboard flow and is
+    <div class='desc-block'><p>Groups the source table&#39;s rows by -Field and draws one horizontal bar per
+group, top-N, largest first. By default each bar is the number of rows in
+the group. From 2.2.0, -ValueField with -Aggregate sum|avg|min|max draws
+the sum / average / minimum / maximum of a numeric column instead.
+Aggregation runs in the browser over the table&#39;s FILTERED rows, so the
+chart follows every filter.</p><p>The chart renders as a standalone block in the dashboard flow and is
 re-calculated at page load from the table&#39;s full dataset.</p></div>
 
     <div class="syntax-label">Syntax</div>
@@ -1368,6 +1432,10 @@ re-calculated at page load from the table&#39;s full dataset.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-ClickFilters</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Stacked</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-SeriesField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ValueField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Aggregate</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Unit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Decimals</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
@@ -1439,6 +1507,26 @@ re-calculated at page load from the table&#39;s full dataset.</p></div>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ValueField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>---- v2.2.0 value aggregation ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Aggregate</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Unit</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Decimals</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: -1</span></td>
         </tr>        <tr>
           <td><span class="param-name">-Collapsible</span></td>
           <td><span class="param-type">&lt;Boolean&gt;</span></td>
@@ -1513,6 +1601,14 @@ explicit sibling ordering; 0 = declaration order</p><span class='param-default'>
       </div>      <div class="example-block">
         <div class="example-header">
           <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">v2.2.0 - average replication lag per DC, in minutes</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhBarChart -Report $report -Id &#39;repl-lag&#39; -Title &#39;Replication lag by DC&#39; `
+    -TableId &#39;repl&#39; -Field &#39;DC&#39; -ValueField &#39;LagMinutes&#39; -Aggregate avg -Unit &#39;min&#39; -Decimals 1</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 4</span>
           <span class="example-title">v1.4 — stacked: items per Region, segments coloured by Status</span>
           <button class="copy-btn" title="Copy to clipboard">Copy</button>
         </div>
@@ -2106,6 +2202,433 @@ Add-DhBullet -Report $report -Id &#39;auth-latency&#39; -Title &#39;LDAP Bind Ti
         @{ Label=&#39;esxi-01&#39;; Value=42; Target=30; Min=0; Max=100; Unit=&#39;%&#39;
            Rag=@{ Green=@{Min=30}; Amber=@{Min=15;Max=30}; Red=@{Max=15} }
         }
+    )</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhRangeBar ═══ -->
+  <section class="cmd-section" id="Add-DhRangeBar">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">RANGE</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhRangeBar</div>
+        <div class="cmd-synopsis">Add a range-gradient bar chart - min / avg / max per category, normalised
+onto a shared 0-100 axis, coloured by position on that axis.</div>
+      </div>
+      <span class="cmd-tag badge-purple">RANGE</span>
+    </div>
+
+    <div class='desc-block'><p>One horizontal floating bar per category:</p><p>* the bar spans Min -&gt; Max (it does NOT start at the axis origin)
+  * a vertical tick marks Avg, positioned independently of the bar -
+    it is deliberately NOT clamped inside [Min, Max], so an average
+    computed over a different window shows up as the anomaly it is
+  * every row is normalised against its own High value, so categories
+    of wildly different magnitude become visually comparable
+  * the fill is a fixed slice of ONE gradient spanning the whole track,
+    so a bar&#39;s colour says where it sits on the 0-100 axis - not which
+    category it is</p><p>The gradient runs --accent-ok -&gt; --accent-warn -&gt; --accent-danger, so it
+follows whichever theme is active.</p><p>Two ways to supply data, mutually exclusive:</p><p>-Items     explicit rows (static)
+  -TableId   derive rows from a table already added to the report.
+             Aggregation runs in the browser against the table&#39;s
+             FILTERED rows, so filtering the table live-recomputes the
+             ranges (same behaviour as Add-DhBarChart).</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhRangeBar</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-TableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-CategoryField</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-ValueField</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-HighField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-LowField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-High</span> <span class='hl-type'>&lt;Nullable`1&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Low</span> <span class='hl-type'>&lt;Double&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MaxRows</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-AxisLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Unit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowDataTable</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavOrder</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Block heading shown above the chart.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Items</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Explicit rows. Array of hashtables, each requiring all six keys:</p><p>@{</p><pre class="desc-code">Name = &#39;cluster01-users&#39;   # row label (must be unique)
+Low  = 0                   # axis floor in real units
+High = 315                 # the value that maps to 100 on the axis
+Min  = 60                  # minimum observed
+Avg  = 97                  # average observed
+Max  = 120                 # maximum observed
+</pre><p>}</p><p>Min / Avg / Max are real, un-normalised units. Normalisation to the
+0-100 axis happens at render time.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Source table to aggregate. Must already be added with Add-DhTable.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-CategoryField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Column whose distinct values become the rows.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ValueField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Numeric column aggregated into Min / Avg / Max within each category.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-HighField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Column carrying each row&#39;s own 100% reference (capacity, quota, ceiling).
+The maximum value seen within the category wins, so an inconsistent
+column cannot silently under-scale a bar. Highest precedence.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-LowField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Per-category axis floor, the mirror of -HighField (minimum within the
+category wins). Overrides -Low.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-High</span></td>
+          <td><span class="param-type">&lt;Nullable`1&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>One constant High for every row - the axis then reads as &quot;% of a fixed
+ceiling&quot;. Used when -HighField is not given.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Low</span></td>
+          <td><span class="param-type">&lt;Double&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Axis floor in real units. Default 0.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxRows</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Guard against a category field with runaway cardinality. Throws when the
+table yields more distinct categories than this. Default 60.</p><span class='param-default'>default: 60</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-AxisLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Small right-aligned caption naming what 0-100 means. Auto-derived from
+the High source when not supplied - the one non-obvious mechanic a new
+reader needs spelled out.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Unit</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Suffix for the real-value labels and tooltip (e.g. &#39;req/s&#39;, &#39;ms&#39;, &#39;%&#39;).</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowDataTable</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Render a toggleable raw-values table under the chart (Low / High / Min /
+Avg / Max per row), off by default. The accessible / printable escape
+hatch, so every number is reachable without hovering.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Collapsible</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DefaultOpen</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>wrap the block in a collapsible header (chevron + click-to-toggle)</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GridSpan</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavPath</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavScope</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>&#39;A/B/C&#39; - where this item lives. &#39;//&#39; escapes a literal &#39;/&#39;</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Exact (default) | Subtree (this node and below) | Global (everywhere)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavOrder</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>display text for this node, decoupled from the path key
+explicit sibling ordering; 0 = declaration order</p><span class='param-default'>default: 0</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Explicit rows</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhRangeBar -Report $report -Id &#39;cluster-load&#39; -Title &#39;Cluster load range&#39; `
+    -Unit &#39;req/s&#39; -ShowDataTable `
+    -Items @(
+        @{ Name=&#39;cluster01-users&#39;;   Low=0; High=315; Min=60; Avg=97; Max=120 }
+        @{ Name=&#39;cluster02-bigdata&#39;; Low=0; High=104; Min=1;  Avg=2;  Max=10  }
+    )</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Derived from a table, each cluster scaled against its own capacity</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhRangeBar -Report $report -Id &#39;cluster-load&#39; -Title &#39;Cluster load range&#39; `
+    -TableId &#39;clusters&#39; -CategoryField &#39;Cluster&#39; `
+    -ValueField &#39;LoadReqSec&#39; -HighField &#39;CapacityReqSec&#39; -Unit &#39;req/s&#39;</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Derived from a table against one fixed ceiling</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhRangeBar -Report $report -Id &#39;latency&#39; -Title &#39;Latency range per site&#39; `
+    -TableId &#39;probes&#39; -CategoryField &#39;Site&#39; -ValueField &#39;RttMs&#39; `
+    -High 250 -Unit &#39;ms&#39; -AxisLabel &#39;% of 250 ms SLA&#39;</div>
+      </div>
+  </section>
+  <hr class="section-rule">
+  <!-- ═══ Add-DhFindings ═══ -->
+  <section class="cmd-section" id="Add-DhFindings">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#ff7b72 15%,var(--bg3))">
+        <span style="color:#ff7b72;font-size:11px;font-weight:700;font-family:var(--font-mono)">FIND</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#ff7b72">Add-DhFindings</div>
+        <div class="cmd-synopsis">Add a list of assessment findings - severity, description, recommendation,
+affected objects and references - as one expandable block.</div>
+      </div>
+      <span class="cmd-tag badge-purple">FIND</span>
+    </div>
+
+    <div class='desc-block'><p>v2.2.0. The block an audit or assessment report is built around. Each
+finding is one row (severity badge, title, area, affected count) that
+expands to show what is wrong, what to do about it, which objects are
+affected, a &quot;Show in table&quot; jump to the detail table, and reference
+links (for example Microsoft Learn).</p><p>Above the list: severity counters that double as filters (click to
+show only that severity, click more to combine), and a text filter
+over every field of every finding.</p><p>Findings are sorted critical -&gt; warning -&gt; info -&gt; ok, then by affected
+count, largest first (-SortBy None keeps your order). When printed,
+every finding is shown expanded.</p><p>All text is HTML-encoded. There is no -AllowHtml: finding text usually
+comes from collected data.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhFindings</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Findings</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GroupBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowCounters</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Filterable</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ExpandSeverity</span> <span class='hl-type'>&lt;String[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MaxAffectedShown</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-HideOk</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-SortBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavOrder</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Findings</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Array of hashtables:
+  @{</p><pre class="desc-code">Severity        = &#39;critical&#39;   # REQUIRED critical|warning|info|ok
+</pre><p>#   (aliases: high, medium, low)</p><pre class="desc-code">Title           = &#39;AS-REP roastable accounts&#39;   # REQUIRED
+Area            = &#39;Accounts&#39;                    # optional grouping / filter text
+Description     = &#39;Accounts with DoesNotRequirePreAuth ...&#39;
+Recommendation  = &#39;Clear DONT_REQ_PREAUTH on every listed account.&#39;
+Affected        = @(&#39;svc_old&#39;,&#39;test1&#39;)          # optional names
+AffectedCount   = 2            # optional; defaults to Affected.Count
+AffectedTableId = &#39;risky-accounts&#39;   # optional: &quot;Show in table&quot; target
+AffectedFilter  = &#39;AS-REP&#39;           # optional text filter for that table
+References      = @(@{ Label=&#39;MS Learn&#39;; Url=&#39;https://learn.microsoft.com/...&#39; })
+Id              = &#39;asrep&#39;      # optional stable id (default f1, f2, ...)
+</pre><p>}
+Reference URLs must be http(s), mailto, tel or an in-page #anchor - the
+same rule as alert and tile actions. Anything else throws.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;Findings&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GroupBy</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;None&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowCounters</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Filterable</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ExpandSeverity</span></td>
+          <td><span class="param-type">&lt;String[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxAffectedShown</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 20</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-HideOk</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SortBy</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;Severity&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Collapsible</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DefaultOpen</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>wrap the block in a collapsible header</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GridSpan</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>collapsible body starts expanded</p><span class='param-default'>default: 0</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>columns (1-12) in the -GridSpan grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavSubGroup</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavPath</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 5) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavScope</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>&#39;A/B/C&#39; - where this item lives. &#39;//&#39; escapes a literal &#39;/&#39;</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Exact (default) | Subtree (this node and below) | Global (everywhere)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavOrder</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>display text for this node, decoupled from the path key
+explicit sibling ordering; 0 = declaration order</p><span class='param-default'>default: 0</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Example 1</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhFindings -Report $r -Id &#39;sec&#39; -Title &#39;Security findings&#39; -NavPath &#39;Security&#39; `
+    -GroupBy Area -ExpandSeverity critical -Findings @(
+      @{ Severity=&#39;critical&#39;; Title=&#39;AS-REP roastable accounts&#39;; Area=&#39;Accounts&#39;
+         Description=&#39;Accounts with DoesNotRequirePreAuth expose crackable hashes.&#39;
+         Recommendation=&#39;Clear DONT_REQ_PREAUTH on every listed account.&#39;
+         Affected=@(&#39;svc_old&#39;,&#39;test1&#39;); AffectedTableId=&#39;accounts&#39;; AffectedFilter=&#39;AS-REP&#39;
+         References=@(@{ Label=&#39;MS Learn&#39;; Url=&#39;https://learn.microsoft.com/&#39; }) }
+      @{ Severity=&#39;medium&#39;; Title=&#39;Stale computer objects&#39;; Area=&#39;Hygiene&#39;; AffectedCount=148 }
     )</div>
       </div>
   </section>
@@ -3736,242 +4259,6 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
       </div>
   </section>
   <hr class="section-rule">
-  <!-- ═══ Add-DhRangeBar ═══ -->
-  <section class="cmd-section" id="Add-DhRangeBar">
-    <div class="cmd-header">
-      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
-        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">NEW</span>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div class="cmd-name" style="color:#d2a8ff">Add-DhRangeBar</div>
-        <div class="cmd-synopsis">Add a range-gradient bar chart - min / avg / max per category, normalised
-onto a shared 0-100 axis, coloured by position on that axis.</div>
-      </div>
-      <span class="cmd-tag badge-purple">NEW</span>
-    </div>
-
-    <div class='desc-block'><p>One horizontal floating bar per category:</p><p>* the bar spans Min -&gt; Max (it does NOT start at the axis origin)
-  * a vertical tick marks Avg, positioned independently of the bar -
-    it is deliberately NOT clamped inside [Min, Max], so an average
-    computed over a different window shows up as the anomaly it is
-  * every row is normalised against its own High value, so categories
-    of wildly different magnitude become visually comparable
-  * the fill is a fixed slice of ONE gradient spanning the whole track,
-    so a bar&#39;s colour says where it sits on the 0-100 axis - not which
-    category it is</p><p>The gradient runs --accent-ok -&gt; --accent-warn -&gt; --accent-danger, so it
-follows whichever theme is active.</p><p>Two ways to supply data, mutually exclusive:</p><p>-Items     explicit rows (static)
-  -TableId   derive rows from a table already added to the report.
-             Aggregation runs in the browser against the table&#39;s
-             FILTERED rows, so filtering the table live-recomputes the
-             ranges (same behaviour as Add-DhBarChart).</p></div>
-
-    <div class="syntax-label">Syntax</div>
-    <div class="syntax-block"><span class='hl-cmd'>Add-DhRangeBar</span>
-    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
-    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
-    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
-    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span>
-    <span class='hl-param'>-TableId</span> <span class='hl-type'>&lt;String&gt;</span>
-    <span class='hl-param'>-CategoryField</span> <span class='hl-type'>&lt;String&gt;</span>
-    <span class='hl-param'>-ValueField</span> <span class='hl-type'>&lt;String&gt;</span>
-   [<span class='hl-opt'><span class='hl-param'>-HighField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-LowField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-High</span> <span class='hl-type'>&lt;Nullable`1&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-Low</span> <span class='hl-type'>&lt;Double&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-MaxRows</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-AxisLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-Unit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-ShowDataTable</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavOrder</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
-
-          <div class="syntax-label">Parameters</div>
-      <table class="params-table">
-        <thead><tr>
-          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
-        </tr></thead>
-        <tbody>
-        <tr>
-          <td><span class="param-name">-Report</span></td>
-          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-Id</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-Title</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Block heading shown above the chart.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-Items</span></td>
-          <td><span class="param-type">&lt;Object[]&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Explicit rows. Array of hashtables, each requiring all six keys:</p><p>@{</p><pre class="desc-code">Name = &#39;cluster01-users&#39;   # row label (must be unique)
-Low  = 0                   # axis floor in real units
-High = 315                 # the value that maps to 100 on the axis
-Min  = 60                  # minimum observed
-Avg  = 97                  # average observed
-Max  = 120                 # maximum observed
-</pre><p>}</p><p>Min / Avg / Max are real, un-normalised units. Normalisation to the
-0-100 axis happens at render time.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-TableId</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Source table to aggregate. Must already be added with Add-DhTable.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-CategoryField</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Column whose distinct values become the rows.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-ValueField</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-yes">required</span></td>
-          <td class="param-desc"><p>Numeric column aggregated into Min / Avg / Max within each category.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-HighField</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Column carrying each row&#39;s own 100% reference (capacity, quota, ceiling).
-The maximum value seen within the category wins, so an inconsistent
-column cannot silently under-scale a bar. Highest precedence.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-LowField</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Per-category axis floor, the mirror of -HighField (minimum within the
-category wins). Overrides -Low.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-High</span></td>
-          <td><span class="param-type">&lt;Nullable`1&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>One constant High for every row - the axis then reads as &quot;% of a fixed
-ceiling&quot;. Used when -HighField is not given.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-Low</span></td>
-          <td><span class="param-type">&lt;Double&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Axis floor in real units. Default 0.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-MaxRows</span></td>
-          <td><span class="param-type">&lt;Int32&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Guard against a category field with runaway cardinality. Throws when the
-table yields more distinct categories than this. Default 60.</p><span class='param-default'>default: 60</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-AxisLabel</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Small right-aligned caption naming what 0-100 means. Auto-derived from
-the High source when not supplied - the one non-obvious mechanic a new
-reader needs spelled out.</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-Unit</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Suffix for the real-value labels and tooltip (e.g. &#39;req/s&#39;, &#39;ms&#39;, &#39;%&#39;).</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-ShowDataTable</span></td>
-          <td><span class="param-type">&lt;switch&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Render a toggleable raw-values table under the chart (Low / High / Min /
-Avg / Max per row), off by default. The accessible / printable escape
-hatch, so every number is reachable without hovering.</p></td>
-        </tr>        <tr>
-          <td><span class="param-name">-Collapsible</span></td>
-          <td><span class="param-type">&lt;Boolean&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-DefaultOpen</span></td>
-          <td><span class="param-type">&lt;Boolean&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>wrap the block in a collapsible header (chevron + click-to-toggle)</p><span class='param-default'>default: $true</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-GridSpan</span></td>
-          <td><span class="param-type">&lt;Int32&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavPath</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavScope</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>&#39;A/B/C&#39; - where this item lives. &#39;//&#39; escapes a literal &#39;/&#39;</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavLabel</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Exact (default) | Subtree (this node and below) | Global (everywhere)</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavOrder</span></td>
-          <td><span class="param-type">&lt;Int32&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>display text for this node, decoupled from the path key
-explicit sibling ordering; 0 = declaration order</p><span class='param-default'>default: 0</span></td>
-        </tr>
-        </tbody>
-      </table>
-          <div class="syntax-label">Examples</div>
-      <div class="example-block">
-        <div class="example-header">
-          <span class="example-label">EXAMPLE 1</span>
-          <span class="example-title">Explicit rows</span>
-          <button class="copy-btn" title="Copy to clipboard">Copy</button>
-        </div>
-        <div class="example-code">Add-DhRangeBar -Report $report -Id &#39;cluster-load&#39; -Title &#39;Cluster load range&#39; `
-    -Unit &#39;req/s&#39; -ShowDataTable `
-    -Items @(
-        @{ Name=&#39;cluster01-users&#39;;   Low=0; High=315; Min=60; Avg=97; Max=120 }
-        @{ Name=&#39;cluster02-bigdata&#39;; Low=0; High=104; Min=1;  Avg=2;  Max=10  }
-    )</div>
-      </div>      <div class="example-block">
-        <div class="example-header">
-          <span class="example-label">EXAMPLE 2</span>
-          <span class="example-title">Derived from a table, each cluster scaled against its own capacity</span>
-          <button class="copy-btn" title="Copy to clipboard">Copy</button>
-        </div>
-        <div class="example-code">Add-DhRangeBar -Report $report -Id &#39;cluster-load&#39; -Title &#39;Cluster load range&#39; `
-    -TableId &#39;clusters&#39; -CategoryField &#39;Cluster&#39; `
-    -ValueField &#39;LoadReqSec&#39; -HighField &#39;CapacityReqSec&#39; -Unit &#39;req/s&#39;</div>
-      </div>      <div class="example-block">
-        <div class="example-header">
-          <span class="example-label">EXAMPLE 3</span>
-          <span class="example-title">Derived from a table against one fixed ceiling</span>
-          <button class="copy-btn" title="Copy to clipboard">Copy</button>
-        </div>
-        <div class="example-code">Add-DhRangeBar -Report $report -Id &#39;latency&#39; -Title &#39;Latency range per site&#39; `
-    -TableId &#39;probes&#39; -CategoryField &#39;Site&#39; -ValueField &#39;RttMs&#39; `
-    -High 250 -Unit &#39;ms&#39; -AxisLabel &#39;% of 250 ms SLA&#39;</div>
-      </div>
-  </section>
-  <hr class="section-rule">
 
   <!-- ═══ Format values ═══ -->
   <section class="cmd-section" id="ref-formats">
@@ -4068,7 +4355,7 @@ explicit sibling ordering; 0 = declaration order</p><span class='param-default'>
     </div>
     <div class="md-body">
 <h1 id="dashhtml">DashHtml</h1>
-<p>A PowerShell 7 module for generating <strong>interactive, self-contained HTML dashboards</strong> from any structured data — sortable/filterable tables, KPI tiles, bar charts, collapsible sections, and clickable filter cards. The output is a single HTML file with all data and styles embedded — no external dependencies at viewing time.</p>
+<p>A PowerShell 7 module for generating <strong>interactive, self-contained HTML dashboards</strong> from any structured data — sortable/filterable tables, KPI tiles, bar charts, collapsible sections, and clickable filter cards. The output is a single HTML file with all data, styles and script embedded. The only external requests are the optional XLSX/PDF export libraries (cdnjs); everything else works offline.</p>
 <hr />
 <h2 id="features">Features</h2>
 <ul>
@@ -4083,10 +4370,12 @@ explicit sibling ordering; 0 = declaration order</p><span class='param-default'>
 <li><strong>Two-tier (or three-tier) navigation</strong> — flat nav, grouped primary-tabs + subnav strip, optional subgroup pills</li>
 <li><strong>Per-NavGroup summary strips and alert banners</strong> — each panel gets its own KPI hero row and banner set</li>
 <li><strong>Auto-refresh</strong> — <code>New-DhDashboard -AutoRefresh '30s' / '5m' / '1h'</code> for wall-display ops dashboards</li>
-<li><strong>Client-side export</strong> — CSV (no CDN), XLSX and PDF (cdnjs, requires internet)</li>
-<li><strong>Light/dark theme toggle</strong> — both variants embedded, switchable at runtime</li>
+<li><strong>Assessment reports (2.2+)</strong> — <code>Add-DhFindings</code> (severity, description, recommendation, affected objects, &quot;show in table&quot;, reference links), a full-width <strong>verdict</strong> tile, and bar charts that <strong>measure a value</strong> (sum / average / min / max) instead of counting rows</li>
+<li><strong>Print and PDF (2.2+)</strong> — a Print button; printed output shows every section in menu order, every finding expanded, tables unpaged, an optional cover page</li>
+<li><strong>Client-side export</strong> — CSV (built in, works offline), XLSX and PDF. The XLSX/PDF libraries load from cdnjs on first click, or are embedded for air-gapped readers (<code>Export-DhDashboard -ExportLibraries Cdn|Embed|None</code>, 2.2+)</li>
+<li><strong>Light/dark theme toggle</strong> — both variants embedded, switchable at runtime; the reader's choice is remembered (2.1.4+), and <code>New-DhDashboard -ThemeMode Light|Dark|Auto</code> sets the default (2.2+)</li>
 <li><strong>Six theme families</strong> — Default, Azure, VMware, Grey, Company, Rag (the v1.4 family using the Office/Excel-compatible RAG palette)</li>
-<li><strong>Column features</strong> — progress bars, badges, threshold colouring (unified <code>-Rag</code> parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells</li>
+<li><strong>Column features</strong> — progress bars, badges, link cells (2.2+), threshold colouring (unified <code>-Rag</code> parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells</li>
 </ul>
 <hr />
 <h2 id="requirements">Requirements</h2>
@@ -4139,8 +4428,12 @@ Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenIn
 </div></div>
 <hr />
 <h2 id="declaration-order-important">Declaration order (important)</h2>
-<p><strong>Always declare a table <em>before</em> any object that references it.</strong> This is the single most common source of &quot;filter does nothing&quot; / &quot;chart is empty&quot; / &quot;link broken&quot; issues.</p>
-<p>The cmdlets below depend on a previously declared table identified by its <code>-TableId</code> / <code>-TargetTableId</code> / <code>-MasterTableId</code> / <code>-DetailTableId</code>. If the referenced table has not been added yet when the dependent cmdlet runs, the binding silently fails (the referenced data simply isn't available to bind against):</p>
+<p><strong>Declare a table <em>before</em> any object that references it.</strong> It is the safe habit, because the cmdlets below check the table id when they run:</p>
+<ul>
+<li>If <strong>other</strong> tables already exist but this one does not yet, the cmdlet <strong>throws</strong> (&quot;Source table not found&quot;).</li>
+<li>If <strong>no</strong> table exists yet, the check is skipped. The chart still works: the browser renders table-fed charts after every table is loaded.</li>
+<li>Since 2.1.4, <code>Export-DhDashboard</code> <strong>warns</strong> about every reference to a table that never appears in the report, whatever the order. In the browser those would be silent no-ops.</li>
+</ul>
 <table>
 <thead>
 <tr>
@@ -4151,15 +4444,19 @@ Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenIn
 <tbody>
 <tr>
 <td><code>Add-DhFilterCard</code></td>
-<td><code>-TargetTableId</code> must already exist</td>
+<td><code>-TargetTableId</code></td>
 </tr>
 <tr>
 <td><code>Add-DhBarChart</code></td>
-<td><code>-TableId</code> must already exist</td>
+<td><code>-TableId</code> (and <code>-ValueField</code> must be a field of that table)</td>
+</tr>
+<tr>
+<td><code>Add-DhPieChart</code> (from a table)</td>
+<td><code>-TableId</code></td>
 </tr>
 <tr>
 <td><code>Set-DhTableLink</code></td>
-<td>both <code>-MasterTableId</code> and <code>-DetailTableId</code> must already exist</td>
+<td>both <code>-MasterTableId</code> and <code>-DetailTableId</code> (always throws if either is missing)</td>
 </tr>
 </tbody>
 </table>
@@ -4173,7 +4470,7 @@ Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterF
 Add-DhBarChart   -Report $report -Id 'status-bc' -TableId 'items' -Field 'Status'
 Set-DhTableLink  -Report $report -MasterTableId 'groups' -DetailTableId 'items' -MasterField 'GroupId' -DetailField 'GroupId'
 </div></div>
-<h3 id="wrong-order-filter-chart-link-will-not-work">Wrong order (filter / chart / link will not work)</h3>
+<h3 id="wrong-order-throws-when-another-table-already-exists">Wrong order (throws when another table already exists)</h3>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># ❌ FilterCard declared before its target table
 Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterField 'Region' -Cards $cards
 Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
@@ -4253,6 +4550,18 @@ Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
 <tr>
 <td><code>Add-DhTabs</code> <em>(v1.5)</em></td>
 <td>Add an inline tabbed content block (local pivot within one section)</td>
+</tr>
+<tr>
+<td><code>Add-DhGlobalFilter</code> <em>(v1.9)</em></td>
+<td>Add a page-level filter (dropdown or date range) that filters every table with that field</td>
+</tr>
+<tr>
+<td><code>Add-DhRangeBar</code> <em>(v2.1)</em></td>
+<td>Add min / avg / max range bars on a shared 0–100 axis</td>
+</tr>
+<tr>
+<td><code>Add-DhFindings</code> <em>(v2.2)</em></td>
+<td>Add assessment findings: severity, description, recommendation, affected objects, references</td>
 </tr>
 <tr>
 <td><code>Set-DhTableLink</code></td>
@@ -4409,6 +4718,8 @@ Add-DhTable -Report $report -TableId 'srv' -Title 'Servers' -Data $rows -Columns
 }
 </div></div>
 <hr />
+<h3 id="opening-theme-thememode-2.2">Opening theme: <code>-ThemeMode</code> (2.2+)</h3>
+<h2 id="new-dhdashboard-thememode-lightdarkauto-sets-the-theme-a-report-opens-in.the-default-is-light-as-before.auto-follows-the-readers-system-lightdark-setting-live-until-they-use-the-toggle.a-choice-made-with-the-toggle-always-wins-it-is-kept-in-the-url-so-a-shared-link-carries-it-and-in-the-browsers-local-storage-since-2.1.4"><code>New-DhDashboard -ThemeMode Light|Dark|Auto</code> sets the theme a report opens in. The default is <code>Light</code>, as before. <code>Auto</code> follows the reader's system light/dark setting, live, until they use the toggle. A choice made with the toggle always wins: it is kept in the URL, so a shared link carries it, and in the browser's local storage, since 2.1.4.</h2>
 <h2 id="tables">Tables</h2>
 <h3 id="basic-table">Basic table</h3>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$data = @(
@@ -4461,6 +4772,14 @@ Add-DhTable -Report $report -TableId 'items' -Title 'Items' -Data $data -Columns
 )
 </div></div>
 <p>Nothing needs enabling — this applies to every text column in every table.</p>
+<h3 id="link-cells-2.2">Link cells (2.2+)</h3>
+<p><code>CellType='link'</code> turns a column into links. The URL comes from <code>UrlField</code>, which can be a property that is not a visible column; the default is the column's own value. <code>LinkText</code> sets fixed link text; the default is the cell value.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>-Columns @(
+    @{ Field='Check'; Label='Check' }
+    @{ Field='Reference'; Label='Reference'; CellType='link'; UrlField='DocUrl'; LinkText='Microsoft Learn' }
+)
+</div></div>
+<p>Only <code>http:</code>, <code>https:</code> and <code>mailto:</code> URLs become links. Anything else, <code>javascript:</code> included, renders as plain text. Links open in a new tab with <code>rel=&quot;noopener noreferrer&quot;</code>. <code>UrlField</code> must exist in the data.</p>
 <h3 id="sparkline-cells-v1.4">Sparkline cells (v1.4+)</h3>
 <p>Set <code>CellType='sparkline'</code> and feed the column <strong>arrays</strong> of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (<code>SPARK.build</code>), so the look stays consistent between summary tiles and table cells.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$rows = @(
@@ -4569,7 +4888,7 @@ Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastruc
 <li><code>-Id</code> — explicit block Id; auto-derived by slugifying <code>NavGroup</code> (+ optional <code>NavSubGroup</code>) when omitted, e.g. <code>My Group</code> → <code>summary-my-group</code>. Duplicate Ids throw.</li>
 </ul>
 <h3 id="tile-styles-v1.4">Tile styles (v1.4+)</h3>
-<p>By default each item renders as the compact tile that has shipped since 1.3.x. Pass <code>Style='bignumber'</code> or <code>Style='gauge'</code> to switch to one of the new variants for hero metrics or threshold visualisations.</p>
+<p>By default each item renders as the compact tile that has shipped since 1.3.x. Pass <code>Style='bignumber'</code>, <code>Style='gauge'</code> or (2.2+) <code>Style='verdict'</code> to switch to one of the other variants for hero metrics, threshold visualisations or an overall assessment.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
 
     # Hero metric — full-width tile, very large value typography
@@ -4601,7 +4920,13 @@ Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastruc
 <li><code>'tile'</code> (default) — the compact strip tile.</li>
 <li><code>'bignumber'</code> — full-width tile, 2.4–3.6rem value typography, optional <code>Caption</code> line.</li>
 <li><code>'gauge'</code> — 140×80 semicircle SVG, background arc + filled arc coloured by the matching threshold. Defaults <code>Min=0</code>, <code>Max=100</code>. <code>Unit</code> is appended after the centre readout. <code>Value</code> must be numeric.</li>
+<li><code>'verdict'</code> <em>(2.2+)</em> — full-width overall assessment: a text <code>Value</code> (&quot;Action required&quot;), an optional <code>Caption</code>, and one chip per non-zero severity in <code>Counts=@{ critical=2; warning=5; info=1 }</code> (aliases <code>high</code> / <code>medium</code> / <code>low</code> accepted). Without a <code>Class</code> the colour follows the worst count: critical → <code>cell-danger</code>, warning → <code>cell-warn</code>, otherwise <code>cell-ok</code>. With <code>New-DhDashboard -PrintCover</code> the first verdict tile is repeated on the printed cover page.</li>
 </ul>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhSummary -Report $report -Items @(
+    @{ Style='verdict'; Label='Overall'; Value='Action required'
+       Caption='Fix the critical findings first.'; Counts=@{ critical=2; warning=5; info=1 } }
+)
+</div></div>
 <p><strong>Threshold matching:</strong> mirrors <code>Add-DhTable</code> column thresholds. A band matches when <code>Min ≤ value &lt; Max</code> (either bound may be omitted). When multiple bands match, the one with the highest <code>Min</code> wins — so the spec-friendly &quot;Min-only&quot; pattern in the example above does the intuitive thing.</p>
 <p>All three styles still honour <code>Class</code>, <code>Format</code>/<code>Locale</code>/<code>Decimals</code>/<code>Currency</code>, and (where it makes visual sense) the v1.4 delta and sparkline keys.</p>
 <h3 id="trend-and-delta-indicators-on-tiles-v1.4">Trend and delta indicators on tiles (v1.4+)</h3>
@@ -4724,10 +5049,30 @@ Add-DhBarChart -Report $report -Id 'region-chart' `
     -Title 'Items by Region' `
     -TableId 'items' -Field 'Region' -ClickFilters
 
+# v2.2 — bars that measure a value: average lag per DC, in minutes
+Add-DhBarChart -Report $report -Id 'lag' -Title 'Replication lag by DC' `
+    -TableId 'repl' -Field 'DC' -ValueField 'LagMinutes' -Aggregate avg -Unit 'min' -Decimals 1
+
 # v1.4 — stacked: bars represent Region, segments coloured by Status
 Add-DhBarChart -Report $report -Id 'by-region-stacked' `
     -Title 'Items by Region (stacked by Status)' `
     -TableId 'items' -Field 'Region' -SeriesField 'Status' -Stacked
+</div></div>
+<p><strong>Value aggregation (2.2+):</strong> by default each bar is the number of rows in its group. <code>-ValueField</code> with <code>-Aggregate sum|avg|min|max</code> makes each bar the sum, average, minimum or maximum of a numeric column instead. Use it whenever the title promises a quantity (&quot;lag in minutes&quot;, &quot;GB used&quot;); a counting chart under such a title shows the wrong number.</p>
+<ul>
+<li><code>-ValueField</code> on its own means <code>sum</code>. Any aggregate other than <code>count</code> needs a <code>-ValueField</code>.</li>
+<li><code>-ValueField</code> must be a field of the table. It is case-sensitive, and a property that is not a visible column also works.</li>
+<li>Non-numeric and empty values are ignored. A group with no numeric value at all is left out of <code>avg</code> / <code>min</code> / <code>max</code>.</li>
+<li><code>-Unit 'ms'</code> is appended to the value. <code>-Decimals n</code> fixes the decimal places; by default <code>avg</code> shows up to 2 decimals and the others up to 3.</li>
+<li><code>-ShowPercent</code> is a share of the row count for <code>count</code> and of the grand total for <code>sum</code>. It is not shown for <code>avg</code> / <code>min</code> / <code>max</code>, because &quot;percent of total&quot; has no meaning there.</li>
+<li>Stacked charts allow <code>count</code> or <code>sum</code>. With <code>sum</code> the segments add up values.</li>
+<li>Aggregation runs over the table's <strong>filtered</strong> rows, so the chart follows every filter.</li>
+</ul>
+<p>The same options work for a bar chart inside a table's chart strip:</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhTable -Report $report -TableId 'vols' -Title 'Volumes' -Data $vols -Charts @(
+    @{ Field='Site'; Type='bar'; ValueField='UsedGB'; Aggregate='sum'; Unit='GB'; TopN=5 }
+    @{ Field='Tier' }                                  # no Type: donut, as before
+)
 </div></div>
 <p><strong>Stacked mode (v1.4+):</strong> pass <code>-SeriesField</code> to break each primary bar into colour-coded segments. The legend below the chart maps each series value to its colour. The <code>-Stacked</code> switch is optional — supplying <code>-SeriesField</code> alone implies it. Click-to-filter (<code>-ClickFilters</code>) is single-series only; stacked bars have no single value to filter by. Series colours are pulled from the active theme's chart palette and assigned in alphabetical order, so the legend stays stable across renders.</p>
 <p><strong><code>-ClickFilters</code> (working from 2.1.3):</strong> a bar click applies the bar's label as the source table's <strong>text filter</strong> — exactly as if you had typed it into the search box. The table filters, the <code>×</code> clear button appears, the chart re-aggregates against the filtered rows (so it collapses to the clicked bar), linked charts refresh, and the state is written to the URL hash so the view survives a reload and can be shared. Click <code>×</code> for the full distribution again. Because it is a text filter rather than an exact-value match, a label that is a substring of another value matches both.</p>
@@ -5132,6 +5477,73 @@ Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
 <p><code>Add-DhRangeBar</code> is the only one whose bar floats, and the only one whose colour encodes position rather than category or state.</p>
 <p>Full runnable example: <a href="Examples/Demo-Feature-RangeBar.ps1"><code>Examples/Demo-Feature-RangeBar.ps1</code></a>. Every chart type side by side, with guidance on which to pick: <a href="Examples/Demo-Feature-AllChartTypes.ps1"><code>Examples/Demo-Feature-AllChartTypes.ps1</code></a>.</p>
 <hr />
+<h2 id="findings-2.2">Findings (2.2+)</h2>
+<p><code>Add-DhFindings</code> is the block an audit or assessment report is built around. Each finding is one row: a severity badge, the title, an area and the affected count. Expanding the row shows:</p>
+<ul>
+<li>what is wrong and what to do about it;</li>
+<li>which objects are affected, with &quot;+N more&quot; past <code>-MaxAffectedShown</code>;</li>
+<li>a <strong>Show in table</strong> button that jumps to the evidence table, filtered;</li>
+<li>reference links, for example Microsoft Learn.</li>
+</ul>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhFindings -Report $report -Id 'sec' -Title 'Security findings' -NavPath 'Findings' `
+    -GroupBy Area -ExpandSeverity critical -Findings @(
+      @{ Severity='critical'; Title='AS-REP roastable accounts'; Area='Accounts'
+         Description='Accounts with DoesNotRequirePreAuth expose crackable hashes.'
+         Recommendation='Clear DONT_REQ_PREAUTH on every listed account.'
+         Affected=@('svc_old','test1'); AffectedTableId='accounts'; AffectedFilter='AS-REP'
+         References=@(@{ Label='MS Learn'; Url='https://learn.microsoft.com/' }) }
+      @{ Severity='medium'; Title='Stale computer objects'; Area='Hygiene'; AffectedCount=148 }
+    )
+</div></div>
+<ul>
+<li><strong>Severity</strong> is <code>critical</code>, <code>warning</code>, <code>info</code> or <code>ok</code>, the same scale as alert banners. <code>high</code>, <code>medium</code> and <code>low</code> are accepted as aliases for pasting output from other tools.</li>
+<li><strong>Sorting</strong> is critical → ok, then by affected count, largest first. <code>-SortBy None</code> keeps your order.</li>
+<li><strong>Counters</strong> above the list filter by severity: click one, or several. A text box filters over every field.</li>
+<li><strong>Options:</strong> <code>-GroupBy Area|Severity</code> adds group headers. <code>-ExpandSeverity critical</code> opens those findings at load. <code>-HideOk</code> drops the passed checks.</li>
+<li><strong>References</strong> must be http(s), mailto, tel or an in-page <code>#anchor</code>. Anything else throws.</li>
+<li><strong>Text is always HTML-encoded.</strong> There is no <code>-AllowHtml</code>, because finding text usually comes from collected data.</li>
+<li><strong>When printed</strong>, every finding is shown expanded.</li>
+</ul>
+<p><code>Examples/Demo-Feature-Findings.ps1</code> builds a complete assessment report: verdict, findings, value bar charts, link cells and the print cover.</p>
+<hr />
+<h2 id="printing-and-pdf-2.2">Printing and PDF (2.2+)</h2>
+<p>Every report has a <strong>🖨 Print</strong> button, and Ctrl+P works the same way. Choose &quot;Save as PDF&quot; in the print dialog for a PDF. While printing, the page is rearranged, then put back afterwards:</p>
+<ul>
+<li>light theme, whatever the reader was using;</li>
+<li><strong>every</strong> nav view, in menu order, each under a heading with its path;</li>
+<li>every collapsible section, tab panel and finding expanded;</li>
+<li>tables unpaged, up to <code>Export-DhDashboard -PrintMaxRows</code> rows (default 200), with &quot;Showing N of M rows&quot; when rows were left out;</li>
+<li>the nav bar, toolbars, filters and dismiss buttons hidden; table headers repeat on every page; page numbers in the footer;</li>
+<li>with <code>New-DhDashboard -PrintCover</code>, a cover page first: title, subtitle, logo, info fields and the verdict tile.</li>
+</ul>
+<p>Pipelines that render PDFs with a headless browser (<code>msedge --headless --print-to-pdf=...</code>) get the same layout: headless Edge runs the same print handlers.</p>
+<hr />
+<h2 id="offline-export-exportlibraries-2.2">Offline export: <code>-ExportLibraries</code> (2.2+)</h2>
+<p>CSV export is built in. XLSX and PDF need three JavaScript libraries (SheetJS, jsPDF, jsPDF-AutoTable). <code>Export-DhDashboard -ExportLibraries</code> decides how they reach the reader:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Cdn</code> (default)</td>
+<td>Loaded from cdnjs the <strong>first time</strong> a reader clicks XLSX or PDF, checked against a pinned SRI hash. The page itself never waits on the network. Offline, the two buttons turn grey with &quot;Needs internet: use CSV&quot;.</td>
+</tr>
+<tr>
+<td><code>Embed</code></td>
+<td>The libraries are inlined into the report, about 1.3 MB, so XLSX and PDF work with no network at all. Use it for air-gapped readers. The files ship in <code>DashHtml/Vendor/</code> and are checked against the same hashes every time they are embedded.</td>
+</tr>
+<tr>
+<td><code>None</code></td>
+<td>No XLSX or PDF buttons; CSV only.</td>
+</tr>
+</tbody>
+</table>
+<p>Before 2.2.0 the libraries were blocking script tags in the page head: on a network without internet access the report stayed blank until the CDN request timed out.</p>
+<hr />
 <h2 id="global-filters-1.9.0">Global filters (1.9.0+)</h2>
 <p><code>Add-DhGlobalFilter</code> puts a control in a bar above the whole report. Changing it re-filters <strong>every table that has the named field at once</strong> — and any chart built from those tables re-aggregates. Tables that don't have the field are left untouched. Multiple global filters combine with <strong>AND</strong>, and the selection is saved in the URL so a shared link or reload keeps it applied.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$rows = Get-Inventory   # objects with Environment, Tier, LastSeen, …
@@ -5484,7 +5896,7 @@ Add-DhHtmlBlock -Report $r -Id 'intro' -Style info -AllowHtml:$true `
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
 Tests/
-  DashHtml.Tests.ps1               # 474 tests at 2.0.0
+  DashHtml.Tests.ps1               # 524 tests at 2.2.0 (598 across the three suites)
 Examples/                            # Demo-&lt;Domain&gt; = a realistic report
                                      # Demo-Feature-* = one capability, isolated
   Demo-ActiveDirectory.ps1           # AD ops report
@@ -5511,7 +5923,7 @@ readme-dev.md                      # AI-assistant reference
   </section>
 
   <div class="page-footer">
-    Generated by Build-DhReference.ps1 · DashHtml v2.1.3 · 2026-09-08 09:49
+    Generated by Build-DhReference.ps1 · DashHtml v2.2.0 · 2026-10-13 20:52
   </div>
 
 </main>
