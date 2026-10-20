@@ -41,9 +41,35 @@ function Add-DhFindings {
               AffectedFilter  = 'AS-REP'           # optional text filter for that table
               References      = @(@{ Label='MS Learn'; Url='https://learn.microsoft.com/...' })
               Id              = 'asrep'      # optional stable id (default f1, f2, ...)
+
+              # ---- v2.3.0 ----
+              Facts    = @(@{ Label='Recommended'; Value='5 - NTLMv2 only'; Status='ok' })   # tiles
+              Evidence = @(@{ Object='VIT00-DC01'; Value='Level 4'; Status='warn'; Note='' })  # one row per object
+              Change   = 'new'               # new | worse | better | resolved: change since the last run
+              Detail   = @{ Title='..'; Sections=@(...) }   # "Open details" opens it in the side panel
           }
+        Facts are label/value tiles (Status colours them). Evidence is the per-object proof:
+        Object is required, Value / Status / Note are optional (a column appears only if some
+        row uses it); at most -MaxEvidenceShown rows are drawn, the rest as "+N more" (use
+        AffectedTableId for the full list). Change adds a badge and a filter chip; the script
+        does the comparison with the previous run, DashHtml only shows it. Detail takes the
+        same shapes as a status-grid cell's Detail (text, a section, an array of sections, or
+        @{ Title; Subtitle; Sections }).
         Reference URLs must be http(s), mailto, tel or an in-page #anchor - the
         same rule as alert and tile actions. Anything else throws.
+
+    .PARAMETER AllClearText
+        v2.3.0. A short sentence shown with a large check mark when the block has no
+        findings (an empty -Findings array, or every finding dropped by -HideOk), for
+        example 'No stale or lingering objects found.' Shows that the check ran and
+        passed. Without it an empty block says "No findings."
+
+    .PARAMETER Layout
+        v2.3.0. List (default): one expandable row per finding. Split: the findings as a
+        list on the left and the selected finding's detail on the right, which suits many
+        findings with evidence (a settings audit). Both print fully expanded, and on a
+        phone the detail shows under the list.
+    .PARAMETER MaxEvidenceShown  Evidence rows drawn per finding before "+N more" (default 50).
 
     .PARAMETER GroupBy           None (default) | Area | Severity - group header rows.
     .PARAMETER ShowCounters      Severity counter chips that filter the list (default $true).
@@ -71,7 +97,14 @@ function Add-DhFindings {
         [ValidatePattern('^[A-Za-z0-9_-]+$')]
         [string]   $Id,
         [string]   $Title = 'Findings',
-        [Parameter(Mandatory)] [object[]] $Findings,
+        # v2.3.0: no longer mandatory, so a block that found nothing (-AllClearText) can be declared,
+        # and so a YAML round trip, which omits an empty list, still rebuilds it.
+        [AllowEmptyCollection()] [object[]] $Findings = @(),
+        [string]   $AllClearText = '',     # v2.3.0 - shown (with a check mark) when there are no findings
+        [ValidateSet('List','Split')]
+        [string]   $Layout = 'List',       # v2.3.0 - List (accordion) | Split (list + detail pane)
+        [ValidateRange(1, 10000)]
+        [int]      $MaxEvidenceShown = 50, # v2.3.0 - evidence rows per finding
         [ValidateSet('None','Area','Severity')]
         [string]   $GroupBy = 'None',
         [bool]     $ShowCounters = $true,
@@ -115,7 +148,7 @@ function Add-DhFindings {
 
     $seenIds = @{}
     $n = 0
-    $norm = foreach ($f in $Findings) {
+    $norm = foreach ($f in @($Findings | Where-Object { $null -ne $_ })) {
         $n++
         if ($f -isnot [System.Collections.IDictionary]) {
             throw "Add-DhFindings '$Id': finding #$n must be a hashtable. Got: $($f.GetType().Name)"
@@ -151,6 +184,29 @@ function Add-DhFindings {
             @{ Label = if ($ref['Label']) { [string]$ref['Label'] } else { $url }; Url = $url }
         })
 
+        # v2.3.0 - facts, evidence, change marker and drawer detail
+        $facts = @()
+        if ($f.Contains('Facts') -and $null -ne $f['Facts']) {
+            $facts = @((ConvertTo-DhSections -Context $ctx -Sections @(@{ Kind = 'kv'; Items = @($f['Facts']) }))[0].Items)
+        }
+        $evidence = @(foreach ($e in @($(if ($f.Contains('Evidence')) { $f['Evidence'] } else { $null }))) {
+            if ($null -eq $e) { continue }
+            if ($e -isnot [System.Collections.IDictionary] -or -not $e.Contains('Object') -or [string]::IsNullOrWhiteSpace([string]$e['Object'])) {
+                throw "${ctx}: each Evidence entry must be @{ Object; Value; Status; Note } with an Object."
+            }
+            [ordered]@{
+                Object = [string]$e['Object']
+                Value  = if ($e.Contains('Value') -and $null -ne $e['Value']) { [string]$e['Value'] } else { '' }
+                Status = ConvertTo-DhStatusName $(if ($e.Contains('Status')) { $e['Status'] } else { $null })
+                Note   = if ($e.Contains('Note') -and $null -ne $e['Note']) { [string]$e['Note'] } else { '' }
+            }
+        })
+        $change = if ($f.Contains('Change') -and -not [string]::IsNullOrWhiteSpace([string]$f['Change'])) { ([string]$f['Change']).Trim().ToLowerInvariant() } else { '' }
+        if ($change -and $change -notin 'new', 'worse', 'better', 'resolved') {
+            throw "${ctx}: Change must be new, worse, better or resolved. Got: '$($f['Change'])'"
+        }
+        $detail = ConvertTo-DhDetailSpec -Detail $(if ($f.Contains('Detail')) { $f['Detail'] } else { $null }) -Context $ctx
+
         [ordered]@{
             Id              = $fid
             Seq             = $n
@@ -164,6 +220,10 @@ function Add-DhFindings {
             AffectedTableId = $tableId
             AffectedFilter  = $filter
             References      = $refs
+            Facts           = $facts
+            Evidence        = $evidence
+            Change          = $change
+            Detail          = $detail
         }
     }
     $norm = @($norm)
@@ -179,6 +239,9 @@ function Add-DhFindings {
         Id               = $Id
         Title            = $Title
         Findings         = $norm
+        AllClearText     = $AllClearText
+        Layout           = $Layout.ToLowerInvariant()
+        MaxEvidenceShown = $MaxEvidenceShown
         GroupBy          = $GroupBy.ToLowerInvariant()
         ShowCounters     = $ShowCounters
         Filterable       = $Filterable

@@ -51,7 +51,15 @@ function Get-DhJsPrint {
 
   function dhBeforePrint() {
     if (_printState) return;                         /* already arranged */
-    var st = _printState = { theme: themeMode, moved: [], added: [], engines: {} };
+    if (typeof dhDrawerClose === 'function') dhDrawerClose(true);   /* v2.3.0: no drawer on paper */
+    var st = _printState = { theme: themeMode, moved: [], added: [], engines: {}, reopened: [] };
+    /* v2.5.2: the group of removed rows (baseline markers) prints open */
+    document.querySelectorAll('details.tbl-removed').forEach(function (d) {
+      if (!d.open) { d.open = true; st.reopened.push(d); }
+      /* 2.5.3: rows are drawn on open, and the toggle event fires too late for print: draw them now */
+      var eng = engines[d.id.replace(/^chg-removed-/, '')];
+      if (eng && eng._renderRemoved) eng._renderRemoved();
+    });
 
     /* 1. light theme, without recording it as the reader's choice */
     if (themeMode !== 'light') applyThemeMode('light');
@@ -134,13 +142,16 @@ function Get-DhJsPrint {
         var gen = hdr.querySelector('.header-meta');
         if (gen) cover.appendChild(gen.cloneNode(true));
       }
-      var verdict = document.querySelector('.tile-verdict');
-      if (verdict) {
-        var vwrap = document.createElement('div');
-        vwrap.className = 'dh-print-cover-verdict';
-        vwrap.appendChild(verdict.cloneNode(true));
-        cover.appendChild(vwrap);
-      }
+      /* the overall assessment (verdict) and, from 2.3.0, the score ring */
+      ['.tile-verdict', '.tile-score'].forEach(function (sel) {
+        var tileEl = document.querySelector(sel);
+        if (tileEl) {
+          var vwrap = document.createElement('div');
+          vwrap.className = 'dh-print-cover-verdict';
+          vwrap.appendChild(tileEl.cloneNode(true));
+          cover.appendChild(vwrap);
+        }
+      });
       document.body.insertBefore(cover, document.body.firstChild);
       st.added.push(cover);
     }
@@ -159,6 +170,7 @@ function Get-DhJsPrint {
     Object.keys(st.engines).forEach(function (id) {
       if (engines[id]) { engines[id]._printRows = 0; engines[id].render(); }
     });
+    (st.reopened || []).forEach(function (d) { d.open = false; });
     document.documentElement.classList.remove('dh-printing');
     if (st.theme !== themeMode) applyThemeMode(st.theme);
   }

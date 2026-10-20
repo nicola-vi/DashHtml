@@ -86,8 +86,8 @@ $chartsHtml
         <div class="toolbar-left">
           <div class="filter-wrap" id="filter-wrap-$id">
             <span class="filter-icon">&#9906;</span>
-            <input type="text" class="filter-input" id="filter-$id" placeholder="Filter table&#8230;" autocomplete="off">
-            <button class="filter-clear" id="filter-clear-$id" title="Clear filter">&#215;</button>
+            <input type="text" class="filter-input" id="filter-$id" placeholder="Filter table&#8230;" aria-label="Filter $titleEsc" autocomplete="off">
+            <button class="filter-clear" id="filter-clear-$id" title="Clear filter" aria-label="Clear filter">&#215;</button>
           </div>
         </div>
         <div class="toolbar-right">

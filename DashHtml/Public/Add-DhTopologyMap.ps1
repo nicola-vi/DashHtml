@@ -199,7 +199,10 @@ function Add-DhTopologyMap {
             throw "Add-DhTopologyMap: node '$($n.Id)' cannot be its own Parent."
         }
     }
-    # Cycle detection: walk up from each node, bail if we revisit
+    # Cycle detection: walk up from each node, bail if we revisit. The Id-to-node
+    # map keeps this O(n * depth); a pipeline lookup per step was O(n^2).
+    $byId = @{}
+    foreach ($n in $normNodes) { $byId[$n.Id] = $n }
     foreach ($n in $normNodes) {
         $seen = @{ ($n.Id) = $true }
         $cur = $n.Parent
@@ -209,7 +212,7 @@ function Add-DhTopologyMap {
                 throw "Add-DhTopologyMap: cycle detected at node '$cur' (in chain starting from '$($n.Id)')."
             }
             $seen[$cur] = $true
-            $cur = ($normNodes | Where-Object { $_.Id -eq $cur } | Select-Object -First 1).Parent
+            $cur = $byId[$cur].Parent
             $depth++
         }
     }

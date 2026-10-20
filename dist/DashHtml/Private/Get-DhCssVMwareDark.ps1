@@ -86,10 +86,10 @@ function Get-DhCssVMwareDark {
   --shadow-md:   0 4px 16px rgba(0,0,0,0.55);
   --shadow-glow: 0 0 16px rgba(0,196,154,0.16);
 
-  --cell-ok-fg:      #00C49A;  --cell-ok-bg:      rgba(0,196,154,0.10);
+  --cell-ok-fg:      #0AC69E;  --cell-ok-bg:      rgba(0,196,154,0.10);
   --cell-warn-fg:    #F39C12;  --cell-warn-bg:    rgba(243,156,18,0.10);
-  --cell-danger-fg:  #E74C3C;  --cell-danger-bg:  rgba(231,76,60,0.10);
-  --cell-nodata-fg:  #8B96A5;  --cell-nodata-bg:  rgba(139,150,165,0.10);
+  --cell-danger-fg:  #EF897E;  --cell-danger-bg:  rgba(231,76,60,0.10);
+  --cell-nodata-fg:  #A5ADB9;  --cell-nodata-bg:  rgba(139,150,165,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.08);
 

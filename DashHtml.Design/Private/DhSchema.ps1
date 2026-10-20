@@ -24,6 +24,11 @@ $script:DhTypeToCmdlet = @{
     rangebar       = 'Add-DhRangeBar'
     topologymap    = 'Add-DhTopologyMap'
     findings       = 'Add-DhFindings'      # DashHtml 2.2.0
+    keyvalue       = 'Add-DhKeyValue'      # DashHtml 2.3.0
+    recordlist     = 'Add-DhRecordList'    # DashHtml 2.3.0
+    treefilter     = 'Add-DhTreeFilter'    # DashHtml 2.4.0
+    networkmap     = 'Add-DhNetworkMap'    # DashHtml 2.4.0
+    treetable      = 'Add-DhTreeTable'     # DashHtml 2.5.0
 }
 
 $script:DhCommonParams = @(
@@ -57,7 +62,9 @@ function ConvertTo-DhPsLiteral {
     }
     if ($Value -is [System.Collections.IDictionary]) {
         $parts = foreach ($k in $Value.Keys) { "$k = $(ConvertTo-DhPsLiteral $Value[$k] $Indent)" }
-        return '@{ ' + ($parts -join '; ') + ' }'
+        # an ordered source stays ordered, so property lists (tree table Properties) keep their order
+        $open = if ($Value -is [System.Collections.Specialized.OrderedDictionary]) { '[ordered]@{ ' } else { '@{ ' }
+        return $open + ($parts -join '; ') + ' }'
     }
     if ($Value -is [System.Collections.IEnumerable]) {
         $items = @($Value)
@@ -75,4 +82,35 @@ function ConvertTo-DhPsLiteral {
         return "@(`n" + ($lines -join "`n") + "`n" + ('    ' * $Indent) + ')'
     }
     return "'" + ([string]$Value -replace "'", "''") + "'"
+}
+function ConvertTo-DhJsonSchemaType {
+    # A YAML key may be present with no value (null): every typed shape accepts it as well.
+    param([Parameter(Mandatory)] [System.Management.Automation.ParameterMetadata] $Parameter)
+    $shape = ConvertTo-DhJsonSchemaTypeCore -Parameter $Parameter
+    if ($shape.Contains('type') -and $shape['type'] -is [string]) { $shape['type'] = @($shape['type'], 'null') }
+    elseif ($shape.Contains('enum')) { $shape['enum'] = @($shape['enum']) + @($null) }
+    return $shape
+}
+
+function ConvertTo-DhJsonSchemaTypeCore {
+    <#
+    .SYNOPSIS  JSON Schema fragment for one cmdlet parameter (switch = boolean, int = integer, ValidateSet = enum).
+    #>
+    param([Parameter(Mandatory)] [System.Management.Automation.ParameterMetadata] $Parameter)
+    $ty = $Parameter.ParameterType
+    $set = $Parameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } | Select-Object -First 1
+    if ($set) {
+        # the reader is case-insensitive: accept the usual spellings
+        $vals = foreach ($v in $set.ValidValues) { $v; $v.ToLowerInvariant(); $v.ToUpperInvariant() }
+        return [ordered]@{ enum = @($vals | Select-Object -Unique) }
+    }
+    if ($ty -eq [System.Management.Automation.SwitchParameter] -or $ty -eq [bool]) { return [ordered]@{ type = 'boolean' } }
+    if ($ty -in @([int], [long], [uint32], [int16], [byte])) { return [ordered]@{ type = 'integer' } }
+    if ($ty -in @([double], [single], [decimal])) { return [ordered]@{ type = 'number' } }
+    if ($ty -eq [string]) { return [ordered]@{ type = 'string' } }
+    if ($ty -eq [datetime]) { return [ordered]@{ type = 'string' } }
+    if ($ty -eq [string[]]) { return [ordered]@{ type = 'array'; items = [ordered]@{ type = 'string' } } }
+    if ($ty -eq [hashtable] -or $ty -eq [System.Collections.IDictionary] -or $ty -eq [System.Collections.Specialized.OrderedDictionary]) { return [ordered]@{ type = 'object' } }
+    if ($ty.IsArray) { return [ordered]@{ type = 'array' } }
+    return [ordered]@{}
 }

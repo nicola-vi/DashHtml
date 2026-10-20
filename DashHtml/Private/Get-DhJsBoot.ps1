@@ -32,6 +32,12 @@ function Get-DhJsBoot {
     TABLES_CONFIG.forEach(function (cfg) {
       engines[cfg.id] = new TableEngine(cfg);
     });
+    /* v2.4.0 - column widths are measured with the cell font; measure again once web fonts have loaded */
+    if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+      document.fonts.ready.then(function () {
+        Object.keys(engines).forEach(function (id) { engines[id]._refit(); });
+      });
+    }
 
     /* Bar charts, Mode-A pie charts and table-fed range bars need engines ready.
        v2.1.1 - all three go through blockRenderTarget so a collapsible block is
@@ -49,6 +55,10 @@ function Get-DhJsBoot {
       } else if (block.blockType === 'rangebar' && block.mode === 'fromtable') {
         var rbT = blockRenderTarget(block);
         if (rbT.container) renderRangeBar(rbT.container, rbT.block);
+      } else if (block.blockType === 'treefilter') {
+        /* v2.4.0 - needs the engine of the table it filters */
+        var tfT = blockRenderTarget(block);
+        if (tfT.container) renderTreeFilter(tfT.container, tfT.block);
       }
     });
 
@@ -82,12 +92,16 @@ function Get-DhJsBoot {
     }
 
     initNav();
+    initSearch();          /* v2.4.0 */
     syncNavTop();
     window.addEventListener('resize', syncNavTop);
     initThemeToggle();
     initDensityToggle();
     initPrint();           /* v2.2.0 */
     initTableCollapsibles();
+    /* v2.5.3 - bound here: the runtime is one IIFE, so the page uses no inline on* handlers */
+    var topBtn = document.getElementById('btn-nav-top');
+    if (topBtn) topBtn.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
     /* Alert banners — initNav() has now exposed window._showPanel,
        and engines[] exists, so action buttons can navigate + filter. */

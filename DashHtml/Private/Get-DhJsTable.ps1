@@ -4,6 +4,50 @@ function Get-DhJsTable {
   /* =========================================================================
      TABLE ENGINE
      ========================================================================= */
+  /* Footer aggregate of the numbers in a column. `rowCount` feeds 'count'. null = nothing to show. */
+  function dhAggregate(agg, nums, rowCount) {
+    switch (agg) {
+      case 'sum':   return nums.reduce(function(a,b){return a+b;}, 0);
+      case 'avg':   return nums.length ? nums.reduce(function(a,b){return a+b;},0)/nums.length : null;
+      case 'min':   return nums.length ? Math.min.apply(null, nums) : null;
+      case 'max':   return nums.length ? Math.max.apply(null, nums) : null;
+      case 'count': return rowCount;
+    }
+    return null;
+  }
+
+  /* Footer cell text. An unformatted column would show 37.333333333: round to Decimals (default 2). */
+  function dhFootText(col, result) {
+    var plain = !col.format || String(col.format).toLowerCase() === 'text';
+    return (plain && typeof result === 'number' && isFinite(result) && result % 1 !== 0)
+      ? result.toFixed(col.decimals >= 0 ? col.decimals : 2)
+      : (FMT.apply(col, result) || String(result));
+  }
+
+  /* v2.5.2 baseline markers (Add-DhTable -Baseline): pure helpers */
+  function dhBaselineNote(b) {
+    return 'vs ' + b.label + ': +' + b['new'] + ' new, ~' + b.changed + ' changed, \u2212' + b.removed + ' removed';
+  }
+  /* filter: '' (all) | 'n' (new) | 'c' (changed); state is the row's entry in baseline.changes, or undefined */
+  function dhChangeKeep(state, filter) { return !filter || (!!state && state.s === filter); }
+  /* Text of a cell as the reader sees it, without the New / Changed tag (copy cell). */
+  function dhCellText(td) {
+    var c = td.cloneNode(true);
+    var tags = c.querySelectorAll('.chg-tag');
+    for (var i = 0; i < tags.length; i++) tags[i].parentNode.removeChild(tags[i]);
+    return (c.textContent || '').trim();
+  }
+  /* CSV formula guard: a spreadsheet evaluates a cell that starts with = + - @ (or a tab / CR), so such
+     text gets a leading apostrophe. Numbers such as -5 or +1.5 are left alone. */
+  function dhCsvSafe(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(s) && !(s.trim() !== '' && isFinite(Number(s)))) return "'" + s;
+    return s;
+  }
+  function dhWasText(col, was, fmtApply) {
+    return 'was: ' + ((was === null || was === undefined || was === '') ? '(empty)' : (fmtApply(col, was) || String(was)));
+  }
+
   function TableEngine(cfg) {
     this.id          = cfg.id;
     this.title       = cfg.title||cfg.id;
@@ -20,19 +64,50 @@ function Get-DhJsTable {
     this.pageable    = cfg.pageable!==false;
     this.outLinks    = cfg.outLinks||[];
     this.charts      = cfg.charts||[];
+    this.detail      = cfg.detail||null;    /* v2.3.0 - row detail drawer (Add-DhTable -DetailDrawer) */
+    /* v2.5.2 - baseline markers: row object -> {s:'n'|'c', f:[fields], w:{old values}}; changeFilter '' | 'n' | 'c' */
+    this.base        = cfg.baseline||null;
+    this.changeFilter = '';
+    this._includeRemoved = false;
+    this._baseState  = new Map();
+    if (this.base) {
+      for (var bk in this.base.changes) {
+        if (Object.prototype.hasOwnProperty.call(this.base.changes, bk) && this.allData[+bk]) this._baseState.set(this.allData[+bk], this.base.changes[bk]);
+      }
+    }
 
     this.currentPage   = 1;
     this.sortFields    = [];   /* [{field, dir}] — multi-sort */
     this.filterText    = '';
     this.linkedFilter  = null;
+    this.pathFilter    = null;   /* v2.4.0 - set only through setPathFilter (Add-DhTreeFilter) */
     this.selected      = [];
     this.colVisible    = {};
-    this.columns.forEach(function(col,i){this.colVisible[i]=true;},this);
+    /* v2.5.0 - a column with Hidden starts unticked in the picker; -RememberColumns restores the reader's own choice */
+    this.columns.forEach(function(col,i){this.colVisible[i]=!col.hidden;},this);
+    this.rememberKey   = cfg.remember||'';
+    this._restoreCols();
     /* Per-field width overrides set by dragging a header edge. Empty until the
        user resizes something; the declared col.width stays the default. */
     this.colWidths     = {};
+    /* v2.4.0 - measured column widths (Add-DhTable -ColumnFit Auto, the default).
+       Precedence: dragged width, then the author's Width, then this. */
+    this.columnFit     = (cfg.columnFit === 'fixed') ? 'fixed' : 'auto';
+    this.columnMax     = cfg.columnMax || 800;
+    this._fitW         = null;
 
     this.exportFileName = cfg.exportFileName || cfg.id;
+    /* v2.3.0 - AllClearText: an empty check shows a check mark instead of an empty grid */
+    if(cfg.allClear && !this.allData.length){
+      var acSec=document.getElementById('section-'+cfg.id);
+      var acBar=acSec&&acSec.querySelector('.table-toolbar');
+      if(acBar){
+        acSec.classList.add('table-allclear');
+        var acCard=document.createElement('div'); acCard.className='table-allclear-card';
+        acCard.innerHTML=allClearHtml(cfg.allClear);
+        acBar.parentNode.insertBefore(acCard,acBar);
+      }
+    }
     this._initPageSizes();
     this._bindFilter();
     this._bindClearSel();
@@ -41,8 +116,75 @@ function Get-DhJsTable {
     this._buildColToggle();
     this._renderCharts();
     this._bindRightClick();
+    this._buildChangeBar();
     this.render();
   }
+
+  /* ── Baseline markers (v2.5.2) ───────────────────────────────────────
+     A line under the toolbar ("vs previous run: +3 new, ~2 changed, -1 removed"), Change chips that filter the table,
+     and a collapsed group under the table for the rows that disappeared. */
+  TableEngine.prototype._buildChangeBar = function () {
+    if (!this.base) return;
+    var self = this, b = this.base, tb = document.getElementById('toolbar-' + this.id);
+    if (!tb) return;
+    var bar = document.createElement('div');
+    bar.className = 'tbl-change-bar'; bar.id = 'chg-bar-' + this.id;
+    var defs = [['', 'All', this.allData.length], ['n', 'New', b['new']], ['c', 'Changed', b.changed], ['r', 'Removed', b.removed]];
+    var html = '<span class="tbl-baseline-note">' + esc(dhBaselineNote(b)) + '</span>' +
+               '<span class="chg-chips" role="group" aria-label="Filter by change">';
+    defs.forEach(function (d) {
+      html += '<button type="button" class="chg-chip" data-chg="' + d[0] + '" aria-pressed="' + (d[0] === '' ? 'true' : 'false') + '">' + esc(d[1]) + ' <span class="chg-n">' + d[2] + '</span></button>';
+    });
+    html += '</span>';
+    if (b.removed) html += '<label class="chg-incl"><input type="checkbox" class="chg-incl-box"> Include removed rows in exports</label>';
+    bar.innerHTML = html;
+    tb.parentNode.insertBefore(bar, tb.nextSibling);
+    bar.addEventListener('click', function (e) {
+      var chip = e.target.closest ? e.target.closest('.chg-chip') : null;
+      if (!chip) return;
+      var v = chip.getAttribute('data-chg');
+      if (v === 'r') {                                  /* Removed rows are not in the table: reveal their group */
+        if (self._remBox) { self._remBox.open = true; self._remBox.scrollIntoView({ block: 'nearest' }); }
+        return;
+      }
+      self.changeFilter = (self.changeFilter === v) ? '' : v;
+      bar.querySelectorAll('.chg-chip').forEach(function (c) {
+        var cv = c.getAttribute('data-chg');
+        if (cv === 'r') return;
+        c.setAttribute('aria-pressed', (cv === self.changeFilter) ? 'true' : 'false');
+      });
+      self.currentPage = 1;
+      self.render();
+      self._refreshLinkedBarCharts();
+      self._renderCharts();
+    });
+    var box = bar.querySelector('.chg-incl-box');
+    if (box) box.addEventListener('change', function () { self._includeRemoved = box.checked; });
+    if (b.removed) {
+      var tbl = document.getElementById('tbl-' + this.id), wrap = tbl && tbl.closest ? tbl.closest('.table-wrapper') : null;
+      var det = document.createElement('details');
+      det.className = 'tbl-removed'; det.id = 'chg-removed-' + this.id;
+      det.innerHTML = '<summary>Removed since ' + esc(b.label) + ' (<span class="tbl-removed-n">' + b.removed + '</span>)</summary><div class="tbl-removed-body"></div>';
+      if (wrap && wrap.parentNode) wrap.parentNode.insertBefore(det, wrap.nextSibling); else bar.parentNode.appendChild(det);
+      this._remBox = det; this._remBody = det.querySelector('.tbl-removed-body');
+      /* 2.5.3: the rows are drawn only while the group is open (it used to be rebuilt on every render) */
+      det.addEventListener('toggle', function () { if (det.open) self._renderRemoved(); });
+    }
+  };
+
+  TableEngine.prototype._renderRemoved = function () {
+    if (!this.base || !this._remBody) return;
+    var self = this, cols = this._visibleCols(), term = (this.filterText || '').toLowerCase();
+    var rows = this.base.removedRows.filter(function (r) { return !term || self._matchText(r, term, cols); });
+    var n = this._remBox.querySelector('.tbl-removed-n'); if (n) n.textContent = rows.length;
+    if (!this._remBox.open) { this._remBody.innerHTML = ''; return; }   /* the count stays current; the rows wait for the open */
+    var h = '<table class="tbl-removed-table"><thead><tr>' + cols.map(function (c) { return '<th scope="col">' + esc(c.label) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>' + cols.map(function (c) { var v = r[c.field]; return '<td>' + esc(v === null || v === undefined ? '' : (FMT.apply(c, v) || String(v))) + '</td>'; }).join('') + '</tr>';
+    });
+    if (!rows.length) h += '<tr><td colspan="' + Math.max(1, cols.length) + '" class="tbl-removed-none">No removed row matches the filter.</td></tr>';
+    this._remBody.innerHTML = h + '</tbody></table>';
+  };
 
   /* ── Card filter bridge ─────────────────────────────────────────── */
   TableEngine.prototype._applyCardFilters = function () {
@@ -153,6 +295,7 @@ function Get-DhJsTable {
       self.linkedFilter=null;self.currentPage=1;self.selected=[];
       var badge=document.getElementById('link-badge-'+self.id);
       if(badge)badge.style.display='none';
+      if(self.pathFilter){self.setPathFilter(null);return;}
       self.render();
     });
   };
@@ -225,7 +368,7 @@ function Get-DhJsTable {
     ctxMenu.querySelector('.ctx-copy-cell').addEventListener('click', function() {
       if (!targetTd) return;
       var td   = targetTd;
-      var text = (td.textContent || td.innerText || '').trim();
+      var text = dhCellText(td);
       if (text) {
         copyText(text, function() {
           td.classList.add('cell-copied');
@@ -241,8 +384,7 @@ function Get-DhJsTable {
       var lines = [r.cols.map(function(c){ return '"'+c.label.replace(/"/g,'""')+'"'; }).join(',')];
       r.rows.forEach(function(row){
         lines.push(r.cols.map(function(c){
-          var v = FMT.forExport(c, row[c.field]);
-          v = (v !== null && v !== undefined) ? String(v) : '';
+          var v = dhCsvSafe(FMT.forExport(c, row[c.field]));
           return '"'+v.replace(/"/g,'""')+'"';
         }).join(','));
       });
@@ -259,21 +401,63 @@ function Get-DhJsTable {
   };
 
   /* ── Column visibility toggle ───────────────────────────────────── */
+  /* v2.5.0 - the reader's column choice, kept per viewer in localStorage (opt-in: Add-DhTable
+     -RememberColumns). Stored by field name, so a column added later keeps its default. Storage can be
+     blocked (private windows), so every access is guarded and the table works without it. */
+  TableEngine.prototype._colsKey = function () {
+    return this.rememberKey ? 'dh:cols:'+this.rememberKey : '';
+  };
+  TableEngine.prototype._restoreCols = function () {
+    var key=this._colsKey(); if(!key) return;
+    try{
+      var saved=JSON.parse(window.localStorage.getItem(key)||'null');
+      if(!saved||typeof saved!=='object') return;
+      var self=this;
+      this.columns.forEach(function(col,i){ if(Object.prototype.hasOwnProperty.call(saved,col.field)) self.colVisible[i]=!!saved[col.field]; });
+    }catch(e){}
+  };
+  TableEngine.prototype._saveCols = function () {
+    var key=this._colsKey(); if(!key) return;
+    try{
+      var map={}, self=this;
+      this.columns.forEach(function(col,i){ map[col.field]=self.colVisible[i]!==false; });
+      window.localStorage.setItem(key,JSON.stringify(map));
+    }catch(e){}
+  };
+  TableEngine.prototype._colToggleLabel = function () {
+    var btn=document.getElementById('btn-col-toggle-'+this.id); if(!btn) return;
+    var self=this, n=0;
+    this.columns.forEach(function(col,i){ if(self.colVisible[i]===false) n++; });
+    btn.innerHTML='&#9776; Columns'+(n?' ('+n+' hidden)':'');
+  };
+
   TableEngine.prototype._buildColToggle = function () {
     var btn=document.getElementById('btn-col-toggle-'+this.id);
     var dd=document.getElementById('col-toggle-dd-'+this.id);
     if(!btn||!dd) return;
-    var self=this;
+    var self=this, boxes=[];
     this.columns.forEach(function(col,i){
       var row=document.createElement('label');
       row.className='col-toggle-item';
       var chk=document.createElement('input');
-      chk.type='checkbox';chk.checked=true;
-      chk.addEventListener('change',function(){self.colVisible[i]=chk.checked;self.render();});
+      chk.type='checkbox';chk.checked=self.colVisible[i]!==false;
+      chk.addEventListener('change',function(){self.colVisible[i]=chk.checked;self._saveCols();self._colToggleLabel();self.render();});
+      boxes.push(chk);
       row.appendChild(chk);
       row.appendChild(document.createTextNode(' '+col.label));
       dd.appendChild(row);
     });
+    /* back to the author's columns (and forget the saved choice) */
+    var reset=document.createElement('button');
+    reset.type='button'; reset.className='col-toggle-reset'; reset.textContent='Default columns';
+    reset.addEventListener('click',function(e){
+      e.stopPropagation();
+      self.columns.forEach(function(col,i){ self.colVisible[i]=!col.hidden; boxes[i].checked=!col.hidden; });
+      var key=self._colsKey(); if(key){ try{ window.localStorage.removeItem(key); }catch(x){} }
+      self._colToggleLabel(); self.render();
+    });
+    dd.appendChild(reset);
+    this._colToggleLabel();
     btn.addEventListener('click',function(e){e.stopPropagation();dd.style.display=dd.style.display==='none'?'block':'none';});
     document.addEventListener('click',function(){dd.style.display='none';});
   };
@@ -293,7 +477,38 @@ function Get-DhJsTable {
       badge.style.display='flex';
       text.textContent='Filtered by \u201C'+(this.linkedFilter.masterTitle||'master')+
         '\u201D \u2192 '+this.linkedFilter.field+' = '+this.linkedFilter.value;
+    } else if(this.pathFilter){
+      badge.style.display='flex';
+      text.textContent='Filtered by \u201C'+(this.pathFilter.title||'tree')+
+        '\u201D \u2192 '+(this.pathFilter.label||this.pathFilter.value);
     } else {badge.style.display='none';}
+  };
+
+  /* v2.4.0 - the single definition of "this row matches this text" (lower-cased
+     term). _getFiltered and the report-wide search both call it. */
+  TableEngine.prototype._matchText = function (row, term, cols) {
+    cols = cols || this._visibleCols();
+    for (var i = 0; i < cols.length; i++) {
+      var col = cols[i], v = row[col.field];
+      if (v === null || v === undefined) continue;
+      if (String(v).toLowerCase().indexOf(term) !== -1 ||
+          FMT.apply(col, v).toLowerCase().indexOf(term) !== -1) return true;
+    }
+    return false;
+  };
+
+  /* v2.4.0 - path filter (Add-DhTreeFilter). spec = {field, value, sep, mode, nodeId,
+     label, title} or null. The one place pathFilter is assigned, like
+     applyTextFilter for text: callers never set it directly. */
+  TableEngine.prototype.setPathFilter = function (spec) {
+    this.pathFilter = spec || null;
+    this.currentPage = 1; this.selected = [];
+    this._updateLinkBadge();
+    this.render();
+    this._refreshLinkedBarCharts();
+    this._renderCharts();
+    if (typeof TreeFilter !== 'undefined') TreeFilter.sync(this.id);
+    URLState.save();
   };
 
   /* ── Data pipeline — multi-sort + card filters ──────────────────── */
@@ -303,6 +518,10 @@ function Get-DhJsTable {
     if (self.linkedFilter) {
       var lf=self.linkedFilter;
       data=data.filter(function(row){return String(row[lf.field])===lf.value;});
+    }
+
+    if (self.base && self.changeFilter) {
+      data=data.filter(function(row){return dhChangeKeep(self._baseState.get(row), self.changeFilter);});
     }
 
     /* Card filters */
@@ -321,15 +540,15 @@ function Get-DhJsTable {
       data=data.filter(function(row){ return GlobalFilter.matchRow(row); });
     }
 
+    if (self.pathFilter) {
+      var pf=self.pathFilter;
+      data=data.filter(function(row){return dhPathMatch(row[pf.field],pf.value,pf.sep,pf.mode);});
+    }
+
     if (self.filterText) {
       var term=self.filterText.toLowerCase();
-      data=data.filter(function(row){
-        return self._visibleCols().some(function(col){
-          var v=row[col.field];if(v===null||v===undefined)return false;
-          return String(v).toLowerCase().indexOf(term)!==-1||
-                 FMT.apply(col,v).toLowerCase().indexOf(term)!==-1;
-        });
-      });
+      var mcols=self._visibleCols();
+      data=data.filter(function(row){return self._matchText(row,term,mcols);});
     }
 
     /* Multi-sort: sortFields is [{field,dir},...] */
@@ -428,6 +647,23 @@ function Get-DhJsTable {
       } else {
         td.innerHTML = '<span class="td-sparkline-empty">—</span>';
       }
+    } else if(cellType==='chips'||cellType==='path'){
+      /* v2.3.0 — a list in one cell. chips: tags (FSMO roles); path: an arrow
+         chain (A -> B -> Tier 0). The value is an array, or a string split on
+         ';' / ',' (chips) or '>' / the arrow (path). DOM calls only. */
+      var items = Array.isArray(rawVal) ? rawVal.map(String)
+                : (strRaw ? strRaw.split(cellType==='chips' ? /\s*[;,]\s*/ : /\s*(?:->|>|→)\s*/) : []);
+      items = items.filter(function(s){return s!=='';});
+      td.classList.add(cellType==='chips'?'td-chips':'td-path');
+      if(!items.length){ td.textContent=''; }
+      items.forEach(function(it,i){
+        if(cellType==='path' && i>0){
+          var sep=document.createElement('span'); sep.className='cell-path-sep'; sep.textContent='→'; td.appendChild(sep);
+        }
+        var chip=document.createElement('span');
+        chip.className=cellType==='chips'?'cell-chip':'cell-path-node';
+        chip.textContent=it; td.appendChild(chip);
+      });
     } else if(cellType==='link'){
       /* v2.2.0 — link cell. The URL comes from col.urlField (default: this
          column's value), possibly a property that is not a visible column.
@@ -455,7 +691,7 @@ function Get-DhJsTable {
     /* Width: a dragged override wins over the author's declared width. Without
        this the cell falls back to the .data-table td max-width, so a column
        declared wider than that silently clipped anyway. */
-    var effW = (this.colWidths && this.colWidths[col.field]) || col.width;
+    var effW = this._effWidth(col);
     if(effW){ td.style.maxWidth=effW; td.style.width=effW; }
 
     /* Full text for the truncation tooltip. _markTruncated() promotes this to a
@@ -473,7 +709,125 @@ function Get-DhJsTable {
   TableEngine.prototype.render = function(){
     this._renderHead();this._renderBody();this._renderFoot();this._renderPaging();
     this._renderInfo();this._renderSelClearBtn();
+    this._renderRemoved();
+    this._ensureFit();
     this._markTruncated();
+  };
+
+  /* ── Column fit (v2.4.0) ────────────────────────────────────────────
+     Cells are nowrap with an ellipsis and a 340px CSS cap, so a long value lost
+     its tail. Auto fit measures the formatted text of every row (canvas
+     measureText, so it needs no layout and works for rows a virtual table has not
+     drawn) and gives each column the width of its widest text, header included,
+     clamped to [MinWidth, ColumnMaxWidth]. Past the cap the cell still ellipsises
+     and shows its tooltip. Fonts and padding are read from a rendered cell, so a
+     theme or density change re-measures (_refit). */
+  var _fitCanvas = null;
+
+  TableEngine.prototype._effWidth = function(col){
+    return (this.colWidths&&this.colWidths[col.field]) || col.width || (this._fitW&&this._fitW[col.field]) || '';
+  };
+
+  function dhFitFont(cs){
+    return cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  }
+  function dhFitPad(cs){
+    return (parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
+  }
+
+  /* Width in px of one column's widest text, or 0 when it cannot be measured yet. */
+  TableEngine.prototype._measureCol = function(col, ci, ctx, env){
+    var cell = env.row && env.row.cells[ci+env.off];
+    var ccs = cell ? getComputedStyle(cell) : null;
+    var bodyFont = ccs ? dhFitFont(ccs) : '12px monospace';
+    var padB = ccs ? dhFitPad(ccs) : 24;
+    var label = String(col.label||'');
+    ctx.font = env.headFont;
+    var hw = ctx.measureText(label.toUpperCase()).width + env.ls*label.length + 30 + env.padH;   /* + sort icon and grip */
+
+    var ct = (col.cellType||'').toLowerCase();
+    var cw = 0, extra = 0;
+    if (ct === 'sparkline') { cw = 100; }
+    else {
+      var seen = new Set(), list = [], r, s;
+      for (r = 0; r < this.allData.length; r++) {
+        var v = this.allData[r][col.field];
+        if (v === null || v === undefined || v === '') continue;
+        s = FMT.apply(col, v);
+        if (!s || seen.has(s)) continue;
+        seen.add(s); list.push(s);
+      }
+      if (list.length > 3000) {                 /* the widest text is among the longest strings */
+        list.sort(function(a,b){return b.length-a.length;});
+        list = list.slice(0, 3000);
+      }
+      ctx.font = bodyFont;
+      for (r = 0; r < list.length; r++) {
+        var w = ctx.measureText(list[r]).width;
+        if (w > cw) { cw = w; if (ct === 'chips') extra = 14 * (list[r].split(', ').length); }
+      }
+      if (ct === 'badge')       extra = 22;
+      if (ct === 'progressbar') cw = Math.max(cw, 90);
+      if (this.base && ci === 0) extra += 62;          /* the New / Changed tag sits in the first cell */
+    }
+    var w2 = Math.ceil(Math.max(hw, cw + padB + extra) + 4);   /* 4px: sub-pixel rounding must never clip the last glyph */
+    var min = col.minWidth || 48, max = Math.max(min, this.columnMax);
+    return Math.min(max, Math.max(min, w2));
+  };
+
+  /* Fonts and padding come from a rendered cell and header; null until one exists. */
+  TableEngine.prototype._fitEnv = function(){
+    var tbody=document.getElementById('tbody-'+this.id), head=document.getElementById('thead-'+this.id);
+    if(!tbody||!head) return null;
+    var row=null, i;
+    for(i=0;i<tbody.rows.length;i++){
+      var rr=tbody.rows[i];
+      if(rr.classList.contains('virt-spacer')||rr.querySelector('td.no-data')) continue;
+      row=rr; break;
+    }
+    var th=head.querySelector('th[data-field]');
+    if(!row||!th) return null;
+    if(!_fitCanvas) _fitCanvas=document.createElement('canvas');
+    var ctx=_fitCanvas.getContext&&_fitCanvas.getContext('2d');
+    if(!ctx) return null;
+    var hcs=getComputedStyle(th);
+    return { ctx:ctx, row:row, off:this.multiSelect?1:0, headFont:dhFitFont(hcs), ls:parseFloat(hcs.letterSpacing)||0, padH:dhFitPad(hcs) };
+  };
+
+  TableEngine.prototype._measureFit = function(cols){
+    var env=this._fitEnv();
+    if(!env) return null;
+    var out={}, self=this;
+    cols.forEach(function(col,ci){
+      if(col.width) return;                          /* the author's width wins */
+      out[col.field]=self._measureCol(col,ci,env.ctx,env)+'px';
+    });
+    return out;
+  };
+
+  TableEngine.prototype._ensureFit = function(force){
+    if(this.columnFit==='fixed'||!this.allData.length) return;
+    var cols=this._visibleCols(), self=this;
+    var complete=this._fitW&&cols.every(function(c){return c.width||(c.field in self._fitW);});
+    if(complete&&!force) return;
+    var m=this._measureFit(cols);
+    if(!m) return;
+    this._fitW=m;
+    Object.keys(m).forEach(function(f){ if(!self.colWidths[f]) self._applyColWidthDom(f,m[f]); });
+  };
+
+  /* Fonts, density or visible columns changed: measure again. */
+  TableEngine.prototype._refit = function(){
+    this._fitW=null;
+    this._ensureFit(true);
+    this._markTruncated();
+  };
+
+  /* Width of one column fitted to its content right now (double-click on its grip). */
+  TableEngine.prototype._fitOne = function(col){
+    var ci=this._visibleCols().indexOf(col), env=this._fitEnv();
+    if(ci<0||!env) return 0;
+    return this._measureCol(col,ci,env.ctx,env);
   };
 
   /* Give a title= only to cells whose text is actually clipped, so hovering a
@@ -505,11 +859,12 @@ function Get-DhJsTable {
     var cells=tbody.querySelectorAll('td[data-full]');
     for(var i=0;i<cells.length;i++){
       var td=cells[i];
+      var was=td.dataset.was||'';                         /* v2.5.2: the old value of a changed cell (baseline) */
       if(td.scrollWidth>td.clientWidth+1){
-        td.title=td.dataset.full;
+        td.title=td.dataset.full+(was?' \u2014 '+was:'');
         td.classList.add('cell-clipped');
       } else {
-        td.removeAttribute('title');
+        if(was)td.title=was; else td.removeAttribute('title');
         td.classList.remove('cell-clipped');
       }
     }
@@ -528,13 +883,24 @@ function Get-DhJsTable {
     if (oldFoot) oldFoot.remove();
     if (!hasFoot) return;
 
+    /* Totals follow the selection: with rows ticked (and still in the filtered set) the footer
+       aggregates just those rows; with none ticked it aggregates every filtered row. */
     var filtered = this._getFiltered();
+    var selRows = null;
+    if (this.multiSelect && this.selected.length) {
+      var inView = new Set(filtered);
+      var picked = [];
+      this.selected.forEach(function(i){ var r = self.allData[i]; if (r !== undefined && inView.has(r)) picked.push(r); });
+      if (picked.length) selRows = picked;
+    }
+    var aggRows = selRows || filtered;
     var tfoot = document.createElement('tfoot');
     var tr    = document.createElement('tr');
-    tr.className = 'tfoot-row';
+    tr.className = 'tfoot-row' + (selRows ? ' tfoot-selected' : '');
 
     if (this.multiSelect) {
       var tdBlank = document.createElement('td'); tdBlank.className = 'col-select';
+      if (selRows) tdBlank.title = 'Totals for the ' + selRows.length + ' selected row' + (selRows.length === 1 ? '' : 's');
       tr.appendChild(tdBlank);
     }
 
@@ -549,24 +915,17 @@ function Get-DhJsTable {
       var agg = (col.aggregate || '').toLowerCase();
       if (!agg) { tr.appendChild(td); return; }
 
-      var nums = filtered.map(function(row){
+      var nums = aggRows.map(function(row){
         var v = parseFloat(row[col.field]);
         return isNaN(v) ? null : v;
       }).filter(function(v){ return v !== null; });
 
-      var result = null;
-      switch (agg) {
-        case 'sum':   result = nums.reduce(function(a,b){return a+b;}, 0); break;
-        case 'avg':   result = nums.length ? nums.reduce(function(a,b){return a+b;},0)/nums.length : null; break;
-        case 'min':   result = nums.length ? Math.min.apply(null, nums) : null; break;
-        case 'max':   result = nums.length ? Math.max.apply(null, nums) : null; break;
-        case 'count': result = filtered.length; break;
-      }
+      var result = dhAggregate(agg, nums, aggRows.length);
 
       if (result !== null) {
-        var displayVal = FMT.apply(col, result) || String(result);
+        var displayVal = dhFootText(col, result);
         td.textContent = displayVal;
-        td.title = agg.charAt(0).toUpperCase()+agg.slice(1)+': '+displayVal;
+        td.title = (selRows ? 'Selected (' + selRows.length + ') - ' : '') + agg.charAt(0).toUpperCase()+agg.slice(1)+': '+displayVal;
       }
       tr.appendChild(td);
     });
@@ -583,7 +942,7 @@ function Get-DhJsTable {
 
     if(this.multiSelect){
       var th=document.createElement('th');th.className='col-select';
-      th.innerHTML='<input type="checkbox" id="chk-all-'+this.id+'">';
+      th.innerHTML='<input type="checkbox" id="chk-all-'+this.id+'" aria-label="Select all rows">';
       th.querySelector('input').addEventListener('change',function(e){
         var checked=e.target.checked,filtered=self._getFiltered();
         /* Select the rows the user can actually see: the current page when
@@ -606,7 +965,7 @@ function Get-DhJsTable {
       var th=document.createElement('th');
       th.dataset.field=col.field;
       th.setAttribute('scope','col');   /* a11y: column-header association */
-      var effW=self.colWidths[col.field]||col.width;
+      var effW=self._effWidth(col);
       /* max-width as well as width: under table-layout:auto the browser treats
          width as a suggestion and will not go below the header's own text. */
       if(effW){th.style.width=effW;th.style.maxWidth=effW;}
@@ -676,7 +1035,7 @@ function Get-DhJsTable {
       grip.setAttribute('aria-orientation','vertical');
       grip.setAttribute('aria-label','Resize column '+col.label);
       grip.tabIndex=0;
-      grip.title='Drag to resize · double-click to reset';
+      grip.title='Drag to resize · double-click to fit the text';
       grip.addEventListener('click',function(e){e.stopPropagation();});
       grip.addEventListener('keydown',function(e){
         /* Keyboard parity: arrows nudge, Home resets. */
@@ -692,7 +1051,10 @@ function Get-DhJsTable {
       });
       grip.addEventListener('dblclick',function(e){
         e.preventDefault();e.stopPropagation();
-        delete self.colWidths[col.field];self.render();
+        /* v2.4.0: fit this column to its widest text (it used to reset to the CSS default) */
+        var fw=self._fitOne(col);
+        if(fw){ self._setColWidth(col.field,fw); self._markTruncated(); }
+        else { delete self.colWidths[col.field];self.render(); }
       });
       grip.addEventListener('pointerdown',function(e){
         e.preventDefault();e.stopPropagation();
@@ -726,6 +1088,11 @@ function Get-DhJsTable {
   TableEngine.prototype._setColWidth = function(field,px){
     var w=Math.round(px)+'px';
     this.colWidths[field]=w;
+    this._applyColWidthDom(field,w);
+  };
+
+  /* Write a width onto the header and every rendered cell of one column (no re-render). */
+  TableEngine.prototype._applyColWidthDom = function(field,w){
     var idx=this._visibleCols().findIndex(function(c){return c.field===field;});
     if(idx<0)return;
     if(this.multiSelect)idx+=1;
@@ -759,25 +1126,55 @@ function Get-DhJsTable {
     });
 
     if(this.selected.indexOf(globalIdx)!==-1)tr.classList.add('row-selected');
+    if(this.multiSelect)tr.setAttribute('aria-selected',tr.classList.contains('row-selected')?'true':'false');
 
     tr.addEventListener('click',function(e){
       if(e.target.type==='checkbox')return;
+      if(e.target.closest&&e.target.closest('a'))return;   /* a link cell opens its link, not the drawer */
       self._handleRowClick(globalIdx,row,tr);
     });
+    if(this.detail){
+      /* v2.3.0 - keyboard access to the drawer */
+      tr.classList.add('dh-drawer-row');tr.tabIndex=0;
+      tr.addEventListener('keydown',function(e){
+        if(e.target!==tr)return;
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();self._handleRowClick(globalIdx,row,tr);}
+      });
+    }
 
     if(this.multiSelect){
       var tdChk=document.createElement('td');tdChk.className='col-select';
-      var chk=document.createElement('input');chk.type='checkbox';
+      var chk=document.createElement('input');chk.type='checkbox';chk.setAttribute('aria-label','Select row '+(globalIdx+1));
       chk.checked=this.selected.indexOf(globalIdx)!==-1;
       chk.addEventListener('change',function(){
         if(chk.checked){if(self.selected.indexOf(globalIdx)===-1)self.selected.push(globalIdx);}
         else{self.selected=self.selected.filter(function(i){return i!==globalIdx;});}
-        self._syncRowClass(tr,globalIdx);self._renderInfo();self._renderSelClearBtn();
+        self._syncRowClass(tr,globalIdx);self._renderInfo();self._renderSelClearBtn();self._renderFoot();
       });
       tdChk.appendChild(chk);tr.appendChild(tdChk);
     }
 
     visCols.forEach(function(col){tr.appendChild(self._renderCell(col,row[col.field],row));});
+    var bs=this.base&&this._baseState.get(row);
+    if(bs){
+      tr.classList.add(bs.s==='n'?'row-new':'row-changed');
+      var off=this.multiSelect?1:0, first=tr.cells[off];
+      if(first){
+        var tag=document.createElement('span');
+        tag.className='chg-tag '+(bs.s==='n'?'chg-new':'chg-changed');
+        tag.textContent=bs.s==='n'?'New':'Changed';
+        first.insertBefore(tag,first.firstChild);
+      }
+      if(bs.s==='c'){
+        visCols.forEach(function(col,i){
+          if(bs.f.indexOf(col.field)===-1)return;
+          var td=tr.cells[off+i]; if(!td)return;
+          td.classList.add('cell-changed');
+          td.dataset.was=dhWasText(col,bs.w[col.field],FMT.apply);
+          td.title=(td.title?td.title+' \u2014 ':'')+td.dataset.was;
+        });
+      }
+    }
     return tr;
   };
 
@@ -905,13 +1302,32 @@ function Get-DhJsTable {
     if(this.multiSelect){
       var pos=this.selected.indexOf(globalIdx);
       if(pos===-1)this.selected.push(globalIdx);else this.selected.splice(pos,1);
-      this._syncRowClass(tr,globalIdx);this._renderInfo();this._renderSelClearBtn();
+      this._syncRowClass(tr,globalIdx);this._renderInfo();this._renderSelClearBtn();this._renderFoot();
       this._notifyLinks(this.selected.length>0?this.allData[this.selected[0]]:null);
     } else {
       if(this.selected.length===1&&this.selected[0]===globalIdx){this.selected=[];this._notifyLinks(null);}
       else{this.selected=[globalIdx];this._notifyLinks(row);}
       this.render();
     }
+    if(this.detail)this._openDetail(globalIdx,row,tr);
+  };
+
+  /* v2.3.0 - the row's properties as label/value tiles in the shared drawer.
+     The row <tr> is re-created by render(), so focus goes back to it by selector. */
+  TableEngine.prototype._openDetail=function(globalIdx,row,tr){
+    var d=this.detail; if(!d||typeof dhDrawerOpen!=='function')return;
+    function fmt(v){
+      if(v===null||v===undefined)return '';
+      if(Array.isArray(v))return v.join(', ');
+      if(typeof v==='object'){try{return JSON.stringify(v);}catch(ex){return String(v);}}
+      return String(v);
+    }
+    var title=d.titleField?fmt(row[d.titleField]):'';
+    dhDrawerOpen({
+      title:title||this.title,
+      subtitle:title?this.title:'',
+      sections:[{kind:'kv',columns:2,items:d.fields.map(function(f){return {label:f.label,value:fmt(row[f.field])};})}]
+    },{opener:tr,restore:'#tbody-'+this.id+' tr[data-idx="'+globalIdx+'"]'});
   };
 
   TableEngine.prototype._notifyLinks=function(masterRow){
@@ -931,8 +1347,9 @@ function Get-DhJsTable {
   })(TableEngine.prototype.applyLinkedFilter);
 
   TableEngine.prototype._syncRowClass=function(tr,globalIdx){
-    if(this.selected.indexOf(globalIdx)!==-1)tr.classList.add('row-selected');
-    else tr.classList.remove('row-selected');
+    var on=this.selected.indexOf(globalIdx)!==-1;
+    tr.classList.toggle('row-selected',on);
+    if(this.multiSelect)tr.setAttribute('aria-selected',on?'true':'false');   /* grid rows announce their selection */
   };
 
   /* ── Pagination ─────────────────────────────────────────────────── */
@@ -1042,12 +1459,21 @@ function Get-DhJsTable {
     document.body.appendChild(a);a.click();document.body.removeChild(a);
     if(url.startsWith('blob:'))setTimeout(function(){URL.revokeObjectURL(url);},2000);
   };
-  TableEngine.prototype._exportRows=function(){return{cols:this._visibleCols(),rows:this._getFiltered()};};
+  TableEngine.prototype._exportRows=function(){
+    var cols=this._visibleCols(),rows=this._getFiltered();
+    if(!this.base)return{cols:cols,rows:rows};
+    /* baseline: a Change column; the removed rows only when the reader ticked the box */
+    var self=this;
+    cols=cols.concat([{field:'__change',label:'Change'}]);
+    rows=rows.map(function(row){var s=self._baseState.get(row);return Object.assign({},row,{__change:s?(s.s==='n'?'New':'Changed'):''});});
+    if(this._includeRemoved)this.base.removedRows.forEach(function(r){rows.push(Object.assign({},r,{__change:'Removed'}));});
+    return{cols:cols,rows:rows};
+  };
 
   TableEngine.prototype.exportCsv=function(){
     var r=this._exportRows(),BOM='\uFEFF';
     var lines=[r.cols.map(function(c){return'"'+c.label.replace(/"/g,'""')+'"';}).join(',')];
-    r.rows.forEach(function(row){lines.push(r.cols.map(function(c){var v=FMT.forExport(c,row[c.field]);v=(v!==null&&v!==undefined)?String(v):'';return'"'+v.replace(/"/g,'""')+'"';}).join(','));});
+    r.rows.forEach(function(row){lines.push(r.cols.map(function(c){var v=dhCsvSafe(FMT.forExport(c,row[c.field]));return'"'+v.replace(/"/g,'""')+'"';}).join(','));});
     this._triggerDownload(URL.createObjectURL(new Blob([BOM+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'})),this.exportFileName+'.csv');
   };
 

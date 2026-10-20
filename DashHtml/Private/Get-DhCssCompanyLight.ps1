@@ -82,10 +82,10 @@ function Get-DhCssCompanyLight {
   --shadow-md:   0 2px 10px rgba(0,0,0,0.08);
   --shadow-glow: 0 0 12px rgba(190,0,54,0.15);
 
-  --cell-ok-fg:      #1B7A2E;  --cell-ok-bg:      rgba(27,122,46,0.08);
-  --cell-warn-fg:    #B84800;  --cell-warn-bg:    rgba(184,72,0,0.08);
+  --cell-ok-fg:      #186E29;  --cell-ok-bg:      rgba(27,122,46,0.08);
+  --cell-warn-fg:    #A23F00;  --cell-warn-bg:    rgba(184,72,0,0.08);
   --cell-danger-fg:  #BE0036;  --cell-danger-bg:  rgba(190,0,54,0.08);
-  --cell-nodata-fg:  #7A7A7A;  --cell-nodata-bg:  rgba(122,122,122,0.08);
+  --cell-nodata-fg:  #5F5F5F;  --cell-nodata-bg:  rgba(122,122,122,0.08);
 
   --progress-track-bg: rgba(0,0,0,0.07);
 

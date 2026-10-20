@@ -16,20 +16,20 @@
     Default: <script-dir>\DashHtml-Reference.html
 
 .PARAMETER SourceRoot
-    Project root containing the DashHtml\ folder.
+    Project root containing the DashHtml/ folder.
     Default: the directory that contains this script.
 
 .PARAMETER Open
     Open the generated file in the default browser after writing.
 
 .EXAMPLE
-    .\Build-DhReference.ps1
+    ./Build-DhReference.ps1
 
 .EXAMPLE
-    .\Build-DhReference.ps1 -Open
+    ./Build-DhReference.ps1 -Open
 
 .EXAMPLE
-    .\Build-DhReference.ps1 -OutputPath 'C:\Docs\DashHtml-Reference.html' -Open
+    ./Build-DhReference.ps1 -OutputPath 'C:\Docs\DashHtml-Reference.html' -Open
 #>
 [CmdletBinding()]
 param(
@@ -84,6 +84,11 @@ $cmdMeta = [ordered]@{
     'Add-DhBullet'       = @{ Tag = 'BULLET'; Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
     'Add-DhRangeBar'     = @{ Tag = 'RANGE';  Color = '#d2a8ff'; Group = 'Charts'          }   # v2.1
     'Add-DhFindings'     = @{ Tag = 'FIND';   Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.2
+    'Add-DhKeyValue'     = @{ Tag = 'KV';     Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.3
+    'Add-DhRecordList'   = @{ Tag = 'RECORD'; Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.3
+    'Add-DhTreeFilter'   = @{ Tag = 'TREE';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v2.4
+    'Add-DhNetworkMap'   = @{ Tag = 'NET';    Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v2.4
+    'Add-DhTreeTable'    = @{ Tag = 'TREE';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v2.5
     'Add-DhStatusGrid'   = @{ Tag = 'GRID';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.4
     'Add-DhHeatmap'      = @{ Tag = 'HEAT';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5
     'Add-DhTopologyMap'  = @{ Tag = 'TOPO';   Color = '#d2a8ff'; Group = 'Content Blocks'  }   # v1.5
@@ -136,7 +141,7 @@ function esc([string] $s) {
 }
 
 # Shorten .NET type names for display
-function Simplify-TypeName([string] $name) {
+function Format-DhTypeName([string] $name) {
     $name = $name -replace 'System\.Collections\.Specialized\.', ''
     $name = $name -replace 'System\.Collections\.Generic\.', ''
     $name = $name -replace 'System\.Management\.Automation\.', ''
@@ -160,7 +165,7 @@ function Get-ParamDefaults([string] $filePath) {
 # Encode a code string for safe embedding in HTML.
 # Syntax highlighting is applied client-side by the JS tokenizer in the generated page,
 # so the server side only needs to HTML-encode the raw text.
-function Highlight-PS([string] $raw) {
+function ConvertTo-DhHighlightedPs([string] $raw) {
     if (-not $raw) { return '' }
     [System.Net.WebUtility]::HtmlEncode($raw)
 }
@@ -241,11 +246,6 @@ function Build-CmdletSection {
     $srcFile  = Join-Path $pubFolder "$cmdletName.ps1"
     $defaults = if (Test-Path $srcFile) { Get-ParamDefaults $srcFile } else { @{} }
 
-    # Helper: safely read a nullable property from the Get-Help object
-    $getProp = { param($obj, $prop)
-        try { $obj.PSObject.Properties[$prop]?.Value } catch { $null }
-    }
-
     # ── Synopsis ──────────────────────────────────────────────────────────────
     $synopsis = try { if ($help.Synopsis) { $help.Synopsis.Trim() } else { '' } } catch { '' }
 
@@ -291,7 +291,7 @@ function Build-CmdletSection {
     [void]$synLines.Append("<span class='hl-cmd'>$cmdletName</span>")
     foreach ($pName in $orderedParams) {
         $pm       = $cmdParams[$pName]
-        $typeName = esc (Simplify-TypeName $pm.ParameterType.Name)
+        $typeName = esc (Format-DhTypeName $pm.ParameterType.Name)
         $isReq    = [bool]($pm.ParameterSets.Values | Where-Object { $_.IsMandatory } | Select-Object -First 1)
         $isSwitch = $pm.ParameterType.Name -eq 'SwitchParameter'
         $pHtml    = "<span class='hl-param'>-$pName</span>"
@@ -308,7 +308,7 @@ function Build-CmdletSection {
     $paramRows = [System.Text.StringBuilder]::new()
     foreach ($pName in $orderedParams) {
         $pm       = $cmdParams[$pName]
-        $typeName = esc (Simplify-TypeName $pm.ParameterType.Name)
+        $typeName = esc (Format-DhTypeName $pm.ParameterType.Name)
         $isReq    = [bool]($pm.ParameterSets.Values | Where-Object { $_.IsMandatory } | Select-Object -First 1)
         $defVal   = if ($defaults.ContainsKey($pName)) { $defaults[$pName] } else { '' }
         $descHtml = if ($helpParamDesc.ContainsKey($pName)) { Format-Desc $helpParamDesc[$pName] } else { '' }
@@ -350,7 +350,7 @@ function Build-CmdletSection {
           <span class="example-title">$(esc $exTitle)</span>
           <button class="copy-btn" title="Copy to clipboard">Copy</button>
         </div>
-        <div class="example-code">$(Highlight-PS $exCode)</div>
+        <div class="example-code">$(ConvertTo-DhHighlightedPs $exCode)</div>
       </div>
 "@)
         }

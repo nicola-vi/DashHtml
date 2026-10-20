@@ -4,7 +4,307 @@ All notable changes to DashHtml are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.5.3] - 2026-10-19
+
+### Changed
+- **Menu overflow after one row (was two).** A menu strip whose chips do not fit on one row now shows the ones that fit plus "More (n)" at the end of that row; 2.5.0 to 2.5.2 let a strip take two rows before "More" appeared. The top strip also keeps its place on the title line: with 13 top-level items (a vSphere documentation report) it used to drop onto a line of its own, so the bar took two rows and "More" never appeared. Reports with a short menu look the same. `-NavOverflow Wrap` keeps the earlier layout (a long menu on a line of its own, wrapping). Regenerate a report to get the change.
+
+### Fixed
+- Menu fit: the row-count badges (and `-NavBadge` pills) were filled in after the chips were measured, so a strip could end up one row taller than the fit allowed. They are filled first now; a filter that widens a badge fits the strip again. The fit no longer counts the strip padding as usable width, measures the real "More" button, and settles against the actual layout (it could leave out a chip that fit, or keep one that did not). The strip is fitted again when the title line changes width (theme and density labels, a late font), not only when the window does.
+- Keyboard: the arrow keys never reached the "More" button (it sits inside a wrapper), so with one tab stop per strip the overflow menu could only be opened with a mouse. Arrows, Home and End now include it.
+- The "Top" button used an inline `onclick` attribute; it is bound by the runtime like every other control (no `on*` attributes in the page).
+- `Export-DhYamlSchema -OutFile` with a relative path wrote to the process directory instead of the current PowerShell location.
+- Baseline markers: the "Removed since ..." rows are drawn when the group is opened (they were rebuilt on every filter keystroke, page or sort, even while collapsed); print still shows them. A number compared with text in another format (`1.5` and `'1,5'` from an it-IT `Import-Csv` baseline) now gives a warning, like a date compared with text.
+- `-NavLayout Auto` no longer counts the path of a Global item: the menu leaves that node out, so a deep path could switch a report to the sidebar for a node nobody sees.
+- 15 module source files were CRLF on disk while the repository holds LF; they are LF now, and a test checks that module sources have no BOM and no CR.
+- `Tools\Test-DhV2Upgrade.ps1`: skips `Backup` / `Backups` folders unless `-IncludeBackups` (old copies under the same names made their hits look like hits in the live scripts), shows each file's relative path, `-PassThru` returns the hits as objects, and piping it no longer fails with "out-lineoutput". It is a 1.x-to-2.0 migration aid: the skill now points to `Update-DhScript` instead.
+
+## [2.5.2] - 2026-10-19
+
+### Fixed
+- CSV export and "copy table as CSV" now guard against spreadsheet formulas: a text cell that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading apostrophe, so a value taken from a directory attribute cannot run as a formula in Excel. Numbers such as `-5` are unchanged.
+- `-StrictNav` warns about a Global item that also has a `-NavPath` (the path only adds an empty menu node, which the menu leaves out); `Tools\Show-DhNavMap.ps1` leaves that node out too. `Test-DhA11y` and `Test-DhContrast` exit with 1 when they find something, so a CI step can fail on them; the browser probe no longer passes `-WindowStyle` off Windows.
+- Keyboard: every collapsible header (summary strip, collapsible block, card group) was a div with a click handler, unreachable without a mouse. It is now a button (role, tab stop, `aria-expanded`, `aria-controls`, Enter/Space) through one helper, `dhBindCollapsible`.
+- Accessibility names: the table filter box, its clear button, the select-all checkbox and every row checkbox have an accessible name; rows of a multi-select table carry `aria-selected`.
+- Contrast: `--cell-ok/warn/danger/nodata-fg` and `--text-secondary` were below 4.5:1 on striped or selected rows in several themes (worst: VMware dark danger 3.0, VMware light no-data 2.7). They are adjusted in 10 of the 12 theme files (Rag needed nothing), as little as possible (many by a few percent). Colours of the cell states and secondary text therefore differ slightly from 2.5.1 in those themes.
+- Menu: a node with no content of its own and nothing below it (for example a Global item that carries a `-NavPath`) no longer appears as a dead end. Nodes declared in `-NavTree` are never pruned.
+- Paths in the module loaders, tests, examples and tools use `/` (works on Windows and Linux); CI runs a Windows and an Ubuntu job (the Ubuntu job may still fail until its first run is clean).
+
+### Added
+- **Baseline markers** (`Add-DhTable -Baseline -KeyField [-BaselineFields] [-BaselineLabel]`): a report that runs on a schedule marks its rows New or Changed against the previous run, shows the old value of a changed cell, counts them under the toolbar, filters by Change chips, keeps the rows that disappeared in a collapsed "Removed since ..." group, and adds a Change column to exports (a checkbox adds the removed rows). Matched by a declared key (case-insensitive); only the table's columns count as Changed unless `-BaselineFields` says otherwise; a date compared with text (a baseline read with `Import-Csv`) gives a warning; duplicate keys throw; the baseline is data and is not written to YAML. Nothing changes without `-Baseline`. New example view in `Feature-Tables`.
+- ``Tools\Test-DhContrast.ps1``: WCAG ratios of the new and old classes in all 6 theme families, light and dark, with headless Edge/Chrome; selectors and accepted exceptions in `Tools\contrast-selectors.json`.
+- `Tools\Test-DhA11y.ps1`: accessibility audit of exported reports (names, roles, states, landmarks, ids, focus and motion rules). Helpers `Find-DhBrowser.ps1` and `BrowserProbe.ps1`.
+- `Export-DhYamlSchema` (DashHtml.Design) and `DashHtml.Design\dashhtml.schema.json`: JSON Schema of the layout YAML, generated from the cmdlet metadata, rejects mistyped keys, wrong value types and unknown block types. A test fails when the committed schema is stale.
+- 31 node tests (`Tests\js\runtime.test.js`) covering formats, thresholds, aggregates, column memory, network layout and path finding, tree-table paths, menu fit and prune, collapsible keyboard handling. `dh-extract.js` gained `loadWith` for top-level variables.
+- Footer aggregation and text are now the named functions `dhAggregate` and `dhFootText` (same behaviour).
+
+### Changed
+- ReleaseNotes in both manifests are condensed to the current minor plus one line per older release (about 2,700 characters; the cap is 10,600). The full history stays here.
+## [2.5.1] - 2026-10-18
+
+### Fixed
+- Print: soft shadows are dropped in print. They were rendered as blurred images that hid heatmap cells and block titles in the PDF (and made files about 2.5 times larger). Tables wider than the page wrap to fit: 8 pt, tighter cells, header words kept whole, sparklines capped.
+- Contrast: heatmap values now pick dark or white text per cell (they were unreadable in dark mode and on deep cells). `.nav-badge`, tree-table type letters and tree flags use the primary text colour; every theme, light and dark, was measured (WCAG ratio) on the map, tree, tree table, nav and heatmap classes.
+- `ConvertTo-DhYaml` never wrote `-NavLayout`/`-NavMaxDepth` and, since 2.5.0, not `-NavAllLabel`, `-NavTree`, `-StrictNav` or `-NavOverflow`; they are written now (defaults stay out of the YAML). Generated scripts keep `[ordered]` hashtables, so tree-table `Properties` keep their order.
+- Footer `avg` of an unformatted column is rounded (column `Decimals`, default 2) instead of showing 37.333333333.
+
+### Added
+- `Tests\js\dh-extract.js` (loads named runtime functions from the shipped fragments) and `Tests\js\runtime.test.js` (`node --test`). `Build.ps1` runs them and prints the node test count.
+- `Tools\Test-DhPrint.ps1`: prints dashboards to PDF through Edge/Chrome.
+- The folder is now a git repository (`.gitignore`, `.github\workflows\ci.yml`).
+## [2.5.0] - 2026-10-18
+
+### Fixed: print and themes (2.4.2 checks)
+
+- Print: a table wider than the page no longer loses its right-hand columns (cells wrap, 8 pt, resize and sort marks hidden).
+- Three CSS variables used by the nav strips, breadcrumb, global filters and collapsible bodies were never defined in any theme (--bg-base, --text3, --trans-med), so those rules did nothing. They now use --bg-page, --text-muted, --trans-normal: nav strips below the first get the page background, the breadcrumb is muted, global filter selects get a background.
+- New: Tools\Test-DhPrint.ps1 (headless Edge/Chrome to PDF with page counts) and a test that every CSS variable used without fallback is defined in all 12 themes.
+
+### Added: column picker
+
+- Column key `Hidden = $true`: the column starts unticked in the Columns picker (still in the data and
+  the detail panel). The button now reads "Columns (n hidden)". A table whose every column is Hidden
+  throws.
+- `Add-DhTable -RememberColumns` (opt-in): the reader's ticks are kept per viewer in the browser's
+  local storage and restored next time, also after the report is regenerated (key = hash of the
+  report title, `-GeneratedBy` and the table id). Columns are matched by field name. A new
+  **Default columns** entry in the picker restores the author's columns and forgets the saved choice.
+  Blocked storage never breaks the table.
+
+### Added: menu
+
+- `New-DhDashboard -NavAllLabel` (a string, or a hashtable of path = label): an addressable "All"
+  child on group nodes. The All view shows the group's own content and everything below it. Its
+  path ends in the reserved segment `*` (rejected in an ordinary `-NavPath`), it sorts first among
+  its siblings and is never the opening view. `Test-DhNavMatch` and the browser `navMatches`
+  implement it identically.
+- `New-DhDashboard -NavTree @( @{ Path; Label; Order } ... )`: the menu declared once. It supplies
+  labels and sibling order (an item's own `-NavLabel` / `-NavOrder` wins; the skeleton wins over
+  declaration order) and creates nodes before anything sits on them.
+- Empty view: a selected view with nothing of its own (an empty `-NavTree` node, a deep link to a
+  renamed node) shows "No content in this view" with a link back to its parent, instead of a blank
+  page. Banners and global items do not count as content.
+- `New-DhDashboard -StrictNav`: export-time warnings (never an error) from `Test-DhNavLint`: a
+  path deeper than 3 levels, sibling names that differ only in case or by one letter, sibling
+  labels that clash, a path missing from `-NavTree`, a `-NavTree` node with nothing on it, a
+  Subtree item with nothing below it, a `-NavAllLabel` that names no group. With `-StrictNav` the
+  empty-view note also says which path is empty.
+- Menu overflow: when a strip's chips would wrap past two rows, the ones that do not fit move into
+  a "More (n)" menu and the selected chip always stays visible. `-NavOverflow Wrap` keeps the
+  old wrapping. Short menus are unchanged.
+- Menu accessibility: one tab stop per strip (roving tabindex); Left, Right, Home, End move along
+  a strip; Space activates; the More menu opens with Down or Enter and closes with Escape; the
+  sidebar rail takes Up, Down, Left (parent), Right (open or step in), Home, End; `aria-current`
+  marks the current item and the breadcrumb's last entry; keyboard focus stays on the same item
+  when the menu is rebuilt after a change.
+- `Tools\Show-DhNavMap.ps1` now shows `-NavTree` labels and empty nodes and the All views, and
+  compares sibling names case-sensitively.
+
+### Added
+
+- `Add-DhTreeTable` (cmdlet #27): a directory explorer for OUs, groups, users and computers. A tree
+  on the left (find box, type filter, status, flags, counts, keyboard) and the selected object on
+  the right with tabs Properties, Members, Member of and Nesting. Nesting lists the groups nested
+  below a group and every path up to the top-level groups (effective membership); a circular
+  nesting is marked and not followed. Data is two flat lists, `-Rows` (Id, ParentId, Type, Label,
+  Status, Flags, Properties, Detail) and `-Memberships` (GroupId, MemberId), so a collector can
+  emit it without recursion. Limits: warns above `-MaxRows` (5,000), throws above 20,000.
+  Example: `Demo-ActiveDirectory`, view Identity / Directory.
+
+## [2.4.1]
+
+Menu fixes and a new example set. **Behaviour change:** an alert banner declared with
+`-NavPath` now follows the menu (see Fixed); a banner you meant to be global needs no path.
+
+### Fixed
+
+- `Add-DhAlertBanner -NavPath` / `-NavScope` (and `-NavGroup`) were ignored by the browser:
+  a banner with a path showed on every view, and a `-NavGroup` banner never showed. The path
+  and scope are now exported and applied like any other section: Exact = that view, Subtree =
+  that node and below, no path = every view. A banner never adds a node to the menu.
+- Footer totals (`Aggregate` on a column) now follow the selection in a `-MultiSelect` table: tick rows and the footer sums, averages or counts just those rows (highlighted, with a tooltip saying so); with nothing ticked it covers every filtered row, as before. The footer used to ignore ticking a row.
+- `-NavOrder` ordered the item's own menu node but, in the browser, also its parents, so an
+  ordered leaf moved its group ahead of unordered siblings (the PowerShell tree was already
+  right). It now orders the item's own node only.
+
+### Added
+
+- `Tools\Show-DhNavMap.ps1`: prints the menu of an exported dashboard (labels, keys, order),
+  the view it opens on, and for every view the sections it shows in page order (banners, then
+  blocks, then tables). Warns about a section with no path (it appears on every view) and a
+  view that shows nothing. The example smoke test runs it on every example.
+- `Examples\README.md`: what each example shows and the menu rules.
+
+### Changed: examples
+
+- Redefined as a full set without version numbers. Four realistic reports, each laid out as a
+  menu with a global banner or filter, branch KPI strips and one view per question:
+  `Demo-ActiveDirectory`, `Demo-VMware`, `Demo-AzureInfrastructure`, `Demo-Microsoft365`.
+  Nine single-capability scripts: `Feature-Navigation`, `Feature-NavigationSidebar`,
+  `Feature-Tables`, `Feature-Charts`, `Feature-KpiTiles`, `Feature-Assessment`,
+  `Feature-MapsAndGrids`, `Feature-FiltersAndSearch`, `Feature-PageElements`. The previous
+  `Demo-Feature-*` scripts are replaced (a copy is in `Backups\`).
+
+## [2.4.0]
+
+Maps, search and OU trees. Plan: `NewFeatures/plan-v2.4.md`. **No breaking changes**,
+with one visible exception: table columns are now as wide as their widest text (see
+"Changed"); add `-ColumnFit Fixed` to a table to keep the old look. A report that uses
+none of the new options exports the same JSON as 2.3.0. Regenerate existing dashboards:
+the runtime is baked into each HTML file.
+
+### Added: network map
+
+- `Add-DhNetworkMap` (cmdlet #25): nodes joined by links, for what is not a tree
+  (replication, site links, trusts, tiers). Nodes carry `Group`, `Tier`, `Status`,
+  `Badge` (a list, such as PDC / GC), `Target`, `Detail` and `LinkTableId`; edges carry
+  `Label`, `Status`, `Style` (solid / dashed), `Direction` (none / forward / both) and
+  link targets. Several edges between two nodes are drawn as parallel curves; a self
+  link is a loop.
+- Two deterministic layouts (the same data always gives the same picture, no force
+  simulation): `grouped` (boxes, nested boxes) and `layered` (lanes by Tier, tier 0 on
+  top; a node without a Tier takes its depth from the links; one barycentre sweep
+  orders each lane).
+- Pan and zoom (shared with the topology map), arrowheads, edge labels (hidden above
+  400 links until you turn them on), status and badge filter chips, node search, click
+  to highlight a node's links and neighbours, the detail side panel or a jump to a
+  table, **Trace path** (shortest directed path from the selected node to the nearest
+  `Target` node), and **SVG** download (the styles are embedded). A text list of the
+  links is included for screen readers. Limits: `-MaxNodes` 300, `-MaxEdges` 1500.
+
+### Added: OU tree filter
+
+- `Add-DhTreeFilter` (cmdlet #26): a collapsible tree (find box, expand / collapse all,
+  status dot, flag chips, counts, a detail button, full keyboard support) that filters
+  a table by path. `-Match Prefix` for `contoso.com/HQ/Users` paths, `-Match Suffix`
+  for distinguished names; the separator is part of the test, so `HQ` never matches
+  `HQ2`. Counts come from the script or, with `-CountFromTable`, from the table's rows
+  (each row is credited to the deepest node it reaches, then rolled up).
+- It composes with the table's other filters. `TableEngine.setPathFilter` is the one
+  place the filter is set, the existing "filtered by" badge shows it, its clear button
+  clears it, and the selection is saved in the URL (`pathFilters`).
+- It is a filter, not a second copy of the data. A full object tree with members and
+  nesting waits for collectors that emit that data.
+
+### Added: search and menu badges
+
+- `New-DhDashboard -Search`: a box in the menu bar (press `/`). Finds menu pages, block
+  and table titles, findings, and table rows with a hit count per table. Rows are
+  scanned in time slices with the table's own matcher (`_matchText`), so typing never
+  freezes the page. Choosing a table hit goes through `_dhJumpToTable`. Off by default.
+- `New-DhDashboard -NavBadge`: a pill on each menu item with the worst severity among
+  the non-OK findings on that page and below, and its count; the tooltip gives the
+  breakdown. Off by default.
+
+### Changed
+
+- Tables fit each column to its widest text. Cells used to be cut off at 340 px with an
+  ellipsis, and a long value lost its tail. The browser now measures the formatted
+  text of every row (and the header with its sort icon), so a virtual table sizes
+  columns from rows it has not drawn. Precedence: a width the reader dragged, then the
+  column's `Width`, then the measured width, clamped to `[MinWidth, -ColumnMaxWidth]`
+  (default 800; text beyond the cap still ends in an ellipsis with a tooltip).
+  Double-click a column edge to fit that column. Measuring repeats after web fonts load
+  and when the density changes. `Add-DhTable -ColumnFit Fixed` keeps the old behaviour;
+  `-ColumnMaxWidth` and a column `MinWidth` tune it.
+- `Add-DhTopologyMap` finds cycles with an Id lookup instead of a pipeline per step
+  (200 nodes: 283 ms, the check itself no longer O(n^2)). Same errors.
+- `ConvertTo-DhYaml` now keeps `themeMode`, `printCover`, `navBadge` and `search`
+  (written only when they differ from the default).
+
+### Tooling and docs
+
+- `DashHtml.Design` 2.4.0, `RequiredModules` DashHtml 2.4.0: the new cmdlets round-trip
+  through YAML, `ConvertFrom-DhScript` recognises them, `Update-DhScript` and
+  `Tools/Test-DhV2Upgrade.ps1` audit them, `Build-DhReference.ps1` lists them.
+- New example `Examples/Demo-Feature-Network.ps1`.
+
+## [2.3.0]
+
+Details and assessment visuals. Source: `NewFeatures/review-external-html-widgets.md`
+and the 2.3.0 plan. **No breaking changes.** A report that uses none of the new
+options looks and behaves as in 2.2.0 (the exported JSON of a plain finding, bar
+chart, status grid or table is byte-identical). Regenerate existing dashboards:
+the runtime is baked into each HTML file.
+
+### Added — detail drawer
+
+One shared side panel (`Private/Get-DhJsDrawer.ps1`) for the detail of one thing.
+Escape or a click outside closes it, focus goes back to where you were, a view
+change closes it, and it never prints.
+
+- `Add-DhTable -DetailDrawer [-DetailFields] [-DetailTitleField]`: click a row (or
+  press Enter on it) to read its properties as label/value tiles. Fields may be
+  names or `@{ Field; Label }`, may name properties that are not columns, and are
+  checked against the data (case-sensitive). Master-detail links still fire.
+- `Add-DhStatusGrid`: a cell takes `Detail` (text, one section, an array of
+  sections, or `@{ Title; Subtitle; Sections }`), `Glyph` (1-3 characters drawn in
+  the cell) and `Self`; `-SelfDiagonal` hatches the cells whose row and column
+  labels match (a DC replicating "with itself"). A cell with detail is a real
+  button (keyboard operable); a link on the same cell becomes the panel's
+  "Show in table" button.
+- `Add-DhFindings`: a finding takes `Detail`, shown by an "Open details" button.
+
+### Added — `Add-DhKeyValue` (cmdlet #23) and `Add-DhRecordList` (cmdlet #24)
+
+- `Add-DhKeyValue`: a block of label/value tiles with an optional status colour.
+- `Add-DhRecordList`: one row per record (status dot, title, sub line, up to four
+  metrics) that expands to sections; filter box, Expand all / Collapse all, printed
+  expanded. `-MaxItems` warns rather than fails.
+- Both, the drawer and the findings split layout draw the same **sections**
+  (`kv`, `bars`, `statusList`, `checks`, `table`, `text`, `links`) through one pure
+  function, `renderSections`. PowerShell side: `ConvertTo-DhSections`.
+
+### Added — score ring and maturity ladder (`Add-DhSummary`)
+
+- `Style='score'`: a ring with a verdict label, a line of facts, the delta against
+  `Previous` (`LowerIsBetter` flips the delta colour for a risk score) and a
+  `NotAssessed` count beside it, so a score that rose because checks went dark is
+  visible. Validated like a gauge; colours from `-Rag` or `Class`, theme tokens only.
+- `Style='maturity'`: 2 to 10 `Levels`, the `Current` one marked (0 = none reached),
+  its description, and the `Criteria` the next level still needs. The script decides
+  the level; DashHtml draws it.
+- Both are full-width like the verdict tile; the score also appears on the print cover.
+
+### Added — findings
+
+- `-Layout Split`: a list on the left and the selected finding's detail on the
+  right (collapses under the list on a phone; printed stacked, expanded).
+- Per finding: `Facts` (tiles), `Evidence` (object / value / status / note rows,
+  capped by `-MaxEvidenceShown`, default 50), `Change` (`new|worse|better|resolved`:
+  a badge and a filter chip; the script compares with the last run) and `Detail`.
+- `-AllClearText`, also on `Add-DhTable`: a check mark and a sentence when the
+  check found nothing, instead of an empty block. `Add-DhFindings -Findings` is no
+  longer mandatory and `Add-DhTable -Data` may be empty, so a clean check can be
+  declared (and a YAML round trip, which drops empty lists, still rebuilds it).
+
+### Added — small things
+
+- Table cell types `chips` (an array as tags, e.g. FSMO roles) and `path` (an array
+  as `A → B → Tier 0`). CSV/XLSX export the joined text; list elements stay strings.
+- `Add-DhBarChart -Rag` (colour by value) and `-KeyClass @{ Critical='cell-danger' }`
+  (colour by category). Ignored, with a warning, on a stacked chart.
+- `THIRD-PARTY-NOTICES.md`: the bundled export libraries and their licences, and the
+  projects that inspired the new widgets (design ideas only, no code copied).
+  `Build.ps1` stages it with `Vendor\`.
+- `Examples/Demo-Feature-Assessment2.ps1`.
+
+### Changed
+
+- The pan/zoom/fit code moved out of `renderTopologyMap` into `createPanZoom` so the
+  coming network map can share it. The window `mousemove`/`mouseup` listeners now
+  exist only during a drag (they were added once per map and never removed), and the
+  resize wiring stops when the map has left the page.
+- DashHtml.Design 2.3.0 knows both new cmdlets; `Update-DhScript` and
+  `Test-DhV2Upgrade` audit them.
+
+### Fixed
+
+- The print stylesheet hid `.topo-toolbar`, a class that does not exist; the real
+  `.topology-map-toolbar` printed. It is hidden now.
+- `Build-DhSkill.ps1` wrote the skill's Markdown with a UTF-8 byte-order mark, which
+  claude.ai rejects ("SKILL.md must start with YAML frontmatter"). It writes without a
+  BOM now and checks the raw bytes (fixed in the 2.2.0 skill package on 2026-10-14).
 
 ## [2.2.0]
 

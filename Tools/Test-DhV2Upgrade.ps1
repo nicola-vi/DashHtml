@@ -30,16 +30,27 @@
 .PARAMETER Detailed
     Also print the source line of each hit.
 
-.EXAMPLE
-    .\Tools\Test-DhV2Upgrade.ps1 -Path .\Examples
+.PARAMETER PassThru
+    Also return the hits as objects (File, Line, Cmdlet, Severity, Issue, Source), so the result can be
+    piped or filtered. The report itself goes to the host, so piping the script no longer fails with
+    'out-lineoutput: FormatEntryData is not valid'.
+
+.PARAMETER IncludeBackups
+    Also scan folders named Backup or Backups. They are skipped by default: they hold old copies of the
+    scripts under the same file names, and their hits used to read like hits in the live scripts.
 
 .EXAMPLE
-    .\Tools\Test-DhV2Upgrade.ps1 -Path 'C:\Scripts' -Detailed
+    ./Tools/Test-DhV2Upgrade.ps1 -Path ./Examples
+
+.EXAMPLE
+    ./Tools/Test-DhV2Upgrade.ps1 -Path 'C:\Scripts' -Detailed
 #>
 [CmdletBinding()]
 param(
     [string[]] $Path = @('.'),
-    [switch]   $Detailed
+    [switch]   $Detailed,
+    [switch]   $PassThru,
+    [switch]   $IncludeBackups
 )
 
 Set-StrictMode -Version Latest
@@ -51,11 +62,19 @@ $blockCmds = @(
     'Add-DhHtmlBlock','Add-DhCollapsible','Add-DhStatusGrid','Add-DhHeatmap',
     'Add-DhTopologyMap','Add-DhEventFeed','Add-DhTabs','Add-DhFilterCard','Add-DhAlertBanner',
         'Add-DhRangeBar',  # v2.1.4 - missed when Add-DhRangeBar shipped in 2.1.0
-        'Add-DhFindings'   # DashHtml 2.2.0
+        'Add-DhFindings',  # DashHtml 2.2.0
+        'Add-DhKeyValue','Add-DhRecordList',   # DashHtml 2.3.0
+        'Add-DhTreeFilter','Add-DhNetworkMap',   # DashHtml 2.4.0
+        'Add-DhTreeTable'   # DashHtml 2.5.0
 )
 
 $files = foreach ($p in $Path) {
-    if (Test-Path -LiteralPath $p -PathType Container) { Get-ChildItem -LiteralPath $p -Filter *.ps1 -Recurse -File }
+    if (Test-Path -LiteralPath $p -PathType Container) {
+        $root = (Resolve-Path -LiteralPath $p).ProviderPath
+        Get-ChildItem -LiteralPath $p -Filter *.ps1 -Recurse -File | Where-Object {
+            $IncludeBackups -or @([IO.Path]::GetRelativePath($root, $_.DirectoryName) -split '[\\/]' | Where-Object { $_ -match '^Backups?$' }).Count -eq 0
+        }
+    }
     elseif (Test-Path -LiteralPath $p)                 { Get-Item -LiteralPath $p }
     else { Write-Warning "Not found: $p" }
 }
@@ -81,7 +100,9 @@ $hits = foreach ($f in $files) {
         if (-not $issue) { continue }
 
         [pscustomobject]@{
-            File     = $f.Name
+            # the path from the current location: the scan recurses, and a Backup\ copy shares the live script's
+            # name (2.5.3 - a bare name made 61 hits in Backup folders look like hits in the live scripts)
+            File     = [IO.Path]::GetRelativePath((Get-Location).ProviderPath, $f.FullName)
             Line     = $c.Extent.StartLineNumber
             Cmdlet   = $name
             Severity = $sev
@@ -97,8 +118,8 @@ if (-not $hits.Count) {
     return
 }
 
-if ($Detailed) { $hits | Sort-Object Severity, File, Line | Format-List File, Line, Cmdlet, Severity, Issue, Source }
-else           { $hits | Sort-Object Severity, File, Line | Format-Table File, Line, Cmdlet, Severity, Issue -AutoSize }
+if ($Detailed) { $hits | Sort-Object Severity, File, Line | Format-List File, Line, Cmdlet, Severity, Issue, Source | Out-Host }
+else           { $hits | Sort-Object Severity, File, Line | Format-Table File, Line, Cmdlet, Severity, Issue -AutoSize | Out-Host }
 
 $action = @($hits | Where-Object Severity -eq 'ACTION')
 Write-Host ''
@@ -112,4 +133,6 @@ $hits | Group-Object Issue | Sort-Object Name | ForEach-Object {
 }
 Write-Host ''
 Write-Host "See readme-dev.md section 15 for how to convert each pattern." -ForegroundColor DarkGray
+# objects only on request: the report above is for reading, -PassThru is for scripts
+if ($PassThru) { $hits }
 

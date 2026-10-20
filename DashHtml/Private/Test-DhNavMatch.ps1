@@ -40,6 +40,9 @@ function ConvertFrom-DhNavPath {
 
     $out = foreach ($s in $segments) {
         $seg = ($s -replace $sentinel, '/').Trim()
+        if ($seg -ceq '*') {
+            throw "Nav path '$Path' uses the segment '*', which is reserved for the 'All' view (New-DhDashboard -NavAllLabel)."
+        }
         if ([string]::IsNullOrEmpty($seg)) {
             throw "Nav path '$Path' contains an empty segment. Use '//' for a literal '/'."
         }
@@ -74,6 +77,18 @@ function Test-DhNavMatch {
 
     $declared = @($DeclaredPath)
     $selected = @($SelectedPath)
+
+    # The reserved last segment '*' selects an 'All' view (New-DhDashboard -NavAllLabel): everything at or
+    # below the parent node, whatever its scope, plus Subtree items declared above it.
+    if ($selected.Count -gt 0 -and [string]::Equals($selected[$selected.Count - 1], '*', [StringComparison]::Ordinal)) {
+        $base = @(if ($selected.Count -gt 1) { $selected[0..($selected.Count - 2)] } else { @() })
+        $n = [math]::Min($declared.Count, $base.Count)
+        for ($i = 0; $i -lt $n; $i++) {
+            if (-not [string]::Equals($declared[$i], $base[$i], [StringComparison]::Ordinal)) { return $false }
+        }
+        if ($declared.Count -ge $base.Count) { return $true }   # at or below the parent
+        return ($Scope -eq 'Subtree')                            # above it: only a Subtree item reaches down
+    }
 
     # Declared deeper than the selection can never match.
     if ($declared.Count -gt $selected.Count) { return $false }

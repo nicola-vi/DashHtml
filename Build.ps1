@@ -20,7 +20,7 @@
     3. Validates both manifests (+ the PSGallery ReleaseNotes length cap).
     4. Runs PSScriptAnalyzer over both module sources.
     5. Runs the Pester suite (covers both modules).
-    6. Stages clean distributables into .\dist\.
+    6. Stages clean distributables into ./dist/.
     7. Creates a .zip per module, suitable for a GitHub Release asset.
     8. Optionally packs a .nupkg per module for PSGallery / a private feed.
 
@@ -43,10 +43,10 @@
     Also pack each module as a .nupkg for publishing.
 
 .EXAMPLE
-    .\Build.ps1
-    .\Build.ps1 -BumpVersion
-    .\Build.ps1 -BumpDesignVersion -NuGet
-    .\Build.ps1 -SkipDesign -SkipTests
+    ./Build.ps1
+    ./Build.ps1 -BumpVersion
+    ./Build.ps1 -BumpDesignVersion -NuGet
+    ./Build.ps1 -SkipDesign -SkipTests
 #>
 [CmdletBinding()]
 param(
@@ -116,7 +116,7 @@ function Copy-DhModuleToDist {
 
     # Root module files. (Get-ChildItem -Include needs -Recurse or a wildcard
     # path to work; use a wildcard path so the manifest isn't silently skipped.)
-    foreach ($pattern in @('*.psd1','*.psm1')) {
+    foreach ($pattern in @('*.psd1','*.psm1','*.schema.json')) {
         Get-ChildItem -Path (Join-Path $SourceDir $pattern) -ErrorAction SilentlyContinue |
             Copy-Item -Destination $DestDir
     }
@@ -147,7 +147,9 @@ function Copy-DhModuleToDist {
 
     # LICENSE alongside for completeness (Publish-Module 2.x still uses
     # LicenseUri from the manifest; Publish-PSResource picks the file up).
-    foreach ($docPattern in @('LICENSE','LICENSE.txt')) {
+    # v2.3.0 - THIRD-PARTY-NOTICES.md lists the vendored libraries and the
+    # design references; it must ship wherever the Vendor\ files do.
+    foreach ($docPattern in @('LICENSE','LICENSE.txt','THIRD-PARTY-NOTICES.md')) {
         $src = Join-Path $repoRoot $docPattern
         if (Test-Path -LiteralPath $src) {
             Copy-Item -LiteralPath $src -Destination $DestDir -Force
@@ -267,8 +269,17 @@ if ($SkipTests) {
                 Write-Error "BUILD FAILED: $($result.FailedCount) test(s) failed."
             }
             Write-Host "     Tests passed: $($result.PassedCount)  Failed: $($result.FailedCount)" -ForegroundColor Green
+            if (Get-Command node -ErrorAction SilentlyContinue) {
+                Push-Location $repoRoot
+                try {
+                    $nodeOut = & node --test 'Tests/js/*.test.js' 2>&1 | Out-String
+                    if ($LASTEXITCODE -ne 0) { Write-Error "BUILD FAILED: node tests failed.`n$nodeOut" }
+                    $np = [regex]::Match($nodeOut, '(?m)^.\s*pass\s+(\d+)').Groups[1].Value
+                    Write-Host "     Node tests passed: $np" -ForegroundColor Green
+                } finally { Pop-Location }
+            } else { Write-Host "     node not found - JS tests skipped." -ForegroundColor DarkGray }
         } else {
-            Write-Host "     No Tests\ directory found - skipping." -ForegroundColor DarkGray
+            Write-Host "     No Tests/ directory found - skipping." -ForegroundColor DarkGray
         }
     } else {
         Write-Warning "Pester 5+ not found. Install with: Install-Module Pester -Force. Skipping tests."

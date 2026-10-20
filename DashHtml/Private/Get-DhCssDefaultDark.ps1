@@ -80,7 +80,7 @@ function Get-DhCssDefaultDark {
 
   --cell-ok-fg:      #00e676;  --cell-ok-bg:      rgba(0,230,118,0.08);
   --cell-warn-fg:    #ffc107;  --cell-warn-bg:    rgba(255,193,7,0.08);
-  --cell-danger-fg:  #ff4d6a;  --cell-danger-bg:  rgba(255,77,106,0.10);
+  --cell-danger-fg:  #FF5873;  --cell-danger-bg:  rgba(255,77,106,0.10);
   --cell-nodata-fg:  #8899aa;  --cell-nodata-bg:  rgba(136,153,170,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.08);

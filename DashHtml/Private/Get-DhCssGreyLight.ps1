@@ -36,7 +36,7 @@ function Get-DhCssGreyLight {
   --export-pdf-bg:    #FEECE9;  --export-pdf-fg:    #C62828;  --export-pdf-bdr:   #FFCDD2;
 
   --text-primary:   #263238;
-  --text-secondary: #546E7A;
+  --text-secondary: #4D6570;
   --text-muted:     #90A4AE;
   --text-accent:    #37474F;
   --text-invert:    #FFFFFF;
@@ -80,10 +80,10 @@ function Get-DhCssGreyLight {
   --shadow-md:   0 2px 8px rgba(0,0,0,0.12);
   --shadow-glow: 0 0 12px rgba(84,110,122,0.16);
 
-  --cell-ok-fg:      #2E7D32;  --cell-ok-bg:      rgba(46,125,50,0.08);
-  --cell-warn-fg:    #BF360C;  --cell-warn-bg:    rgba(191,54,12,0.08);
-  --cell-danger-fg:  #B71C1C;  --cell-danger-bg:  rgba(183,28,28,0.08);
-  --cell-nodata-fg:  #6E7C84;  --cell-nodata-bg:  rgba(110,124,132,0.08);
+  --cell-ok-fg:      #246227;  --cell-ok-bg:      rgba(46,125,50,0.08);
+  --cell-warn-fg:    #9D2C0A;  --cell-warn-bg:    rgba(191,54,12,0.08);
+  --cell-danger-fg:  #A51919;  --cell-danger-bg:  rgba(183,28,28,0.08);
+  --cell-nodata-fg:  #4D575C;  --cell-nodata-bg:  rgba(110,124,132,0.08);
 
   --progress-track-bg: rgba(0,0,0,0.08);
 

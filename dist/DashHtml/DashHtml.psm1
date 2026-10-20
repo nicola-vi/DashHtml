@@ -7,8 +7,8 @@
 
 Set-StrictMode -Version Latest
 
-$Private = Get-ChildItem -Path "$PSScriptRoot\Private\*.ps1" -ErrorAction SilentlyContinue
-$Public  = Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1"  -ErrorAction Stop
+$Private = Get-ChildItem -Path "$PSScriptRoot/Private/*.ps1" -ErrorAction SilentlyContinue
+$Public  = Get-ChildItem -Path "$PSScriptRoot/Public/*.ps1"  -ErrorAction Stop
 
 foreach ($file in @($Private) + @($Public)) {
     try {

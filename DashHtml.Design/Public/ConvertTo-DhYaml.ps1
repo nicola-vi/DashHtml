@@ -50,7 +50,20 @@ function ConvertTo-DhYaml {
         if ($Report.Contains('NavTitle')       -and $Report.NavTitle)       { $model['navTitle']    = $Report.NavTitle }
         if ($Report.Contains('AutoRefreshSec') -and [int]$Report.AutoRefreshSec -gt 0) { $model['autoRefresh'] = [int]$Report.AutoRefreshSec }
         if ($Report.Contains('GeneratedBy')    -and $Report.GeneratedBy)    { $model['generatedBy'] = $Report.GeneratedBy }
-        if ($Report.Contains('InfoFields') -and @($Report.InfoFields).Count -gt 0) {
+        # Options added after 1.0: written only when they differ from the default, so older YAML is unchanged
+        if ($Report.Contains('ThemeMode')  -and $Report.ThemeMode -and $Report.ThemeMode -ne 'light') { $model['themeMode'] = $Report.ThemeMode }
+        if ($Report.Contains('PrintCover') -and $Report.PrintCover) { $model['printCover'] = $true }
+        if ($Report.Contains('NavBadge')   -and $Report.NavBadge)   { $model['navBadge']   = $true }   # DashHtml 2.4.0
+        if ($Report.Contains('Search')     -and $Report.Search)     { $model['search']     = $true }   # DashHtml 2.4.0
+        # DashHtml 2.5.0 menu options (and NavLayout / NavMaxDepth, which were never written)
+        if ($Report.Contains('NavLayout')   -and $Report.NavLayout -and $Report.NavLayout -ne 'Auto') { $model['navLayout'] = $Report.NavLayout }
+        if ($Report.Contains('NavMaxDepth') -and [int]$Report.NavMaxDepth -ne 3) { $model['navMaxDepth'] = [int]$Report.NavMaxDepth }
+        if ($Report.Contains('NavAllLabel') -and $null -ne $Report.NavAllLabel -and "$($Report.NavAllLabel)" -ne '') {
+            $model['navAllLabel'] = if ($Report.NavAllLabel -is [System.Collections.IDictionary]) { Copy-DhSpec $Report.NavAllLabel } else { $Report.NavAllLabel }
+        }
+        if ($Report.Contains('NavTree') -and @($Report.NavTree).Count -gt 0) { $model['navTree'] = @($Report.NavTree | ForEach-Object { Copy-DhSpec $_ }) }
+        if ($Report.Contains('StrictNav') -and $Report.StrictNav) { $model['strictNav'] = $true }
+        if ($Report.Contains('NavOverflow') -and $Report.NavOverflow -and $Report.NavOverflow -ne 'More') { $model['navOverflow'] = $Report.NavOverflow }        if ($Report.Contains('InfoFields') -and @($Report.InfoFields).Count -gt 0) {
             $model['infoFields'] = @($Report.InfoFields | ForEach-Object { [ordered]@{ label = $_.Label; value = $_.Value } })
         }
 
@@ -66,7 +79,7 @@ function ConvertTo-DhYaml {
         # Tables
         if (@($Report.Tables).Count -gt 0) {
             $model['tables'] = @($Report.Tables | ForEach-Object {
-                $t = Copy-DhSpec $_ -Drop @('Data')
+                $t = Copy-DhSpec $_ -Drop @('Data', 'Baseline')
                 if ($IncludeData) { $t['data'] = @($_.Data) }
                 else              { $t['dataRows'] = @($_.Data).Count }
                 $t

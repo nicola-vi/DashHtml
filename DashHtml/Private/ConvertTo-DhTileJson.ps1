@@ -50,13 +50,13 @@ function ConvertTo-DhTileJson {
 
     # Caption: bignumber (v1.4) and verdict (v2.2.0)
     $captionJson = ''
-    if ($styleStr -in 'bignumber', 'verdict' -and $s.Contains('Caption') -and -not [string]::IsNullOrWhiteSpace([string]$s.Caption)) {
+    if ($styleStr -in 'bignumber', 'verdict', 'score', 'maturity' -and $s.Contains('Caption') -and -not [string]::IsNullOrWhiteSpace([string]$s.Caption)) {
         $captionJson = ",`"caption`":$(ConvertTo-DhJsonString $s.Caption)"
     }
 
     # Gauge fields
     $gaugeJson = ''
-    if ($styleStr -eq 'gauge') {
+    if ($styleStr -in 'gauge', 'score') {
         $minJson = if ($null -ne $s.Min) { [string]$s.Min } else { '0' }
         $maxJson = if ($null -ne $s.Max) { [string]$s.Max } else { '100' }
         $unitStr = if ($s.Contains('Unit') -and $s.Unit) { [string]$s.Unit } else { '' }
@@ -85,6 +85,24 @@ function ConvertTo-DhTileJson {
         $verdictJson = ",`"counts`":{$(@($parts) -join ',')}"
     }
 
+    # Score extras (v2.3.0) - fixed key order, emitted only when they apply
+    $scoreJson = ''
+    if ($styleStr -eq 'score') {
+        if ($s.Contains('Facts') -and @($s.Facts).Count -gt 0) {
+            $scoreJson += ",`"facts`":[$((@($s.Facts) | ForEach-Object { ConvertTo-DhJsonString ([string]$_) }) -join ',')]"
+        }
+        if ($s.Contains('LowerIsBetter') -and $s.LowerIsBetter) { $scoreJson += ',"lowerIsBetter":true' }
+        if ($s.Contains('NotAssessed') -and $null -ne $s.NotAssessed) { $scoreJson += ",`"notAssessed`":$([int]$s.NotAssessed)" }
+    }
+
+    # Maturity ladder (v2.3.0)
+    $maturityJson = ''
+    if ($styleStr -eq 'maturity') {
+        $lvJson = (@($s.Levels) | ForEach-Object { "{`"name`":$(ConvertTo-DhJsonString $_.Name),`"description`":$(ConvertTo-DhJsonString $_.Description)}" }) -join ','
+        $crJson = (@($s.Criteria) | ForEach-Object { "{`"level`":$([int]$_.Level),`"text`":$(ConvertTo-DhJsonString $_.Text),`"met`":$(([bool]$_.Met).ToString().ToLowerInvariant())}" }) -join ','
+        $maturityJson = ",`"levels`":[$lvJson],`"current`":$([int]$s.Current),`"criteria`":[$crJson]"
+    }
+
     # Per-tile Action (v1.4.2 - click-to-jump)
     $actionJson = ''
     if ($s.Contains('Action') -and $null -ne $s.Action) {
@@ -92,5 +110,5 @@ function ConvertTo-DhTileJson {
         $actionJson = ",`"action`":{`"label`":$(ConvertTo-DhJsonString $a.Label),`"tableId`":$(ConvertTo-DhJsonString $a.TableId),`"filter`":$(ConvertTo-DhJsonString $a.Filter),`"url`":$(ConvertTo-DhJsonString $a.Url)}"
     }
 
-    "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $s.Icon),`"subLabel`":$(ConvertTo-DhJsonString $s.SubLabel),`"class`":$(ConvertTo-DhJsonString $s.Class),`"format`":$(ConvertTo-DhJsonString $s.Format),`"locale`":$(ConvertTo-DhJsonString $s.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $s.Currency)$styleJson$captionJson$gaugeJson$verdictJson$deltaJson$sparkJson$actionJson}"
+    "{`"label`":$(ConvertTo-DhJsonString $s.Label),`"value`":$val,`"icon`":$(ConvertTo-DhJsonString $s.Icon),`"subLabel`":$(ConvertTo-DhJsonString $s.SubLabel),`"class`":$(ConvertTo-DhJsonString $s.Class),`"format`":$(ConvertTo-DhJsonString $s.Format),`"locale`":$(ConvertTo-DhJsonString $s.Locale),`"decimals`":$dec,`"currency`":$(ConvertTo-DhJsonString $s.Currency)$styleJson$captionJson$gaugeJson$verdictJson$scoreJson$maturityJson$deltaJson$sparkJson$actionJson}"
 }

@@ -42,13 +42,30 @@ function Add-DhSummary {
               SparklineStyle = 'line'                    # 'line' (default) | 'area' | 'bars'
 
               # ---- Tile style — optional ----
-              Style    = 'tile'           # 'tile' (default) | 'bignumber' | 'gauge' | 'verdict'
-              Caption  = '3 critical'     # bignumber / verdict: small text under the value
+              Style    = 'tile'           # 'tile' (default) | 'bignumber' | 'gauge' | 'verdict' | 'score' | 'maturity'
+              Caption  = '3 critical'     # bignumber / verdict / score / maturity: small text under the value
 
               # ---- Verdict (v2.2.0) — Style='verdict', full-width overall assessment ----
               Counts   = @{ critical=3; warning=5; info=2 }   # one chip per non-zero count
                                           # (aliases high/medium/low accepted); without
                                           # Class, the colour follows the worst count
+
+              # ---- Score ring (v2.3.0) — Style='score', a full-width ring with a verdict label ----
+              Value    = 69               # the score; numeric (or $null with -Rag NoData)
+              Min = 0; Max = 100          # scale (default 0..100); the real number is shown even if outside
+              Caption  = 'Elevated risk'  # the label next to the ring
+              Facts    = @('211 checks','31 failed')   # one line of small facts
+              Previous = 66               # optional: delta vs the last run
+              LowerIsBetter = $true       # for a risk score: a drop is shown as an improvement
+              NotAssessed   = 20          # optional: checks that could not be assessed; shown beside the
+                                          # delta so a score that rose because checks went dark is visible
+              Rag      = @{ ... }         # colour bands (same shape as a gauge); or Class
+
+              # ---- Maturity ladder (v2.3.0) — Style='maturity', steps with the current one marked ----
+              Levels   = @(@{ Name='Initial'; Description='Ad hoc' }, 'Managed', 'Defined')   # 2 to 10 steps
+              Current  = 1                # 0 = no level reached yet; 1..N = the level reached
+              Value    = 'Initial'        # text shown as the headline (usually the current level's name)
+              Criteria = @(@{ Level=2; Text='Enable the AD Recycle Bin'; Met=$false })   # what the next level needs
           }
 
     .PARAMETER Collapsible
@@ -188,8 +205,8 @@ function Add-DhSummary {
             $t['Style'] = 'tile'
         } else {
             $style = ([string]$t['Style']).ToLowerInvariant()
-            if ($style -notin @('tile','bignumber','gauge','verdict')) {
-                throw "Add-DhSummary: tile '$($t.Label)' — Style must be 'tile', 'bignumber', 'gauge' or 'verdict'. Got: $($t['Style'])"
+            if ($style -notin @('tile','bignumber','gauge','verdict','score','maturity')) {
+                throw "Add-DhSummary: tile '$($t.Label)' — Style must be 'tile', 'bignumber', 'gauge', 'verdict', 'score' or 'maturity'. Got: $($t['Style'])"
             }
             $t['Style'] = $style
         }
@@ -219,6 +236,59 @@ function Add-DhSummary {
             }
         }
 
+        # ---- Score ring (v2.3.0) — Style='score' ----
+        # Value/Min/Max/Unit/Rag are validated by the gauge code below (same rules:
+        # a missing Value needs Rag NoData). Extras: Facts (one line of small facts),
+        # LowerIsBetter (the delta colour only), NotAssessed (checks that went dark).
+        if ($t['Style'] -eq 'score') {
+            $facts = @(if ($t.Contains('Facts') -and $null -ne $t['Facts']) { @($t['Facts']) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { [string]$_ } })
+            $t['Facts'] = $facts
+            $t['LowerIsBetter'] = [bool]($t.Contains('LowerIsBetter') -and $t['LowerIsBetter'])
+            if ($t.Contains('NotAssessed') -and $null -ne $t['NotAssessed']) {
+                $na = 0
+                if (-not [int]::TryParse([string]$t['NotAssessed'], [ref]$na) -or $na -lt 0) {
+                    throw "Add-DhSummary: tile '$($t.Label)' — NotAssessed must be a whole number >= 0. Got: $($t['NotAssessed'])"
+                }
+                $t['NotAssessed'] = $na
+            } else { $t['NotAssessed'] = $null }
+        }
+
+        # ---- Maturity ladder (v2.3.0) — Style='maturity' ----
+        # Levels=@(@{Name='Initial';Description='...'}, 'Managed', ...) (2 to 10 steps),
+        # Current = 0..N (0 = no level reached yet), optional Criteria=@(@{Level=2;Text='..';Met=$false}).
+        if ($t['Style'] -eq 'maturity') {
+            if (-not $t.Contains('Levels') -or @($t['Levels']).Count -lt 2 -or @($t['Levels']).Count -gt 10) {
+                throw "Add-DhSummary: tile '$($t.Label)' — Style='maturity' needs Levels with 2 to 10 steps."
+            }
+            $lv = @(foreach ($l in @($t['Levels'])) {
+                if ($l -is [System.Collections.IDictionary]) {
+                    if (-not $l.Contains('Name') -or [string]::IsNullOrWhiteSpace([string]$l['Name'])) { throw "Add-DhSummary: tile '$($t.Label)' — each Levels hashtable needs a Name." }
+                    [ordered]@{ Name = [string]$l['Name']; Description = $(if ($l.Contains('Description')) { [string]$l['Description'] } else { '' }) }
+                } else {
+                    if ([string]::IsNullOrWhiteSpace([string]$l)) { throw "Add-DhSummary: tile '$($t.Label)' — a Levels entry is empty." }
+                    [ordered]@{ Name = [string]$l; Description = '' }
+                }
+            })
+            $t['Levels'] = $lv
+            $cur = 0
+            if (-not $t.Contains('Current') -or -not [int]::TryParse([string]$t['Current'], [ref]$cur) -or $cur -lt 0 -or $cur -gt $lv.Count) {
+                throw "Add-DhSummary: tile '$($t.Label)' — Current must be a whole number from 0 to $($lv.Count) (0 = no level reached). Got: $($t['Current'])"
+            }
+            $t['Current'] = $cur
+            $crit = @(foreach ($c in @($(if ($t.Contains('Criteria')) { $t['Criteria'] } else { $null }))) {
+                if ($null -eq $c) { continue }
+                if ($c -isnot [System.Collections.IDictionary] -or -not $c.Contains('Text') -or [string]::IsNullOrWhiteSpace([string]$c['Text'])) {
+                    throw "Add-DhSummary: tile '$($t.Label)' — each Criteria entry must be @{ Level; Text; Met }."
+                }
+                $cl = 0
+                if (-not $c.Contains('Level') -or -not [int]::TryParse([string]$c['Level'], [ref]$cl) -or $cl -lt 1 -or $cl -gt $lv.Count) {
+                    throw "Add-DhSummary: tile '$($t.Label)' — Criteria Level must be 1 to $($lv.Count). Got: $($c['Level'])"
+                }
+                [ordered]@{ Level = $cl; Text = [string]$c['Text']; Met = [bool]($c.Contains('Met') -and $c['Met']) }
+            })
+            $t['Criteria'] = $crit
+        }
+
         # Bignumber-specific: optional Caption (small text below the hero value)
         if (-not $t.Contains('Caption')) { $t['Caption'] = '' }
 
@@ -236,7 +306,7 @@ function Add-DhSummary {
         }
 
         # Gauge-specific: Min/Max/Unit/Thresholds
-        if ($t['Style'] -eq 'gauge') {
+        if ($t['Style'] -in 'gauge', 'score') {
             # Value must be numeric for a gauge — EXCEPT when -Rag NoData=$true is
             # set, in which case a null/missing Value is explicitly allowed and
             # the renderer paints the gauge cell-nodata. Without that opt-in,
@@ -254,7 +324,7 @@ function Add-DhSummary {
                     [System.Globalization.CultureInfo]::InvariantCulture,
                     [ref]$gVal)
                 if (-not $okGv) {
-                    throw "Add-DhSummary: tile '$($t.Label)' — Style='gauge' requires a numeric Value. Got: $($t['Value']). (Use -Rag with NoData=`$true to allow null values that render as cell-nodata.)"
+                    throw "Add-DhSummary: tile '$($t.Label)' — Style='$($t['Style'])' requires a numeric Value. Got: $($t['Value']). (Use -Rag with NoData=`$true to allow null values that render as cell-nodata.)"
                 }
             }
             # Don't replace $t['Value'] — keep the user's original (could be an int) for the centre readout
@@ -273,7 +343,7 @@ function Add-DhSummary {
                 $t[$k] = $n
             } else {
                 # Gauge defaults: 0..100. Other styles ignore Min/Max.
-                $t[$k] = if ($t['Style'] -eq 'gauge') { if ($k -eq 'Min') { 0.0 } else { 100.0 } } else { $null }
+                $t[$k] = if ($t['Style'] -in 'gauge', 'score') { if ($k -eq 'Min') { 0.0 } else { 100.0 } } else { $null }
             }
         }
         if (-not $t.Contains('Unit')) { $t['Unit'] = '' }

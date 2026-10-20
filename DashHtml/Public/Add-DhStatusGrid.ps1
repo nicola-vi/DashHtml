@@ -37,10 +37,24 @@ function Add-DhStatusGrid {
               Tooltip   = '99.98% / 24h'      # optional — native hover tooltip
               LinkTableId = 'incidents'       # optional — click jumps to a registered table
               LinkFilter  = 'auth-eu'         # optional — text filter applied on jump
+              Detail      = '...'             # optional (v2.3.0) — click opens a side panel. Text, a
+                                              #   section hashtable, an array of sections, or
+                                              #   @{ Title; Subtitle; Sections }. With LinkTableId the
+                                              #   panel gets a "Show in table" button.
+              Glyph       = [char]0x2713      # optional (v2.3.0) — 1-3 characters drawn in the cell
+              Self        = $true             # optional (v2.3.0) — hatched "same row and column" cell
           }
+
+        Section hashtables for Detail: @{ Kind='kv'|'bars'|'statusList'|'checks'|'table'|'text'|'links'; ... }
+        (see Add-DhKeyValue and ConvertTo-DhSections for the shapes).
 
     .PARAMETER RowLabel       Optional caption for the Y-axis (top-left corner).
     .PARAMETER ColumnLabel    Optional caption for the X-axis (above column headers).
+
+    .PARAMETER SelfDiagonal
+        v2.3.0. For a matrix whose rows and columns are the same things (DC to DC
+        replication): every cell where the row and column label are equal and no cell
+        was declared is drawn hatched, meaning "itself". Case-insensitive.
 
     .PARAMETER CellSize
         Cell side length preset: 'small' (32 px) | 'normal' (48 px, default) | 'large' (64 px).
@@ -80,6 +94,8 @@ function Add-DhStatusGrid {
 
         [string] $RowLabel    = '',
         [string] $ColumnLabel = '',
+
+        [switch] $SelfDiagonal,   # v2.3.0 - hatch cells whose row and column labels match
 
         [ValidateSet('small','normal','large')]
         [string] $CellSize = 'normal',
@@ -173,6 +189,10 @@ function Add-DhStatusGrid {
         if ($linkFilter -and -not $linkTableId) {
             throw "Add-DhStatusGrid: cell ($r, $c) — LinkFilter requires LinkTableId."
         }
+        # v2.3.0 - optional click detail, glyph and self marker
+        $glyph = if ($cell.Contains('Glyph') -and $null -ne $cell['Glyph']) { [string]$cell['Glyph'] } else { '' }
+        if ($glyph.Length -gt 3) { throw "Add-DhStatusGrid: cell ($r, $c) — Glyph must be 1 to 3 characters. Got: '$glyph'" }
+        $detail = ConvertTo-DhDetailSpec -Detail $(if ($cell.Contains('Detail')) { $cell['Detail'] } else { $null }) -Context "Add-DhStatusGrid '$Id' cell ($r, $c)"
         @{
             Row         = $r
             Column      = $c
@@ -180,7 +200,24 @@ function Add-DhStatusGrid {
             Tooltip     = if ($cell.Contains('Tooltip') -and $null -ne $cell['Tooltip']) { [string]$cell['Tooltip'] } else { '' }
             LinkTableId = $linkTableId
             LinkFilter  = $linkFilter
+            Glyph       = $glyph
+            Self        = [bool]($cell.Contains('Self') -and $cell['Self'])
+            Detail      = $detail
         }
+    }
+    $normCells = @($normCells)
+
+    if ($SelfDiagonal) {
+        $declared = @{}
+        foreach ($nc in $normCells) { $declared["$($nc.Row)`0$($nc.Column)"] = $true }
+        $selfCells = foreach ($r in $rowList) {
+            foreach ($c in $colList) {
+                if ($r -ieq $c -and -not $declared.ContainsKey("$r`0$c")) {
+                    @{ Row = $r; Column = $c; Status = 'nodata'; Tooltip = "$r (itself)"; LinkTableId = ''; LinkFilter = ''; Glyph = ''; Self = $true; Detail = $null }
+                }
+            }
+        }
+        $normCells = @($normCells) + @($selfCells)
     }
 
     $Report.Blocks.Add([ordered]@{

@@ -10,15 +10,15 @@
       Add-DhLineChart, Add-DhEventFeed, Add-DhStatusGrid,
       Add-DhTabs, Add-DhHeatmap, Add-DhTopologyMap
 
-    Run:  Invoke-Pester .\Tests -Output Detailed
-          .\Build.ps1   (runs automatically as part of the build)
+    Run:  Invoke-Pester ./Tests -Output Detailed
+          ./Build.ps1   (runs automatically as part of the build)
 #>
 
 # ---------------------------------------------------------------------------
 # Module import
 # ---------------------------------------------------------------------------
 BeforeAll {
-    $modulePath = Join-Path $PSScriptRoot '..\DashHtml\DashHtml.psd1'
+    $modulePath = Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1'
     Import-Module $modulePath -Force
 }
 
@@ -3531,7 +3531,7 @@ Describe 'Performance: table sort comparator does not re-resolve collation per c
     # These assertions pin the shape of the fix, since the cost is invisible to
     # any functional test - the old code sorted correctly, just glacially.
     BeforeAll {
-        $script:jsTable = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\DashHtml\Private\Get-DhJsTable.ps1') -Raw
+        $script:jsTable = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../DashHtml/Private/Get-DhJsTable.ps1') -Raw
     }
 
     It 'builds a single reusable Intl.Collator' {
@@ -3852,6 +3852,8 @@ Describe 'Duplicate-Id guard on all block cmdlets (M2)' {
         @{ Name = 'Add-DhTopologyMap'; Call = { param($r) Add-DhTopologyMap -Report $r -Id 'd' -Title 'X' -Nodes @(@{ Id = 'n'; Label = 'N' }) } }
         @{ Name = 'Add-DhAlertBanner'; Call = { param($r) Add-DhAlertBanner -Report $r -Id 'd' -Message 'm' } }
         @{ Name = 'Add-DhFindings';    Call = { param($r) Add-DhFindings -Report $r -Id 'd' -Findings @(@{ Severity = 'ok'; Title = 't' }) } }
+        @{ Name = 'Add-DhKeyValue';    Call = { param($r) Add-DhKeyValue -Report $r -Id 'd' -Items @(@{ Label = 'a'; Value = 'b' }) } }
+        @{ Name = 'Add-DhRecordList';  Call = { param($r) Add-DhRecordList -Report $r -Id 'd' -Items @(@{ Title = 't' }) } }
     ) {
         & $Call $script:report
         { & $Call $script:report } | Should -Throw -ExpectedMessage '*already*'
@@ -3988,6 +3990,14 @@ Describe 'Examples: every shipped example script renders valid HTML' {
         $html | Should -Not -Match '%%BLOCKS_CONFIG%%'
         $html | Should -Not -Match '%%SUMMARY_CONFIG%%'
         $html | Should -Not -Match '%%ALERTS_CONFIG%%'
+
+        # The menu is part of the contract: a real opening view, no section that shows on every
+        # view by accident, no menu view that shows nothing, and at least two views per Demo-*
+        # report (Tools\Show-DhNavMap.ps1 reads the exported file, like a reader's browser).
+        $map = & (Join-Path $PSScriptRoot '..' 'Tools' 'Show-DhNavMap.ps1') -Path $outFile -Quiet -PassThru 6>$null
+        $map.Warnings | Should -BeNullOrEmpty -Because "the menu of $Name should have no stray global section or empty view"
+        @($map.Opens).Count | Should -BeGreaterThan 0
+        if ($Name -like 'Demo-*') { @($map.Views).Count | Should -BeGreaterThan 1 }
     }
 }
 
@@ -4168,7 +4178,7 @@ Describe 'Long cell values are readable (tooltip + column resize)' {
         # colWidths is engine state; col.width stays the author's declaration so
         # a reset (double-click / Home) can fall back to it.
         $script:html | Should -Match 'this\.colWidths     = \{\};'
-        $script:html | Should -Match 'self\.colWidths\[col\.field\]\|\|col\.width'
+        $script:html | Should -Match 'self\._effWidth\(col\)'   # v2.4.0: dragged, declared, then measured (see _effWidth)
     }
 
     # -- 2.1.2: the header used to set the column's hard minimum -------------
@@ -4527,7 +4537,7 @@ Describe 'v2.1.4 fixes' {
     Context 'Tooling drift - Add-DhRangeBar' {
         It 'is a block cmdlet in Update-DhScript, Test-DhV2Upgrade and Build-DhReference' {
             $root = Join-Path $PSScriptRoot '..'
-            foreach ($f in 'DashHtml.Design\Public\Update-DhScript.ps1', 'Tools\Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
                 $src  = Get-Content (Join-Path $root $f) -Raw
                 $list = [regex]::Match($src, '(?s)\$blockCmds = @\((.*?)\r?\n\s*\)').Groups[1].Value
                 $list | Should -Match "'Add-DhRangeBar'" -Because $f
@@ -4554,7 +4564,7 @@ Describe 'v2.1.4 fixes' {
             $json = Join-Path ([IO.Path]::GetTempPath()) ('dh_nav_' + [guid]::NewGuid().ToString('N') + '.json')
             try {
                 ConvertTo-Json -InputObject @($cases) -Depth 4 | Set-Content -LiteralPath $json -Encoding utf8NoBOM
-                $jsTest = Join-Path $PSScriptRoot 'js\nav.test.js'
+                $jsTest = Join-Path $PSScriptRoot 'js/nav.test.js'
                 $out = & $node.Source $jsTest $json 2>&1
                 $LASTEXITCODE | Should -Be 0 -Because ($out -join "`n")
                 ($out -join "`n") | Should -Match '0 failed \(108 matcher cases\)'
@@ -4585,7 +4595,7 @@ Describe 'v2.2.0 features' {
 
     Context 'Refactor - one tile serialiser' {
         It 'Export uses ConvertTo-DhTileJson for both the global strip and per-panel strips' {
-            $src = Get-Content (Join-Path $PSScriptRoot '..\DashHtml\Public\Export-DhDashboard.ps1') -Raw
+            $src = Get-Content (Join-Path $PSScriptRoot '../DashHtml/Public/Export-DhDashboard.ps1') -Raw
             ([regex]::Matches($src, 'ConvertTo-DhTileJson -Item')).Count | Should -Be 2
             $src | Should -Not -Match '\$deltaJson2'
         }
@@ -4795,8 +4805,8 @@ Describe 'v2.2.0 features' {
         It 'None: no XLSX or PDF buttons, CSV stays' {
             $dir = Join-Path ([IO.Path]::GetTempPath()) ('DH_T_' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory $dir | Out-Null
             try {
-                Export-DhDashboard -Report (& $script:newReport) -OutputPath "$dir\n.html" -Force -ExportLibraries None
-                $html = Get-Content "$dir\n.html" -Raw
+                Export-DhDashboard -Report (& $script:newReport) -OutputPath "$dir/n.html" -Force -ExportLibraries None
+                $html = Get-Content "$dir/n.html" -Raw
                 $html | Should -Not -Match 'id="exp-xlsx-repl"'
                 $html | Should -Not -Match 'id="exp-pdf-repl"'
                 $html | Should -Match 'id="exp-csv-repl"'
@@ -4806,8 +4816,8 @@ Describe 'v2.2.0 features' {
         It 'Embed: inlines all three libraries, each in its own script, nothing fetched' {
             $dir = Join-Path ([IO.Path]::GetTempPath()) ('DH_T_' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory $dir | Out-Null
             try {
-                Export-DhDashboard -Report (& $script:newReport) -OutputPath "$dir\e.html" -Force -ExportLibraries Embed
-                $html = Get-Content "$dir\e.html" -Raw
+                Export-DhDashboard -Report (& $script:newReport) -OutputPath "$dir/e.html" -Force -ExportLibraries Embed
+                $html = Get-Content "$dir/e.html" -Raw
                 $libs = [regex]::Matches($html, '(?s)<script data-dh-lib="(\w+)"[^>]*>(.*?)</script>')
                 @($libs | ForEach-Object { $_.Groups[1].Value }) | Should -Be @('xlsx', 'jspdf', 'autotable')
                 # no library body contains a closing tag, so none ends its element early
@@ -4841,8 +4851,8 @@ Describe 'v2.2.0 features' {
             Add-DhTable -Report $r -TableId 'repl' -Title 'R' -Data $script:rows
             $dir = Join-Path ([IO.Path]::GetTempPath()) ('DH_T_' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory $dir | Out-Null
             try {
-                Export-DhDashboard -Report $r -OutputPath "$dir\p.html" -Force -PrintMaxRows 50
-                $html = Get-Content "$dir\p.html" -Raw
+                Export-DhDashboard -Report $r -OutputPath "$dir/p.html" -Force -PrintMaxRows 50
+                $html = Get-Content "$dir/p.html" -Raw
             } finally { Remove-Item -LiteralPath $dir -Recurse -Force }
             $html | Should -Match 'id="btn-print"'
             $html | Should -Match "addEventListener\('beforeprint', dhBeforePrint\)"
@@ -4871,10 +4881,1759 @@ Describe 'v2.2.0 features' {
             $root = Join-Path $PSScriptRoot '..'
             Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw | Should -Match "findings\s+= 'Add-DhFindings'"
             Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw | Should -Match "'add-dhfindings'='findings'"
-            foreach ($f in 'DashHtml.Design\Public\Update-DhScript.ps1', 'Tools\Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
                 [regex]::Match((Get-Content (Join-Path $root $f) -Raw), '(?s)\$blockCmds = @\((.*?)\r?\n\s*\)').Groups[1].Value | Should -Match "'Add-DhFindings'" -Because $f
             }
             Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw | Should -Match "'Add-DhFindings'\s+= @\{"
         }
+    }
+}
+
+
+Describe 'v2.3.0 features' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:rows = foreach ($i in 1..6) {
+            [pscustomobject]@{ Name = "S$i"; Site = "FIT0$($i % 3)"; Ram = $i * 4; Roles = @('GC', 'DNS') }
+        }
+        $script:newReport = {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTable -Report $r -TableId 'srv' -Title 'Servers' -Data $script:rows
+            $r
+        }
+        $script:root = Join-Path $PSScriptRoot '..'
+    }
+
+    Context 'Sections - one spec for the drawer, key-value, record list and findings' {
+        It 'normalises kinds and status names, and keeps a single section an array' {
+            InModuleScope DashHtml {
+                $s = ConvertTo-DhSections -Context 'x' -Sections @(@{ Kind = 'KV'; Items = @(@{ Label = 'a'; Value = 1; Class = 'cell-danger' }) })
+                $s -is [array] | Should -BeTrue
+                $s.Count | Should -Be 1
+                $s[0].Kind | Should -Be 'kv'
+                $s[0].Items[0].Status | Should -Be 'danger'
+                $s[0].Items[0].Value | Should -Be '1'
+            }
+        }
+        It 'throws, naming the context, on a malformed section' {
+            InModuleScope DashHtml {
+                { ConvertTo-DhSections -Context 'ctx' -Sections @(@{ Kind = 'pie' }) } | Should -Throw '*ctx*Kind*'
+                { ConvertTo-DhSections -Context 'ctx' -Sections @(@{ Kind = 'kv'; Items = @(@{ Value = 1 }) }) } | Should -Throw '*Label*'
+                { ConvertTo-DhSections -Context 'ctx' -Sections @(@{ Kind = 'table'; Rows = @(,@('a')) }) } | Should -Throw '*Columns*'
+                { ConvertTo-DhSections -Context 'ctx' -Sections @(@{ Kind = 'bars'; Items = @(@{ Label = 'a'; Value = 'x' }) }) } | Should -Throw '*non-numeric*'
+                { ConvertTo-DhSections -Context 'ctx' -Sections @(@{ Kind = 'kv'; Columns = 9; Items = @(@{ Label = 'a' }) }) } | Should -Throw '*1 to 6*'
+            }
+        }
+        It 'refuses a javascript: link in a links section' {
+            InModuleScope DashHtml {
+                { ConvertTo-DhSections -Context 'ctx' -Sections @(@{ Kind = 'links'; Items = @(@{ Label = 'x'; Url = 'javascript:alert(1)' }) }) } | Should -Throw '*not allowed*'
+            }
+        }
+        It 'serialises with an escaped script end tag and the same bytes every time' {
+            InModuleScope DashHtml {
+                $spec = ConvertTo-DhSections -Context 'x' -Sections @(@{ Kind = 'kv'; Items = @(@{ Label = 'a</script>'; Value = 'v' }) })
+                $j1 = ConvertTo-DhSectionsJson $spec
+                $j1 | Should -Not -Match '</script'
+                $j1 | Should -Be (ConvertTo-DhSectionsJson $spec)
+                $j1 | Should -Be '[{"kind":"kv","title":"","columns":2,"items":[{"label":"a<\/script>","value":"v","status":""}]}]'
+            }
+        }
+        It 'renders sections in one pure function that escapes values and binds no inline handler' {
+            $html = Export-DhTestHtml -Report (& $script:newReport)
+            $fn = Get-DhTestJsFunction -Html $html -Name 'renderSection'
+            $fn | Should -Match 'esc\(it\.label\)'
+            $fn | Should -Not -Match '\son(click|keydown|load|error)\s*='
+            $html | Should -Match 'function renderSections\(sections\)'
+        }
+    }
+
+    Context 'Add-DhKeyValue' {
+        It 'stores the tiles under the cmdlet parameter names and emits one kv section' {
+            $r = & $script:newReport
+            Add-DhKeyValue -Report $r -Id 'kv' -Title 'System' -Columns 4 -NavPath 'Hw' -Items @(
+                @{ Label = 'Model'; Value = 'VMware' }, @{ Label = 'CPU'; Value = '2%'; Status = 'ok' }, @{ Label = 'Empty' })
+            $b = $r.Blocks | Where-Object Id -EQ 'kv'
+            $b.BlockType | Should -Be 'keyvalue'
+            @($b.Items).Count | Should -Be 3
+            $b.Columns | Should -Be 4
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"blockType":"keyvalue","id":"kv","title":"System","sections":\[\{"kind":"kv","title":"","columns":4,"items":\['
+            $html | Should -Match '"label":"CPU","value":"2%","status":"ok"'
+            $html | Should -Match 'data-navpath="\[&quot;Hw&quot;\]"'
+        }
+        It 'validates its input' {
+            $r = & $script:newReport
+            { Add-DhKeyValue -Report $r -Id 'k' -Items @() } | Should -Throw
+            { Add-DhKeyValue -Report $r -Id 'k' -Items @(@{ Value = 1 }) } | Should -Throw '*Label*'
+            { Add-DhKeyValue -Report $r -Id 'k' -Columns 7 -Items @(@{ Label = 'a' }) } | Should -Throw
+        }
+        It 'encodes hostile text' {
+            $r = & $script:newReport
+            Add-DhKeyValue -Report $r -Id 'k' -Items @(@{ Label = '</script><b>'; Value = '"><img src=x onerror=1>' })
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Not -Match '</script><b>'
+            $html | Should -Match '\"label\":\"<\\/script><b>\"'
+            # the value stays inside a JSON string (quote escaped); the page renders it through esc()
+            $html | Should -Match '"value":"\\"><img src=x onerror=1>"'
+        }
+    }
+
+    Context 'Detail drawer on a table row (N10)' {
+        It 'emits the drawer config only with -DetailDrawer, columns first then the other properties' {
+            $r = & $script:newReport
+            (Export-DhTestHtml -Report $r) | Should -Not -Match '"detail":\{'
+            $r2 = New-DhDashboard -Title 't'
+            Add-DhTable -Report $r2 -TableId 'srv' -Title 'S' -Data $script:rows -DetailDrawer -Columns @(@{ Field = 'Name'; Label = 'Server' })
+            $html = Export-DhTestHtml -Report $r2
+            $html | Should -Match '"detail":\{"titleField":"Name","fields":\[\{"field":"Name","label":"Server"\},\{"field":"Site","label":"Site"\},\{"field":"Ram","label":"Ram"\},\{"field":"Roles","label":"Roles"\}\]\}'
+        }
+        It 'honours -DetailFields (names or label hashtables) and -DetailTitleField' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTable -Report $r -TableId 'srv' -Title 'S' -Data $script:rows -DetailDrawer -DetailTitleField 'Site' `
+                -DetailFields @('Name', @{ Field = 'Ram'; Label = 'RAM (GB)' })
+            $t = $r.Tables[0]
+            $t.DetailTitleField | Should -Be 'Site'
+            @($t.DetailFields).Count | Should -Be 2
+            $t.DetailFields[1].Label | Should -Be 'RAM (GB)'
+        }
+        It 'rejects a field the data does not have (case-sensitive) and warns when the switch is missing' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTable -Report $r -TableId 'a' -Title 'S' -Data $script:rows -DetailDrawer -DetailFields @('nope') } | Should -Throw '*not a property*'
+            { Add-DhTable -Report $r -TableId 'b' -Title 'S' -Data $script:rows -DetailDrawer -DetailTitleField 'name' } | Should -Throw '*not a property*'
+            $w = Add-DhTable -Report $r -TableId 'c' -Title 'S' -Data $script:rows -DetailFields @('Name') 3>&1
+            ($w | Out-String) | Should -Match 'no effect without -DetailDrawer'
+        }
+        It 'binds the row, keeps master-detail links, and hands focus back by selector' {
+            $html = Export-DhTestHtml -Report (& $script:newReport)
+            $html | Should -Match 'TableEngine\.prototype\._openDetail'
+            $html | Should -Match "if\(this\.detail\)this\._openDetail\(globalIdx,row,tr\)"
+            $html | Should -Match "restore:'#tbody-'\+this\.id\+' tr\[data-idx="
+            $html | Should -Match "if\(e\.target\.closest&&e\.target\.closest\('a'\)\)return;"
+        }
+    }
+
+    Context 'The drawer itself' {
+        BeforeAll { $script:dhtml = Export-DhTestHtml -Report (& $script:newReport) }
+        It 'is created once on the body, with dialog semantics' {
+            $fn = Get-DhTestJsFunction -Html $script:dhtml -Name 'dhDrawerEnsure'
+            $fn | Should -Match 'document\.body\.appendChild\(root\)'
+            $fn | Should -Match "setAttribute\('role', 'dialog'\)"
+            $fn | Should -Match "setAttribute\('aria-modal', 'true'\)"
+        }
+        It 'closes on Escape and on the backdrop, and returns focus to the opener or its selector' {
+            $script:dhtml | Should -Match "e\.key === 'Escape' && _drawer"
+            (Get-DhTestJsFunction -Html $script:dhtml -Name 'dhDrawerClose') | Should -Match 'document\.querySelector\(d\.restore\)'
+        }
+        It 'is closed by a view change and by printing' {
+            (Get-DhTestJsFunction -Html $script:dhtml -Name 'applyNav') | Should -Match "dhDrawerClose\(true\)"
+            (Get-DhTestJsFunction -Html $script:dhtml -Name 'dhBeforePrint') | Should -Match "dhDrawerClose\(true\)"
+            $script:dhtml | Should -Match '@media print\s*\{\s*\.dh-drawer, \.dh-drawer-backdrop \{ display: none !important; \}'
+        }
+        It 'uses no inline event handler attribute' {
+            InModuleScope DashHtml { (Get-DhJsDrawer) | Should -Not -Match '\son(click|keydown|input|change)\s*=' }
+        }
+    }
+
+    Context 'Status grid - Detail, Glyph and SelfDiagonal (N12)' {
+        BeforeAll {
+            $script:grid = {
+                param($cells, [switch] $Self)
+                $r = New-DhDashboard -Title 't'
+                if ($Self) { Add-DhStatusGrid -Report $r -Id 'g' -Title 'G' -Rows @('A', 'B') -Columns @('a', 'b') -Cells $cells -SelfDiagonal }
+                else { Add-DhStatusGrid -Report $r -Id 'g' -Title 'G' -Rows @('A', 'B') -Columns @('a', 'b') -Cells $cells }
+                $r
+            }
+        }
+        It 'accepts text, one section, an array of sections or the full form as Detail' {
+            $r = & $script:grid @(
+                @{ Row = 'A'; Column = 'a'; Status = 'ok'; Detail = 'plain text' }
+                @{ Row = 'A'; Column = 'b'; Status = 'ok'; Detail = @{ Kind = 'kv'; Items = @(@{ Label = 'x'; Value = 'y' }) } }
+                @{ Row = 'B'; Column = 'a'; Status = 'ok'; Detail = @(@{ Kind = 'text'; Text = 't' }, @{ Kind = 'checks'; Items = @(@{ Label = 'c'; Ok = $true }) }) }
+                @{ Row = 'B'; Column = 'b'; Status = 'ok'; Detail = @{ Title = 'T'; Subtitle = 'S'; Sections = @(@{ Kind = 'text'; Text = 't' }) } })
+            $cells = $r.Blocks[0].Cells
+            $cells[0].Detail.Sections[0].Kind | Should -Be 'text'
+            $cells[1].Detail.Sections.Count | Should -Be 1
+            $cells[2].Detail.Sections.Count | Should -Be 2
+            $cells[3].Detail.Title | Should -Be 'T'
+        }
+        It 'rejects a Detail of an unknown kind and a glyph longer than 3 characters' {
+            { & $script:grid @(@{ Row = 'A'; Column = 'a'; Status = 'ok'; Detail = @{ Kind = 'chart' } }) } | Should -Throw '*Kind*'
+            { & $script:grid @(@{ Row = 'A'; Column = 'a'; Status = 'ok'; Glyph = 'toolong' }) } | Should -Throw '*Glyph*'
+        }
+        It 'hatches the diagonal only where the labels match and nothing was declared' {
+            $r = & $script:grid @(@{ Row = 'A'; Column = 'a'; Status = 'ok' }, @{ Row = 'A'; Column = 'b'; Status = 'ok' }) -Self
+            $self = @($r.Blocks[0].Cells | Where-Object Self)
+            $self.Count | Should -Be 1
+            "$($self[0].Row)/$($self[0].Column)" | Should -Be 'B/b'
+            $self[0].Status | Should -Be 'nodata'
+        }
+        It 'emits glyph, self and detail only when used, so a plain grid is unchanged' {
+            $plain = Export-DhTestHtml -Report (& $script:grid @(@{ Row = 'A'; Column = 'a'; Status = 'ok' }))
+            $plain | Should -Not -Match '"glyph"|"self"|"detail"'
+            $plain | Should -Match '"linkTableId":"","linkFilter":""\}'
+            $rich = Export-DhTestHtml -Report (& $script:grid @(@{ Row = 'A'; Column = 'a'; Status = 'ok'; Glyph = 'v'; Detail = 'd' }) -Self)
+            $rich | Should -Match '"glyph":"v"'
+            $rich | Should -Match '"self":true'
+            $rich | Should -Match '"detail":\{"title":"","subtitle":"","sections":\[\{"kind":"text"'
+        }
+        It 'makes a cell with detail a keyboard-operable button that opens the drawer' {
+            $html = Export-DhTestHtml -Report (& $script:grid @(@{ Row = 'A'; Column = 'a'; Status = 'ok'; Detail = 'd' }))
+            $fn = Get-DhTestJsFunction -Html $html -Name 'renderStatusGrid'
+            $fn | Should -Match 'role="button" tabindex="0"'
+            $fn | Should -Match 'dhDrawerOpen\('
+            $fn | Should -Match "e\.key === 'Enter' \|\| e\.key === ' '"
+        }
+    }
+
+    Context 'Score ring and maturity ladder' {
+        It 'validates a score like a gauge and defaults Max to 100' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'score'; Label = 'S'; Value = 'abc' }) } | Should -Throw "*Style='score' requires a numeric Value*"
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'score'; Label = 'S'; Value = $null }) } | Should -Throw '*requires a numeric Value*'
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'score'; Label = 'S'; Value = $null; Rag = @{ NoData = $true } }) } | Should -Not -Throw
+            $r2 = New-DhDashboard -Title 't'
+            Add-DhSummary -Report $r2 -Items @(@{ Style = 'score'; Label = 'S'; Value = 69 })
+            $r2.Summary[0].Max | Should -Be 100
+        }
+        It 'emits score extras in a fixed order and nothing for other styles' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhSummary -Report $r -Items @(
+                @{ Style = 'score'; Label = 'Posture'; Value = 69; Caption = 'Elevated risk'; Facts = @('211 checks', '31 failed'); Previous = 66; LowerIsBetter = $true; NotAssessed = 20 }
+                @{ Label = 'Plain'; Value = 3 })
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"style":"score","caption":"Elevated risk","min":0,"max":100,"unit":"","thresholds":\[\],"facts":\["211 checks","31 failed"\],"lowerIsBetter":true,"notAssessed":20,"previous":66'
+            $html | Should -Not -Match '"label":"Plain"[^}]*"facts"'
+        }
+        It 'draws a ring from two stroked circles with theme tokens only, clamps and handles a missing value' {
+            $fn = Get-DhTestJsFunction -Html (Export-DhTestHtml -Report (& $script:newReport)) -Name 'buildScoreTile'
+            $fn | Should -Match 'stroke-dashoffset'
+            $fn | Should -Match 'Math\.max\(0, Math\.min\(1,'
+            $fn | Should -Match "isMissing \? '—'"
+            $fn | Should -Match 'role="img" aria-label='
+            $fn | Should -Not -Match '#[0-9a-fA-F]{3,6}\b'
+        }
+        It 'lets LowerIsBetter flip only the delta colour' {
+            $fn = Get-DhTestJsFunction -Html (Export-DhTestHtml -Report (& $script:newReport)) -Name 'buildScoreTile'
+            $fn | Should -Match 'item\.lowerIsBetter && item\.trendIsGood == null'
+        }
+        It 'validates a maturity ladder' {
+            $r = New-DhDashboard -Title 't'
+            $lv = @('Initial', 'Managed', 'Defined')
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'maturity'; Label = 'M'; Value = 'x'; Levels = @('One'); Current = 1 }) } | Should -Throw '*2 to 10 steps*'
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'maturity'; Label = 'M'; Value = 'x'; Levels = $lv; Current = 4 }) } | Should -Throw '*0 to 3*'
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'maturity'; Label = 'M'; Value = 'x'; Levels = $lv }) } | Should -Throw '*Current*'
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'maturity'; Label = 'M'; Value = 'x'; Levels = $lv; Current = 1; Criteria = @(@{ Level = 9; Text = 't' }) }) } | Should -Throw '*Criteria Level*'
+            { Add-DhSummary -Report $r -Items @(@{ Style = 'maturity'; Label = 'M'; Value = 'x'; Levels = $lv; Current = 0 }) } | Should -Not -Throw
+        }
+        It 'serialises levels, current step and criteria' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhSummary -Report $r -Items @(@{ Style = 'maturity'; Label = 'Maturity'; Value = 'Initial'; Current = 1
+                Levels = @(@{ Name = 'Initial'; Description = 'Ad hoc' }, 'Managed'); Criteria = @(@{ Level = 2; Text = 'Enable X'; Met = $false }) })
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"levels":\[\{"name":"Initial","description":"Ad hoc"\},\{"name":"Managed","description":""\}\],"current":1,"criteria":\[\{"level":2,"text":"Enable X","met":false\}\]'
+        }
+        It 'marks the current step and caps the criteria list' {
+            $fn = Get-DhTestJsFunction -Html (Export-DhTestHtml -Report (& $script:newReport)) -Name 'buildMaturityTile'
+            $fn | Should -Match 'aria-current="step"'
+            $fn | Should -Match 'want\.slice\(0, 8\)'
+        }
+        It 'dispatches both styles and puts the score on the print cover' {
+            $html = Export-DhTestHtml -Report (& $script:newReport)
+            $html | Should -Match "case 'score':\s+tile = buildScoreTile\(item\)"
+            $html | Should -Match "case 'maturity':\s+tile = buildMaturityTile\(item\)"
+            (Get-DhTestJsFunction -Html $html -Name 'dhBeforePrint') | Should -Match "\['\.tile-verdict', '\.tile-score'\]"
+        }
+    }
+
+    Context 'Findings - split layout, facts, evidence, change, detail' {
+        BeforeAll {
+            $script:fnd = {
+                param($extra = @{}, $layout = 'List')
+                $r = New-DhDashboard -Title 't'
+                $f = @{ Severity = 'warning'; Title = 'NTLM level'; Area = 'Auth'; Description = 'd' } + $extra
+                Add-DhFindings -Report $r -Id 'h' -Layout $layout -Findings @($f)
+                $r
+            }
+        }
+        It 'keeps the List layout and a plain finding byte-identical to 2.2.0' {
+            $html = Export-DhTestHtml -Report (& $script:fnd)
+            $html | Should -Not -Match '"layout"|"maxEvidenceShown"|"facts"|"evidence"|"change"|"detail"'
+            $html | Should -Match '"references":\[\]\}\],"collapsible"'
+        }
+        It 'emits layout split with the evidence cap' {
+            $html = Export-DhTestHtml -Report (& $script:fnd @{} 'Split')
+            $html | Should -Match '"layout":"split","maxEvidenceShown":50'
+        }
+        It 'normalises facts and evidence and emits them only when present' {
+            $html = Export-DhTestHtml -Report (& $script:fnd @{
+                Facts = @(@{ Label = 'Recommended'; Value = '5'; Status = 'ok' })
+                Evidence = @(@{ Object = 'DC1'; Value = 'Level 4'; Status = 'Warn' }, @{ Object = 'DC2' }) })
+            $html | Should -Match '"facts":\[\{"label":"Recommended","value":"5","status":"ok"\}\]'
+            $html | Should -Match '"evidence":\[\{"object":"DC1","value":"Level 4","status":"warn","note":""\},\{"object":"DC2","value":"","status":"","note":""\}\]'
+        }
+        It 'validates evidence, change and detail' {
+            { & $script:fnd @{ Evidence = @(@{ Value = 'x' }) } } | Should -Throw '*Object*'
+            { & $script:fnd @{ Change = 'gone' } } | Should -Throw '*new, worse, better or resolved*'
+            { & $script:fnd @{ Detail = @{ Kind = 'pie' } } } | Should -Throw '*Kind*'
+            (Export-DhTestHtml -Report (& $script:fnd @{ Change = 'NEW' })) | Should -Match '"change":"new"'
+        }
+        It 'carries a detail spec to the drawer button' {
+            $html = Export-DhTestHtml -Report (& $script:fnd @{ Detail = @{ Title = 'T'; Sections = @(@{ Kind = 'text'; Text = 'x' }) } })
+            $html | Should -Match '"detail":\{"title":"T","subtitle":"","sections":\[\{"kind":"text","title":"","text":"x"\}\]\}'
+            (Get-DhTestJsFunction -Html $html -Name 'renderFindings') | Should -Match 'class="finding-more-detail"'
+        }
+        It 'allows a block that found nothing, with a positive message' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhFindings -Report $r -Id 'e' -Findings @() -AllClearText 'Nothing found.'
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"findings":\[\],"allClear":"Nothing found."'
+            (Get-DhTestJsFunction -Html $html -Name 'allClearHtml') | Should -Match 'dh-allclear-ico'
+        }
+        It 'keeps every detail pane in the DOM and stacks them for print' {
+            $html = Export-DhTestHtml -Report (& $script:fnd @{} 'Split')
+            (Get-DhTestJsFunction -Html $html -Name 'renderFindings') | Should -Match 'findings-split-detail'
+            $html | Should -Match '\.finding-pane\[hidden\] \{ display: block !important; \}'
+            $html | Should -Match '\.findings-split-list \{ display: none !important; \}'
+        }
+        It 'filters by change as well as severity' {
+            $fn = Get-DhTestJsFunction -Html (Export-DhTestHtml -Report (& $script:fnd)) -Name 'renderFindings'
+            $fn | Should -Match 'activeChange'
+            $fn | Should -Match 'findings-chip-change'
+        }
+    }
+
+    Context 'Add-DhRecordList' {
+        It 'validates its records' {
+            $r = & $script:newReport
+            { Add-DhRecordList -Report $r -Id 'l' -Items @(@{ Subtitle = 's' }) } | Should -Throw '*no Title*'
+            { Add-DhRecordList -Report $r -Id 'l' -Items @(@{ Title = 'a'; Id = 'x' }, @{ Title = 'b'; Id = 'x' }) } | Should -Throw '*duplicate record Id*'
+            { Add-DhRecordList -Report $r -Id 'l' -Items @(@{ Title = 'a'; Metrics = @(1..5 | ForEach-Object { @{ Label = "m$_"; Value = $_ } }) }) } | Should -Throw '*at most 4 Metrics*'
+            { Add-DhRecordList -Report $r -Id 'l' -Items @(@{ Title = 'a'; Sections = @(@{ Kind = 'nope' }) }) } | Should -Throw '*Kind*'
+            { Add-DhRecordList -Report $r -Id 'l' -Items @() } | Should -Throw
+        }
+        It 'emits records with metrics and sections' {
+            $r = & $script:newReport
+            Add-DhRecordList -Report $r -Id 'hw' -Title 'Hardware' -NavPath 'Hw' -Items @(
+                @{ Title = 'dc01'; Subtitle = 'FIT00'; Status = 'ok'; Metrics = @(@{ Label = 'RAM'; Value = '8 GB' })
+                   Sections = @(@{ Kind = 'kv'; Items = @(@{ Label = 'Model'; Value = 'VM' }) }) })
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"blockType":"recordlist","id":"hw","title":"Hardware","filterable":true,"openAll":false,"items":\[\{"id":"r1","title":"dc01","subtitle":"FIT00","status":"ok","metrics":\[\{"label":"RAM","value":"8 GB","status":""\}\],"sections":\[\{"kind":"kv"'
+            $html | Should -Match 'data-navpath="\[&quot;Hw&quot;\]"'
+        }
+        It 'warns above -MaxItems instead of failing' {
+            $r = & $script:newReport
+            $w = Add-DhRecordList -Report $r -Id 'l' -MaxItems 1 -Items @(@{ Title = 'a' }, @{ Title = 'b' }) 3>&1
+            ($w | Out-String) | Should -Match 'exceeds -MaxItems'
+            $r.Blocks.Count | Should -Be 1
+        }
+        It 'builds bodies once, binds no inline handler and prints them expanded' {
+            $html = Export-DhTestHtml -Report (& $script:newReport)
+            $fn = Get-DhTestJsFunction -Html $html -Name 'renderRecordList'
+            $fn | Should -Match 'esc\(r\.title\)'
+            $fn | Should -Not -Match '\son(click|keydown|input)\s*='
+            $html | Should -Match '\.record-body\[hidden\] \{ display: block !important; \}'
+        }
+    }
+
+    Context 'Bar colours (-Rag, -KeyClass)' {
+        It 'emits keyClass and thresholds only when set' {
+            $r = & $script:newReport
+            Add-DhBarChart -Report $r -Id 'plain' -Title 'P' -TableId 'srv' -Field 'Site'
+            Add-DhBarChart -Report $r -Id 'col' -Title 'C' -TableId 'srv' -Field 'Site' -KeyClass @{ FIT00 = 'cell-danger'; FIT01 = 'ok' } `
+                -Rag @{ Green = @{ Max = 3 }; Red = @{ Min = 3 } }
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"id":"plain"[^}]*"clickFilters":false,"stacked":false,"seriesField":"","collapsible"'
+            $html | Should -Match '"id":"col"[^}]*"thresholds":\[\{"max":3,"class":"cell-ok"\},\{"min":3,"class":"cell-danger"\}\],"keyClass":\{"FIT00":"cell-danger","FIT01":"cell-ok"\}'
+        }
+        It 'rejects a class that is not one of the four and ignores colours when stacked' {
+            $r = & $script:newReport
+            { Add-DhBarChart -Report $r -Id 'b' -Title 'B' -TableId 'srv' -Field 'Site' -KeyClass @{ A = 'red' } } | Should -Throw '*cell-ok, cell-warn, cell-danger or cell-nodata*'
+            $w = Add-DhBarChart -Report $r -Id 's' -Title 'S' -TableId 'srv' -Field 'Site' -SeriesField 'Name' -KeyClass @{ A = 'cell-ok' } 3>&1
+            ($w | Out-String) | Should -Match 'ignored on a stacked chart'
+        }
+        It 'turns a class into one of four fill classes and nothing else' {
+            $fn = Get-DhTestJsFunction -Html (Export-DhTestHtml -Report (& $script:newReport)) -Name 'barFillClass'
+            $fn | Should -Match '\^cell-\(ok\|warn\|danger\|nodata\)\$'
+        }
+    }
+
+    Context 'Chips and path cells, all-clear tables' {
+        It 'accepts the new cell types and still rejects an unknown one' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTable -Report $r -TableId 'a' -Title 'A' -Data $script:rows -Columns @(@{ Field = 'Roles'; Label = 'R'; CellType = 'chips' }) } | Should -Not -Throw
+            { Add-DhTable -Report $r -TableId 'b' -Title 'B' -Data $script:rows -Columns @(@{ Field = 'Roles'; Label = 'R'; CellType = 'path' }) } | Should -Not -Throw
+            { Add-DhTable -Report $r -TableId 'c' -Title 'C' -Data $script:rows -Columns @(@{ Field = 'Roles'; Label = 'R'; CellType = 'tags' }) } | Should -Throw "*'chips' or 'path'*"
+        }
+        It 'keeps list elements as strings in a chips column ("007" stays "007")' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTable -Report $r -TableId 'a' -Title 'A' -Data @([pscustomobject]@{ Ids = @('007', '12'); Spark = @('007', '12') }) `
+                -Columns @(@{ Field = 'Ids'; Label = 'I'; CellType = 'chips' }, @{ Field = 'Spark'; Label = 'S'; CellType = 'sparkline' })
+            $html = Export-DhTestHtml -Report $r
+            $html | Should -Match '"Ids":\["007","12"\]'
+            $html | Should -Match '"Spark":\[7,12\]'
+        }
+        It 'renders chips and path with DOM calls and exports them as joined text' {
+            $html = Export-DhTestHtml -Report (& $script:newReport)
+            $html | Should -Match "cellType==='chips'\|\|cellType==='path'"
+            $html | Should -Match "rawVal\.join\(' → '\)"
+        }
+        It 'shows an all-clear card for an empty table instead of an empty-table warning' {
+            $r = New-DhDashboard -Title 't'
+            $w = Add-DhTable -Report $r -TableId 'e' -Title 'Stale' -Data @() -AllClearText 'None found.' 3>&1
+            ($w | Out-String) | Should -Not -Match 'empty'
+            Export-DhTestHtml -Report $r | Should -Match '"charts":\[\],"allClear":"None found."'
+        }
+        It 'still warns about an empty table without the text, and ignores the text when there is data' {
+            $r = New-DhDashboard -Title 't'
+            $w = Add-DhTable -Report $r -TableId 'e' -Title 'Stale' -Data @() 3>&1
+            ($w | Out-String) | Should -Match 'Data array is empty'
+            Add-DhTable -Report $r -TableId 'f' -Title 'F' -Data $script:rows -AllClearText 'x'
+            Export-DhTestHtml -Report $r | Should -Not -Match '"allClear"'
+        }
+    }
+
+    Context 'Pan and zoom helper and the topology print selector' {
+        BeforeAll { $script:topoHtml = Export-DhTestHtml -Report (& $script:newReport) }
+        It 'shares one pan/zoom factory with the topology map' {
+            $script:topoHtml | Should -Match 'function createPanZoom\(o\)'
+            (Get-DhTestJsFunction -Html $script:topoHtml -Name 'renderTopologyMap') | Should -Match 'createPanZoom\(\{'
+        }
+        It 'adds the window drag listeners only for the length of a drag, and cleans up on removal' {
+            $fn = Get-DhTestJsFunction -Html $script:topoHtml -Name 'createPanZoom'
+            ([regex]::Matches($fn, "window\.addEventListener\('mousemove'")).Count | Should -Be 1
+            $fn | Should -Match "window\.removeEventListener\('mousemove', onMove\)"
+            $fn | Should -Match 'innerDiv\.isConnected'
+            (Get-DhTestJsFunction -Html $script:topoHtml -Name 'renderTopologyMap') | Should -Not -Match "window\.addEventListener\('mousemove'"
+        }
+        It 'hides the real topology toolbar class in print' {
+            $script:topoHtml | Should -Match '\.topology-map-toolbar \{ display: none !important; \}'
+        }
+    }
+
+    Context 'Third-party notices' {
+        It 'lists every vendored library licence and ships with the build' {
+            $notes = Get-Content (Join-Path $script:root 'THIRD-PARTY-NOTICES.md') -Raw
+            foreach ($f in Get-ChildItem (Join-Path $script:root 'DashHtml/Vendor') -Filter 'LICENSE-*.txt') {
+                $notes | Should -Match ([regex]::Escape($f.Name)) -Because $f.Name
+            }
+            $notes | Should -Match 'GPL-3.0'
+            (Get-Content (Join-Path $script:root 'Build.ps1') -Raw) | Should -Match "THIRD-PARTY-NOTICES\.md"
+        }
+    }
+
+    Context 'Tooling knows the new blocks' {
+        It 'maps both cmdlets in DashHtml.Design and lists them in the audit and reference tools' {
+            $root = $script:root
+            $schema = Get-Content (Join-Path $root 'DashHtml.Design/Private/DhSchema.ps1') -Raw
+            $schema | Should -Match "keyvalue\s+= 'Add-DhKeyValue'"
+            $schema | Should -Match "recordlist\s+= 'Add-DhRecordList'"
+            $rev = Get-Content (Join-Path $root 'DashHtml.Design/Public/ConvertFrom-DhScript.ps1') -Raw
+            $rev | Should -Match "'add-dhkeyvalue'='keyvalue'"
+            $rev | Should -Match "'add-dhrecordlist'='recordlist'"
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+                $list = [regex]::Match((Get-Content (Join-Path $root $f) -Raw), '(?s)\$blockCmds = @\((.*?)\r?\n\s*\)').Groups[1].Value
+                $list | Should -Match "'Add-DhKeyValue'" -Because $f
+                $list | Should -Match "'Add-DhRecordList'" -Because $f
+            }
+            $ref = Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw
+            $ref | Should -Match "'Add-DhKeyValue'\s+= @\{"
+            $ref | Should -Match "'Add-DhRecordList'\s+= @\{"
+            (Import-PowerShellDataFile (Join-Path $root 'DashHtml/DashHtml.psd1')).FunctionsToExport | Should -Contain 'Add-DhKeyValue'
+            (Import-PowerShellDataFile (Join-Path $root 'DashHtml/DashHtml.psd1')).FunctionsToExport | Should -Contain 'Add-DhRecordList'
+        }
+    }
+}
+
+Describe 'v2.4.0 features' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:root = Join-Path $PSScriptRoot '..'
+        $script:ous = @(
+            [pscustomobject]@{ Name = 'contoso.com'; Path = 'contoso.com' }
+            [pscustomobject]@{ Name = 'HQ';          Path = 'contoso.com/HQ' }
+            [pscustomobject]@{ Name = 'Users';       Path = 'contoso.com/HQ/Users' }
+            [pscustomobject]@{ Name = 'HQ2';         Path = 'contoso.com/HQ2' }
+        )
+        $script:newReport = {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTable -Report $r -TableId 'ous' -Title 'OUs' -Data $script:ous
+            $r
+        }
+        $script:treeNodes = {
+            @(
+                @{ Id = 'root'; Label = 'contoso.com'; Path = 'contoso.com' }
+                @{ Id = 'hq';   Parent = 'root'; Label = 'HQ'; Path = 'contoso.com/HQ'; Status = 'warning'; Flags = @('empty') }
+            )
+        }
+    }
+
+    Context 'Topology cycle check' {
+        It 'builds a 200-node chain quickly and still reports a cycle' {
+            $r = New-DhDashboard -Title 't'
+            $nodes = foreach ($i in 0..199) { @{ Id = "n$i"; Label = "N$i"; Parent = $(if ($i) { "n$($i - 1)" } else { '' }) } }
+            (Measure-Command { Add-DhTopologyMap -Report $r -Id 'm' -Title 'm' -Nodes $nodes }).TotalSeconds | Should -BeLessThan 3
+            $nodes[0].Parent = 'n199'
+            { Add-DhTopologyMap -Report $r -Id 'm2' -Title 'm' -Nodes $nodes } | Should -Throw '*cycle detected*'
+        }
+    }
+
+    Context 'Table path-filter hook' {
+        BeforeAll {
+            $script:html = Export-DhTestHtml -Report (& $script:newReport)
+        }
+        It 'assigns pathFilter only inside setPathFilter (and the constructor)' {
+            ([regex]::Matches($script:html, '\.pathFilter\s*=(?!=)')).Count | Should -Be 2
+            (Get-DhTestJsFunction -Html $script:html -Name 'setPathFilter') | Should -Match 'this\.pathFilter\s*=\s*spec'
+        }
+        It 'has one text matcher shared by the filter and the search' {
+            (Get-DhTestJsFunction -Html $script:html -Name '_getFiltered') | Should -Match '_matchText'
+            (Get-DhTestJsFunction -Html $script:html -Name '_matchText') | Should -Match 'FMT\.apply'
+        }
+        It 'matches on the separator so HQ does not match HQ2 (prefix and suffix)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            $src = (Get-DhTestJsFunction -Html $script:html -Name 'dhPathNorm') + "`n" + (Get-DhTestJsFunction -Html $script:html -Name 'dhPathMatch')
+            $js = $src + @'
+
+const t = [
+  [dhPathMatch('contoso.com/HQ/Users', 'contoso.com/HQ', '/', 'prefix'), true],
+  [dhPathMatch('contoso.com/HQ',       'contoso.com/HQ', '/', 'prefix'), true],
+  [dhPathMatch('contoso.com/HQ2',      'contoso.com/HQ', '/', 'prefix'), false],
+  [dhPathMatch('CONTOSO.com/hq/x',     'contoso.com/HQ', '/', 'prefix'), true],
+  [dhPathMatch(null,                   'a', '/', 'prefix'), false],
+  [dhPathMatch('OU=Users,OU=HQ,DC=c',  'OU=HQ,DC=c', ',', 'suffix'), true],
+  [dhPathMatch('OU=Users, OU=HQ, DC=c','OU=HQ,DC=c', ',', 'suffix'), true],
+  [dhPathMatch('OU=Users,OU=XHQ,DC=c', 'OU=HQ,DC=c', ',', 'suffix'), false],
+  [dhPathMatch('OU=HQ,DC=c',           'OU=HQ,DC=c', ',', 'suffix'), true]
+];
+const bad = t.map((x, i) => x[0] === x[1] ? null : i).filter(x => x !== null);
+console.log(bad.length ? 'FAIL ' + bad.join(',') : 'OK');
+'@
+            $f = Join-Path ([IO.Path]::GetTempPath()) ('dhpm_' + [guid]::NewGuid().ToString('N') + '.js')
+            try { Set-Content -LiteralPath $f -Value $js -Encoding utf8NoBOM; (& node $f) | Should -Be 'OK' }
+            finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+        }
+        It 'saves the tree selection in the URL state only when one is made' {
+            $script:html | Should -Match 'state\.pathFilters\s*=\s*pfs'
+        }
+    }
+
+    Context 'Add-DhTreeFilter' {
+        It 'stores the block and exports it as treefilter' {
+            $r = & $script:newReport
+            Add-DhTreeFilter -Report $r -Id 'tf' -Title 'OUs' -TableId 'ous' -PathField 'Path' -Nodes (& $script:treeNodes)
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"blockType":"treefilter"'
+            $h | Should -Match '"pathField":"Path"'
+            $h | Should -Match '"status":"warn"'
+            $h | Should -Match '"flags":\["empty"\]'
+            $h | Should -Not -Match '"count":'
+        }
+        It 'emits counts and detail only when given' {
+            $r = & $script:newReport
+            Add-DhTreeFilter -Report $r -Id 'tf' -Title 'OUs' -TableId 'ous' -PathField 'Path' -Nodes @(
+                @{ Id = 'a'; Label = 'A'; Path = 'a'; Count = 5; Detail = 'More text' })
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"count":5'
+            $h | Should -Match '"detail":\{'
+        }
+        It 'defaults the separator by match mode' {
+            $r = & $script:newReport
+            Add-DhTreeFilter -Report $r -Id 'a' -Title 'a' -TableId 'ous' -PathField 'Path' -Nodes @(@{ Id = 'a'; Label = 'A'; Path = 'a' })
+            Add-DhTreeFilter -Report $r -Id 'b' -Title 'b' -TableId 'ous' -PathField 'Path' -Match Suffix -Nodes @(@{ Id = 'a'; Label = 'A'; Path = 'a' })
+            ($r.Blocks | Where-Object Id -eq 'a').Separator | Should -Be '/'
+            ($r.Blocks | Where-Object Id -eq 'b').Separator | Should -Be ','
+        }
+        It 'throws on <Name>' -ForEach @(
+            @{ Name = 'an unknown table';      Table = 'nope'; Field = 'Path'; Pattern = "*table 'nope' not found*" }
+            @{ Name = 'an unknown path field'; Table = 'ous';  Field = 'Nope'; Pattern = "*PathField 'Nope'*" }
+        ) {
+            $r = & $script:newReport
+            { Add-DhTreeFilter -Report $r -Id 'tf' -Title 't' -TableId $Table -PathField $Field -Nodes @(@{ Id = 'a'; Label = 'A'; Path = 'a' }) } | Should -Throw $Pattern
+        }
+        It 'throws on a bad node: <Name>' -ForEach @(
+            @{ Name = 'duplicate Id';      Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'a' }, @{ Id = 'a'; Label = 'B'; Path = 'b' }); Pattern = '*duplicate node Id*' }
+            @{ Name = 'duplicate Path';    Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'x' }, @{ Id = 'b'; Label = 'B'; Path = 'X' }); Pattern = '*repeats Path*' }
+            @{ Name = 'missing Path';      Nodes = @(@{ Id = 'a'; Label = 'A' }); Pattern = "*non-empty 'Path'*" }
+            @{ Name = 'unknown parent';    Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'a'; Parent = 'zz' }); Pattern = '*unknown Parent*' }
+            @{ Name = 'own parent';        Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'a'; Parent = 'a' }); Pattern = '*own Parent*' }
+            @{ Name = 'cycle';             Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'a'; Parent = 'b' }, @{ Id = 'b'; Label = 'B'; Path = 'b'; Parent = 'a' }); Pattern = '*cycle detected*' }
+            @{ Name = 'bad status';        Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'a'; Status = 'purple' }); Pattern = '*Status must be*' }
+            @{ Name = 'negative count';    Nodes = @(@{ Id = 'a'; Label = 'A'; Path = 'a'; Count = -1 }); Pattern = '*Count must be*' }
+        ) {
+            $r = & $script:newReport
+            { Add-DhTreeFilter -Report $r -Id 'tf' -Title 't' -TableId 'ous' -PathField 'Path' -Nodes $Nodes } | Should -Throw $Pattern
+        }
+        It 'rejects a duplicate block Id' {
+            $r = & $script:newReport
+            Add-DhTreeFilter -Report $r -Id 'tf' -Title 't' -TableId 'ous' -PathField 'Path' -Nodes @(@{ Id = 'a'; Label = 'A'; Path = 'a' })
+            { Add-DhTreeFilter -Report $r -Id 'tf' -Title 't' -TableId 'ous' -PathField 'Path' -Nodes @(@{ Id = 'a'; Label = 'A'; Path = 'a' }) } | Should -Throw '*already exists*'
+        }
+        It 'warns above -MaxNodes without throwing' {
+            $r = & $script:newReport
+            $many = foreach ($i in 1..12) { @{ Id = "n$i"; Label = "N$i"; Path = "n$i" } }
+            $w = Add-DhTreeFilter -Report $r -Id 'tf' -Title 't' -TableId 'ous' -PathField 'Path' -MaxNodes 10 -Nodes $many 3>&1
+            "$w" | Should -Match 'exceeds -MaxNodes'
+        }
+        It 'renders after the engines exist and escapes labels' {
+            $h = Export-DhTestHtml -Report (& $script:newReport)
+            $h | Should -Match "blockType === 'treefilter'"
+            (Get-DhTestJsFunction -Html $h -Name 'renderTreeFilter') | Should -Match 'esc\(n\.label\)'
+            (Get-DhTestJsFunction -Html $h -Name 'renderTreeFilter') | Should -Not -Match '\son(click|keydown|input|change)\s*='
+        }
+        It 'warns when the TableId disappears from the finished report' {
+            $r = & $script:newReport
+            Add-DhTreeFilter -Report $r -Id 'tf' -Title 't' -TableId 'ous' -PathField 'Path' -Nodes @(@{ Id = 'a'; Label = 'A'; Path = 'a' })
+            $r.Tables.Clear()
+            (Export-DhTestHtml -Report $r -WithWarnings).Warnings -join ' ' | Should -Match "tree filter 'tf': TableId 'ous'"
+        }
+    }
+
+    Context 'Tooling knows the 2.4.0 blocks' {
+        It 'maps the new cmdlets in DashHtml.Design and lists them in the audit and reference tools' {
+            $root = $script:root
+            (Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw) | Should -Match "treefilter\s+= 'Add-DhTreeFilter'"
+            (Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw) | Should -Match "'add-dhtreefilter'='treefilter'"
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+                (Get-Content (Join-Path $root $f) -Raw) | Should -Match "'Add-DhTreeFilter'" -Because $f
+            }
+            (Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw) | Should -Match "'Add-DhTreeFilter'\s+= @\{"
+            (Import-PowerShellDataFile (Join-Path $root 'DashHtml/DashHtml.psd1')).FunctionsToExport | Should -Contain 'Add-DhTreeFilter'
+        }
+    }
+}
+
+Describe 'v2.4.0 features - network map' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:root = Join-Path $PSScriptRoot '..'
+        $script:nodes = {
+            @(
+                @{ Id = 'a'; Label = 'A'; Group = 'g1'; Badge = @('PDC', 'GC'); Status = 'ok' }
+                @{ Id = 'b'; Label = 'B'; Group = 'g1'; Status = 'critical'; Detail = 'More' }
+                @{ Id = 'c'; Label = 'C'; Group = 'g2'; Tier = 2; Target = $true }
+            )
+        }
+        $script:groups = { @(@{ Id = 'g1'; Label = 'G1' }, @{ Id = 'g2'; Label = 'G2'; Parent = 'g1' }) }
+        $script:edges  = { @(@{ From = 'a'; To = 'b'; Label = '5 min'; Direction = 'both' }, @{ From = 'b'; To = 'c'; Status = 'warning'; Style = 'dashed' }) }
+        $script:html = $null
+        $script:jsFns = {
+            param($h)
+            ('dhNetFlow', 'dhNetBoundary', 'dhNetLayout', 'dhNetEdgeGeom', 'dhNetPath') | ForEach-Object { Get-DhTestJsFunction -Html $h -Name $_ }
+        }
+    }
+
+    Context 'Add-DhNetworkMap' {
+        It 'stores the block, normalises status words and exports it as networkmap' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes (& $script:nodes) -Edges (& $script:edges) -Groups (& $script:groups) -Legend
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"blockType":"networkmap"'
+            $h | Should -Match '"layout":"grouped"'
+            $h | Should -Match '"legend":true'
+            $h | Should -Match '"badges":\["PDC","GC"\]'
+            $h | Should -Match '"status":"danger"'
+            $h | Should -Match '"status":"warn","style":"dashed","direction":"forward"'
+            $h | Should -Match '"tier":2'
+            $h | Should -Match '"target":true'
+            $h | Should -Match '"detail":\{'
+        }
+        It 'keeps a single node, edge and group as arrays' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes @(@{ Id = 'a'; Label = 'A'; Group = 'g'; Badge = 'PDC' }) -Groups @(@{ Id = 'g'; Label = 'G' })
+            $b = $r.Blocks[0]
+            $b.Nodes.Count | Should -Be 1
+            @($b.Nodes[0].Badge).Count | Should -Be 1
+            $b.Groups.Count | Should -Be 1
+            $b.Edges.Count | Should -Be 0
+            (Export-DhTestHtml -Report $r) | Should -Match '"edges":\[\]'
+        }
+        It 'throws on a bad input: <Name>' -ForEach @(
+            @{ Name = 'duplicate node Id';   Nodes = @(@{ Id = 'a'; Label = 'A' }, @{ Id = 'a'; Label = 'B' }); Edges = @(); Groups = @(); Pattern = '*duplicate node Id*' }
+            @{ Name = 'edge to unknown node'; Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(@{ From = 'a'; To = 'zz' }); Groups = @(); Pattern = "*To 'zz' is not a node Id*" }
+            @{ Name = 'edge without From';   Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(@{ To = 'a' }); Groups = @(); Pattern = "*needs a non-empty 'From'*" }
+            @{ Name = 'bad direction';       Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(@{ From = 'a'; To = 'a'; Direction = 'up' }); Groups = @(); Pattern = '*Direction must be*' }
+            @{ Name = 'bad edge style';      Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(@{ From = 'a'; To = 'a'; Style = 'wavy' }); Groups = @(); Pattern = '*Style must be*' }
+            @{ Name = 'unknown group';       Nodes = @(@{ Id = 'a'; Label = 'A'; Group = 'nope' }); Edges = @(); Groups = @(); Pattern = "*unknown Group 'nope'*" }
+            @{ Name = 'duplicate group';     Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(); Groups = @(@{ Id = 'g'; Label = 'G' }, @{ Id = 'g'; Label = 'H' }); Pattern = '*duplicate group Id*' }
+            @{ Name = 'unknown group parent'; Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(); Groups = @(@{ Id = 'g'; Label = 'G'; Parent = 'zz' }); Pattern = '*unknown Parent*' }
+            @{ Name = 'group cycle';         Nodes = @(@{ Id = 'a'; Label = 'A' }); Edges = @(); Groups = @(@{ Id = 'g'; Label = 'G'; Parent = 'h' }, @{ Id = 'h'; Label = 'H'; Parent = 'g' }); Pattern = '*group cycle detected*' }
+            @{ Name = 'bad tier';            Nodes = @(@{ Id = 'a'; Label = 'A'; Tier = -1 }); Edges = @(); Groups = @(); Pattern = '*Tier must be*' }
+            @{ Name = 'bad node status';     Nodes = @(@{ Id = 'a'; Label = 'A'; Status = 'purple' }); Edges = @(); Groups = @(); Pattern = '*Status must be*' }
+            @{ Name = 'LinkFilter alone';    Nodes = @(@{ Id = 'a'; Label = 'A'; LinkFilter = 'x' }); Edges = @(); Groups = @(); Pattern = '*LinkFilter requires LinkTableId*' }
+        ) {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes $Nodes -Edges $Edges -Groups $Groups } | Should -Throw $Pattern
+        }
+        It 'enforces -MaxNodes and -MaxEdges' {
+            $r = New-DhDashboard -Title 't'
+            $many = foreach ($i in 1..5) { @{ Id = "n$i"; Label = "N$i" } }
+            { Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes $many -MaxNodes 4 } | Should -Throw '*exceeds -MaxNodes*'
+            $e = foreach ($i in 1..3) { @{ From = 'n1'; To = 'n2' } }
+            { Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes $many -Edges $e -MaxEdges 2 } | Should -Throw '*exceeds -MaxEdges*'
+        }
+        It 'rejects a duplicate block Id' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes @(@{ Id = 'a'; Label = 'A' })
+            { Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes @(@{ Id = 'a'; Label = 'A' }) } | Should -Throw '*already exists*'
+        }
+        It 'warns on a LinkTableId that is not a table' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes @(@{ Id = 'a'; Label = 'A'; LinkTableId = 'ghost' }, @{ Id = 'b'; Label = 'B' }) -Edges @(@{ From = 'a'; To = 'b'; LinkTableId = 'ghost2' })
+            $w = (Export-DhTestHtml -Report $r -WithWarnings).Warnings -join ' '
+            $w | Should -Match "network map 'nm' node 'a': LinkTableId 'ghost'"
+            $w | Should -Match "network map 'nm' edge 'a' to 'b': LinkTableId 'ghost2'"
+        }
+        It 'draws with one delegated handler, escapes text, and has no inline handlers' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes (& $script:nodes) -Groups (& $script:groups)
+            $h = Export-DhTestHtml -Report $r
+            $fn = Get-DhTestJsFunction -Html $h -Name 'renderNetworkMap'
+            $fn | Should -Not -Match '\son(click|keydown|input|change|mouse\w+)\s*='
+            $fn | Should -Match 'esc\(dhNetTrunc\(label'
+            ([regex]::Matches($fn, "svgEl\.addEventListener\('click'")).Count | Should -Be 1
+            $fn | Should -Match 'createPanZoom\('
+            $h | Should -Match "case 'networkmap':\s+renderNetworkMap"
+        }
+    }
+
+    Context 'Layout and path finding (run in node)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        BeforeAll {
+            $r = New-DhDashboard -Title 't'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -Nodes (& $script:nodes) -Edges (& $script:edges) -Groups (& $script:groups)
+            $script:h2 = Export-DhTestHtml -Report $r
+            $script:runNode = {
+                param([string] $Body)
+                $src = "const DH_NET = { GX: 26, GY: 30, PAD: 14, HEAD: 26, TOP: 1100, MARGIN: 20, LANE_LABEL: 96, LANE_PAD: 30 };`n" + ((& $script:jsFns $script:h2) -join "`n") + "`n" + $Body
+                $f = Join-Path ([IO.Path]::GetTempPath()) ('dhnm_' + [guid]::NewGuid().ToString('N') + '.js')
+                try { Set-Content -LiteralPath $f -Value $src -Encoding utf8NoBOM; (& node $f 2>&1) -join "`n" }
+                finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+            }
+        }
+        It 'gives the same grouped layout twice and keeps nodes inside their boxes' {
+            $out = & $script:runNode @'
+const block = { layout: 'grouped', nodeWidth: 150, nodeHeight: 46,
+  nodes: [ {id:'a',group:'g1'}, {id:'b',group:'g1'}, {id:'c',group:'g2'}, {id:'d'} ],
+  edges: [], groups: [ {id:'g1',label:'G1'}, {id:'g2',label:'G2',parent:'g1'} ] };
+const L1 = dhNetLayout(block), L2 = dhNetLayout(block);
+const same = JSON.stringify(L1) === JSON.stringify(L2);
+const box = id => L1.groups.find(g => g.id === id);
+const inside = (n, g) => { const p = L1.pos[n], b = box(g); return p.x >= b.x && p.y >= b.y && p.x + p.w <= b.x + b.w && p.y + p.h <= b.y + b.h; };
+const nested = (() => { const o = box('g1'), i = box('g2'); return i.x >= o.x && i.y >= o.y && i.x + i.w <= o.x + o.w && i.y + i.h <= o.y + o.h; })();
+console.log([same, inside('a','g1'), inside('b','g1'), inside('c','g2'), nested, Object.keys(L1.pos).length].join(','));
+'@
+            $out | Should -Be 'true,true,true,true,true,4'
+        }
+        It 'puts tier 0 above tier 1 and takes a missing tier from the link depth' {
+            $out = & $script:runNode @'
+const block = { layout: 'layered', nodeWidth: 150, nodeHeight: 46,
+  nodes: [ {id:'t0',tier:0}, {id:'x'}, {id:'y'}, {id:'z',tier:5} ],
+  edges: [ {from:'x',to:'y',direction:'forward'} ], groups: [] };
+const L = dhNetLayout(block);
+console.log([L.pos.t0.y < L.pos.z.y, L.pos.x.y === L.pos.t0.y, L.pos.y.y > L.pos.x.y, L.lanes.map(l => l.tier).join('/')].join(','));
+'@
+            $out | Should -Be 'true,true,true,0/1/5'
+        }
+        It 'copes with a cycle in layered mode' {
+            $out = & $script:runNode @'
+const block = { layout: 'layered', nodes: [ {id:'a'}, {id:'b'}, {id:'c'} ],
+  edges: [ {from:'a',to:'b'}, {from:'b',to:'c'}, {from:'c',to:'a'} ], groups: [] };
+const L = dhNetLayout(block);
+console.log(Object.keys(L.pos).length + ':' + L.lanes.length);
+'@
+            $out | Should -Be '3:3'
+        }
+        It 'fans parallel edges out and loops a self edge' {
+            $out = & $script:runNode @'
+const pos = { a:{x:0,y:0,w:100,h:40}, b:{x:300,y:0,w:100,h:40} };
+const g = dhNetEdgeGeom([ {from:'a',to:'b'}, {from:'b',to:'a'}, {from:'a',to:'a'}, {from:'a',to:'zz'} ], pos);
+console.log([g[0].d !== g[1].d, g[0].my !== g[1].my, g[2].loop === true, g[3] === null].join(','));
+'@
+            $out | Should -Be 'true,true,true,true'
+        }
+        It 'traces the shortest directed path to the nearest target, deterministically' {
+            $out = & $script:runNode @'
+const block = { nodes: [ {id:'s'}, {id:'m1'}, {id:'m2'}, {id:'t1',target:true}, {id:'t2',target:true}, {id:'iso'} ],
+  edges: [ {from:'s',to:'m1',direction:'forward'}, {from:'s',to:'m2',direction:'forward'},
+           {from:'m1',to:'t1',direction:'forward'}, {from:'m2',to:'t2',direction:'forward'},
+           {from:'iso',to:'s',direction:'forward'} ] };
+const p = dhNetPath(block, 's');
+const back = dhNetPath(block, 'iso');
+const none = dhNetPath({ nodes: [ {id:'a'}, {id:'b',target:true} ], edges: [ {from:'b',to:'a',direction:'forward'} ] }, 'a');
+const both = dhNetPath({ nodes: [ {id:'a'}, {id:'b',target:true} ], edges: [ {from:'b',to:'a',direction:'both'} ] }, 'a');
+console.log([p.nodes.join('>'), p.edges.join('+'), back.nodes.join('>'), none === null, both.nodes.join('>'), dhNetPath(block,'t1').nodes.join('>')].join('|'));
+'@
+            $out | Should -Be 's>m1>t1|0+2|iso>s>m1>t1|true|a>b|t1'
+        }
+    }
+
+    Context 'Tooling knows the network map' {
+        It 'is mapped, listed and exported' {
+            $root = $script:root
+            (Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw) | Should -Match "networkmap\s+= 'Add-DhNetworkMap'"
+            (Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw) | Should -Match "'add-dhnetworkmap'='networkmap'"
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+                (Get-Content (Join-Path $root $f) -Raw) | Should -Match "'Add-DhNetworkMap'" -Because $f
+            }
+            (Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw) | Should -Match "'Add-DhNetworkMap'\s+= @\{"
+            (Import-PowerShellDataFile (Join-Path $root 'DashHtml/DashHtml.psd1')).FunctionsToExport | Should -Contain 'Add-DhNetworkMap'
+        }
+    }
+}
+
+Describe 'v2.4.0 features - column fit' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:rows = @([pscustomobject]@{ Name = 'a'; Path = 'x/y/z' })
+        $script:export = {
+            param([hashtable] $Extra = @{})
+            $r = New-DhDashboard -Title 't'
+            Add-DhTable -Report $r -TableId 'tb' -Title 'T' -Data $script:rows @Extra
+            Export-DhTestHtml -Report $r
+        }
+        $script:html = & $script:export
+    }
+
+    Context 'Add-DhTable options' {
+        It 'emits nothing for the default (auto) so existing tables export unchanged' {
+            $script:html | Should -Not -Match '"columnFit"'
+            $script:html | Should -Not -Match '"columnMax"'
+            $script:html | Should -Not -Match '"minWidth"'
+        }
+        It 'emits columnFit fixed and a non-default maximum' {
+            $h = & $script:export @{ ColumnFit = 'Fixed'; ColumnMaxWidth = 300 }
+            $h | Should -Match '"columnFit":"fixed"'
+            $h | Should -Match '"columnMax":300'
+        }
+        It 'rejects an unknown -ColumnFit and an out-of-range -ColumnMaxWidth' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTable -Report $r -TableId 'a' -Title 'T' -Data $script:rows -ColumnFit Wide } | Should -Throw
+            { Add-DhTable -Report $r -TableId 'b' -Title 'T' -Data $script:rows -ColumnMaxWidth 50 } | Should -Throw
+        }
+        It 'accepts a column MinWidth as 120, "120" or "120px" and emits it' {
+            foreach ($mw in 120, '120', '120px') {
+                $r = New-DhDashboard -Title 't'
+                Add-DhTable -Report $r -TableId 'a' -Title 'T' -Data $script:rows -Columns @(@{ Field = 'Name'; Label = 'Name'; MinWidth = $mw })
+                (Export-DhTestHtml -Report $r) | Should -Match '"minWidth":120'
+            }
+        }
+        It 'rejects a bad MinWidth' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTable -Report $r -TableId 'a' -Title 'T' -Data $script:rows -Columns @(@{ Field = 'Name'; Label = 'Name'; MinWidth = 'wide' }) } | Should -Throw '*MinWidth must be*'
+            { Add-DhTable -Report $r -TableId 'a' -Title 'T' -Data $script:rows -Columns @(@{ Field = 'Name'; Label = 'Name'; MinWidth = 5 }) } | Should -Throw '*MinWidth must be*'
+        }
+    }
+
+    Context 'Runtime' {
+        It 'applies widths in the order dragged, declared, measured' {
+            (Get-DhTestJsFunction -Html $script:html -Name '_effWidth') | Should -Match 'colWidths\[col\.field\]\)\s*\|\|\s*col\.width\s*\|\|\s*\(this\._fitW'
+        }
+        It 'skips measuring for Fixed and re-measures on fonts, density and new columns' {
+            (Get-DhTestJsFunction -Html $script:html -Name '_ensureFit') | Should -Match "columnFit==='fixed'"
+            (Get-DhTestJsFunction -Html $script:html -Name '_ensureFit') | Should -Match 'c\.field in self\._fitW'
+            $script:html | Should -Match 'document\.fonts\.ready\.then'
+            $script:html | Should -Match 'engines\[id\]\._refit\(\)'
+        }
+        It 'reads the font from a rendered cell and adds slack so the last glyph is never clipped' {
+            $fn = Get-DhTestJsFunction -Html $script:html -Name '_measureCol'
+            $fn | Should -Match 'getComputedStyle\(cell\)'
+            $fn | Should -Match '\+\s*4\)'
+        }
+        It 'fits to the widest text, the header, the cap and the floor (run in node)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            $src = (Get-DhTestJsFunction -Html $script:html -Name '_measureCol')
+            $js = @'
+const FMT = { apply: (c, v) => String(v) };
+function dhFitFont() { return ''; } function dhFitPad() { return 0; }
+const TableEngine = function () {};
+'@ + "`n" + $src + @'
+
+const ctx = { font: '', measureText: s => ({ width: String(s).length * 7 }) };
+const env = { row: null, off: 0, headFont: '', ls: 1, padH: 24 };
+const mk = rows => ({ allData: rows.map(v => ({ f: v })), columnMax: 800 });
+const run = (rows, col, max) => { const e = mk(rows); if (max) e.columnMax = max; return TableEngine.prototype._measureCol.call(e, Object.assign({ field: 'f', label: 'A' }, col), 0, ctx, env); };
+const r = [
+  run(['x'.repeat(10), 'x'.repeat(30)], {}),                        // widest cell: 210 + 24 + 4
+  run(['x'], { label: 'L'.repeat(40) }),                            // header: 280 + 40 + 30 + 24, then + 4
+  run(['x'.repeat(200)], {}),                                       // capped
+  run(['x'], { minWidth: 300 }),                                    // floor
+  run(['x'.repeat(10)], { cellType: 'badge' }),                     // + 22
+  run(['x'.repeat(200)], {}, 300),                                  // custom cap
+  run([], {})                                                       // no data: header only
+];
+console.log(r.join(','));
+'@
+            $f = Join-Path ([IO.Path]::GetTempPath()) ('dhfit_' + [guid]::NewGuid().ToString('N') + '.js')
+            try { Set-Content -LiteralPath $f -Value $js -Encoding utf8NoBOM; (& node $f 2>&1) -join "`n" | Should -Be '238,378,800,300,120,300,66' }
+            finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+        }
+    }
+}
+
+Describe 'v2.4.0 features - nav badges and search' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:export = {
+            param([hashtable] $Dash = @{})
+            $r = New-DhDashboard -Title 't' @Dash
+            Add-DhTable -Report $r -TableId 'tb' -Title 'T' -NavPath 'A' -Data @([pscustomobject]@{ Name = 'x' })
+            Add-DhFindings -Report $r -Id 'f' -Title 'F' -NavPath 'A' -Findings @(@{ Id = '1'; Title = 'Bad'; Severity = 'critical' })
+            Export-DhTestHtml -Report $r
+        }
+        $script:plain = & $script:export
+        $script:both  = & $script:export @{ NavBadge = $true; Search = $true }
+    }
+
+    Context 'Off by default (no change to existing reports)' {
+        It 'emits no search box and no badge flag' {
+            $script:plain | Should -Not -Match 'id="nav-search-input"'
+            $script:plain | Should -Not -Match 'data-navbadge'
+        }
+        It 'stores the switches on the report' {
+            $r = New-DhDashboard -Title 't' -NavBadge -Search
+            $r.NavBadge | Should -BeTrue
+            $r.Search | Should -BeTrue
+            (New-DhDashboard -Title 't').NavBadge | Should -BeFalse
+        }
+    }
+
+    Context '-NavBadge' {
+        It 'flags the nav and builds the index from findings with a nav path, excluding OK' {
+            $script:both | Should -Match 'data-navbadge="true"'
+            $fn = Get-DhTestJsFunction -Html $script:both -Name 'buildNavSevIndex'
+            $fn | Should -Match "b\.blockType !== 'findings'"
+            $fn | Should -Match 'critical: 0, warning: 0, info: 0'
+            $fn | Should -Not -Match "ok:"
+            $fn | Should -Match 'for \(var i = 1; i <= p\.length; i\+\+\)'
+        }
+        It 'runs after every nav change and addresses sidebar items by path too' {
+            (Get-DhTestJsFunction -Html $script:both -Name 'updateNavBadges') | Should -Match 'updateNavSeverity\(\)'
+            $script:both | Should -Match 'a\.dataset\.navto = JSON\.stringify\(child\.path\)'
+        }
+    }
+
+    Context '-Search' {
+        It 'adds one combobox in the menu bar outside the re-rendered strip' {
+            $script:both | Should -Match 'id="nav-search-input"'
+            $script:both | Should -Match 'role="combobox"'
+            $script:both | Should -Match 'id="nav-search-list" role="listbox"'
+            $i = $script:both.IndexOf('id="nav-strips-top"'); $j = $script:both.IndexOf('id="nav-search"')
+            $j | Should -BeGreaterThan $i
+            $script:both.IndexOf('</div>', $i) | Should -BeLessThan $j   # the search box is a sibling, not inside the strip
+        }
+        It 'escapes every result, never touches the URL, and has no inline handlers' {
+            $fn = Get-DhTestJsFunction -Html $script:both -Name 'initSearch'
+            $fn | Should -Match 'esc\(r\.text\)'
+            $fn | Should -Match 'esc\(r\.sub\)'
+            $fn | Should -Not -Match 'location\.hash|URLState|history\.'
+            $fn | Should -Not -Match '\son(click|keydown|input|change)\s*='
+        }
+        It 'uses the table filter''s own matcher and the single jump path' {
+            $fn = Get-DhTestJsFunction -Html $script:both -Name 'initSearch'
+            $fn | Should -Match '_matchText\(rows\[ri\], term, cols\)'
+            $fn | Should -Match 'jumpToTable\(r\.id, current\)'
+        }
+        It 'scans in time slices and can be cancelled by newer input' {
+            $fn = Get-DhTestJsFunction -Html $script:both -Name 'initSearch'
+            $fn | Should -Match 'setTimeout\(slice, 0\)'
+            $fn | Should -Match 'my !== token'
+            $fn | Should -Match 'debounce|setTimeout\(function \(\) \{ run\(current\); \}, 200\)'
+        }
+        It 'is booted after the nav exists' {
+            $script:both | Should -Match '(?s)initNav\(\);\s*initSearch\(\);'
+        }
+    }
+}
+
+Describe 'Alert banners follow the menu' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $r = New-DhDashboard -Title 't'
+        Add-DhTable -Report $r -TableId 'ta' -Title 'A' -NavPath 'A' -Data @([pscustomobject]@{ x = 1 })
+        Add-DhTable -Report $r -TableId 'tb' -Title 'B' -NavPath 'B' -Data @([pscustomobject]@{ x = 1 })
+        Add-DhAlertBanner -Report $r -Id 'glob'   -Message 'g' -Severity info
+        Add-DhAlertBanner -Report $r -Id 'exactA' -Message 'a' -Severity warning -NavPath 'A'
+        Add-DhAlertBanner -Report $r -Id 'subB'   -Message 'b' -Severity critical -NavPath 'B' -NavScope Subtree
+        Add-DhAlertBanner -Report $r -Id 'legB'   -Message 'l' -Severity ok -NavGroup 'B'
+        $script:html = Export-DhTestHtml -Report $r
+    }
+
+    It 'exports a path and scope only for banners bound to a path' {
+        $script:html | Should -Match '"id":"exactA"[^}]*"navPath":\["A"\],"navScope":"exact"'
+        $script:html | Should -Match '"id":"subB"[^}]*"navPath":\["B"\],"navScope":"subtree"'
+        $script:html | Should -Match '"id":"legB"[^}]*"navPath":\["B"\]'
+        $script:html | Should -Not -Match '"id":"glob"[^}]*"navPath"'
+    }
+    It 'marks the banner as a nav section and hides it until its path matches' {
+        $fn = Get-DhTestJsFunction -Html $script:html -Name 'renderAlerts'
+        $fn | Should -Match "banner\.setAttribute\('data-navpath'"
+        $fn | Should -Match 'navMatches\(banner'
+        $script:html | Should -Match '\.alert-banner\[data-navpath\]:not\(\.panel-active\)'
+    }
+    It 'keeps a banner out of the menu tree' {
+        (Get-DhTestJsFunction -Html $script:html -Name 'buildNavTree') | Should -Match "classList\.contains\('alert-banner'\)"
+    }
+}
+
+Describe 'Menu order uses the own node only' {
+    BeforeAll { . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1') }
+    It 'applies -NavOrder to the item node, not to its ancestors (JS matches Get-DhNavTree)' {
+        $r = New-DhDashboard -Title 't'
+        Add-DhTable -Report $r -TableId 'a' -Title 'A' -NavPath 'One/x' -Data @([pscustomobject]@{ v = 1 })
+        Add-DhTable -Report $r -TableId 'b' -Title 'B' -NavPath 'Two/y' -NavOrder 1 -Data @([pscustomobject]@{ v = 1 })
+        $h = Export-DhTestHtml -Report $r
+        (Get-DhTestJsFunction -Html $h -Name 'buildNavTree') | Should -Match 'i === p\.length - 1 && ord !== 0'
+    }
+}
+
+Describe 'Footer totals follow the selected rows' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $r = New-DhDashboard -Title 't'
+        Add-DhTable -Report $r -TableId 'tb' -Title 'T' -MultiSelect -Data @([pscustomobject]@{ n = 'a'; v = 1 }, [pscustomobject]@{ n = 'b'; v = 2 }) -Columns @(
+            @{ Field = 'n'; Label = 'N'; Aggregate = 'count' }, @{ Field = 'v'; Label = 'V'; Aggregate = 'sum' })
+        $script:html = Export-DhTestHtml -Report $r
+    }
+    It 'aggregates the selected rows that are still in the filtered set, otherwise every filtered row' {
+        $fn = Get-DhTestJsFunction -Html $script:html -Name '_renderFoot'
+        $fn | Should -Match 'this\.selected\.forEach'
+        $fn | Should -Match 'var aggRows = selRows \|\| filtered'
+        $fn | Should -Match 'aggRows\.length'
+    }
+    It 'refreshes the footer when a row is ticked or clicked in multi-select mode' {
+        ([regex]::Matches($script:html, '_renderSelClearBtn\(\);(self|this)\._renderFoot\(\)')).Count | Should -Be 2
+    }
+}
+
+Describe 'v2.5.0 features - tree table' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:root = Join-Path $PSScriptRoot '..'
+        $script:rows = {
+            @(
+                @{ Id = 'ou'; Type = 'ou'; Label = 'HQ' }
+                @{ Id = 'g1'; ParentId = 'ou'; Type = 'group'; Label = 'G1'; Flags = @('privileged'); Status = 'warning'; Properties = [ordered]@{ 'DN' = 'CN=G1'; 'Scope' = 'Global' } }
+                @{ Id = 'g2'; ParentId = 'ou'; Type = 'group'; Label = 'G2'; Detail = 'More text' }
+                @{ Id = 'u1'; ParentId = 'ou'; Type = 'user'; Label = 'U1' }
+            )
+        }
+        $script:links = { @(@{ GroupId = 'g1'; MemberId = 'g2' }, @{ GroupId = 'g2'; MemberId = 'u1' }) }
+    }
+
+    Context 'Add-DhTreeTable' {
+        It 'stores the block and exports it as treetable, with optional keys only when used' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows) -Memberships (& $script:links)
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"blockType":"treetable"'
+            $h | Should -Match '"links":\[\["g1","g2"\],\["g2","u1"\]\]'
+            $h | Should -Match '"status":"warn"'
+            $h | Should -Match '"flags":\["privileged"\]'
+            $h | Should -Match '"props":\[\{"label":"DN","value":"CN=G1"\}'
+            $h | Should -Match '"detail":\{'
+            $h | Should -Match '"type":"user","label":"U1","status":""\}'
+        }
+        It 'keeps a single row and a single membership as arrays' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows @(@{ Id = 'g'; Type = 'group'; Label = 'G' }) -Memberships @(@{ GroupId = 'g'; MemberId = 'g' })
+            $b = $r.Blocks[0]
+            $b.Rows.Count | Should -Be 1
+            $b.Memberships.Count | Should -Be 1
+            (Export-DhTestHtml -Report $r) | Should -Match '"links":\[\["g","g"\]\]'
+        }
+        It 'allows no memberships' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows)
+            (Export-DhTestHtml -Report $r) | Should -Match '"links":\[\]'
+        }
+        It 'throws on a bad row: <Name>' -ForEach @(
+            @{ Name = 'duplicate Id';     Rows = @(@{ Id = 'a'; Type = 'ou'; Label = 'A' }, @{ Id = 'a'; Type = 'ou'; Label = 'B' }); Pattern = '*duplicate row Id*' }
+            @{ Name = 'missing Label';    Rows = @(@{ Id = 'a'; Type = 'ou' }); Pattern = "*non-empty 'Label'*" }
+            @{ Name = 'unknown Type';     Rows = @(@{ Id = 'a'; Type = 'robot'; Label = 'A' }); Pattern = '*Type must be one of*' }
+            @{ Name = 'unknown ParentId'; Rows = @(@{ Id = 'a'; Type = 'ou'; Label = 'A'; ParentId = 'zz' }); Pattern = '*unknown ParentId*' }
+            @{ Name = 'own parent';       Rows = @(@{ Id = 'a'; Type = 'ou'; Label = 'A'; ParentId = 'a' }); Pattern = '*its own parent*' -replace 'its', 'be its' }
+            @{ Name = 'parent loop';      Rows = @(@{ Id = 'a'; Type = 'ou'; Label = 'A'; ParentId = 'b' }, @{ Id = 'b'; Type = 'ou'; Label = 'B'; ParentId = 'a' }); Pattern = '*ParentId chain loops*' }
+            @{ Name = 'bad status';       Rows = @(@{ Id = 'a'; Type = 'ou'; Label = 'A'; Status = 'purple' }); Pattern = '*Status must be*' }
+            @{ Name = 'bad Properties';   Rows = @(@{ Id = 'a'; Type = 'ou'; Label = 'A'; Properties = 'text' }); Pattern = '*Properties must be a hashtable*' }
+        ) {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows $Rows } | Should -Throw $Pattern
+        }
+        It 'throws on a bad membership: <Name>' -ForEach @(
+            @{ Name = 'unknown group';  Links = @(@{ GroupId = 'zz'; MemberId = 'u1' }); Pattern = "*GroupId 'zz' is not a row Id*" }
+            @{ Name = 'unknown member'; Links = @(@{ GroupId = 'g1'; MemberId = 'zz' }); Pattern = "*MemberId 'zz' is not a row Id*" }
+            @{ Name = 'wrong shape';    Links = @(@{ GroupId = 'g1' }); Pattern = '*must be @{ GroupId; MemberId }*' }
+        ) {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows) -Memberships $Links } | Should -Throw $Pattern
+        }
+        It 'warns when a membership group is not a group, and drops duplicates' {
+            $r = New-DhDashboard -Title 't'
+            $w = Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows) -Memberships @(@{ GroupId = 'ou'; MemberId = 'u1' }, @{ GroupId = 'g1'; MemberId = 'u1' }, @{ GroupId = 'g1'; MemberId = 'u1' }) 3>&1
+            "$w" | Should -Match "GroupId 'ou' is a ou, not a group"
+            $r.Blocks[0].Memberships.Count | Should -Be 2
+        }
+        It 'accepts a circular nesting (real directories have them)' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows) -Memberships @(@{ GroupId = 'g1'; MemberId = 'g2' }, @{ GroupId = 'g2'; MemberId = 'g1' }) } | Should -Not -Throw
+        }
+        It 'warns above -MaxRows without throwing' {
+            $r = New-DhDashboard -Title 't'
+            $many = foreach ($i in 1..12) { @{ Id = "n$i"; Type = 'user'; Label = "N$i" } }
+            "$(Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows $many -MaxRows 10 3>&1)" | Should -Match 'exceeds -MaxRows'
+        }
+        It 'rejects a duplicate block Id' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows)
+            { Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows) } | Should -Throw '*already exists*'
+        }
+        It 'renders with escaping and without inline handlers' {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows)
+            $h = Export-DhTestHtml -Report $r
+            $fn = Get-DhTestJsFunction -Html $h -Name 'renderTreeTable'
+            $fn | Should -Match 'esc\(r\.label\)'
+            $fn | Should -Not -Match '\son(click|keydown|input|change)\s*='
+            $h | Should -Match "case 'treetable':\s+renderTreeTable"
+        }
+    }
+
+    Context 'Membership logic (run in node)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        BeforeAll {
+            $r = New-DhDashboard -Title 't'
+            Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows (& $script:rows) -Memberships (& $script:links)
+            $script:h = Export-DhTestHtml -Report $r
+            $script:runNode = {
+                param([string] $Body)
+                $src = ('dhTtLinks', 'dhTtPaths', 'dhTtNested' | ForEach-Object { Get-DhTestJsFunction -Html $script:h -Name $_ }) -join "`n"
+                $f = Join-Path ([IO.Path]::GetTempPath()) ('dhtt_' + [guid]::NewGuid().ToString('N') + '.js')
+                try { Set-Content -LiteralPath $f -Value ($src + "`n" + $Body) -Encoding utf8NoBOM; (& node $f 2>&1) -join "`n" }
+                finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+            }
+        }
+        It 'builds both directions from the pairs' {
+            (& $script:runNode "const l = dhTtLinks([['g1','g2'],['g2','u1'],['g1','u1']]); console.log(JSON.stringify([l.membersOf.g1, l.memberOf.u1, l.memberOf.g1]));") | Should -Be '[["g2","u1"],["g2","g1"],null]'
+        }
+        It 'lists every path up and respects the cap' {
+            $out = & $script:runNode @'
+const l = dhTtLinks([['top1','mid'],['top2','mid'],['mid','u'],['top1','u']]);
+const p = dhTtPaths(l.memberOf, 'u', 50).paths.map(x => x.join('>')).sort();
+const c = dhTtPaths(l.memberOf, 'u', 1);
+console.log(p.join('|') + ';' + c.paths.length + ',' + c.more);
+'@
+            $out | Should -Be 'u>mid>top1|u>mid>top2|u>top1;1,2'
+        }
+        It 'flags a circular nesting and still ends' {
+            $out = & $script:runNode @'
+const l = dhTtLinks([['a','b'],['b','a'],['b','u']]);
+const e = dhTtPaths(l.memberOf, 'u', 50);
+const t = { a: 'group', b: 'group', u: 'user' };
+const n = dhTtNested(l.membersOf, t, 'a', 6);
+console.log([e.circular, e.paths.length, n.map(x => x.id + (x.circular ? '!' : '')).join(',')].join(';'));
+'@
+            $out | Should -Be 'true;1;b,a!'
+        }
+        It 'lists only groups in the nested view and honours the depth cap' {
+            $out = & $script:runNode @'
+const l = dhTtLinks([['g0','g1'],['g1','g2'],['g2','g3'],['g3','u']]);
+const t = { g0: 'group', g1: 'group', g2: 'group', g3: 'group', u: 'user' };
+console.log(dhTtNested(l.membersOf, t, 'g0', 2).map(x => x.id).join(',') + ';' + dhTtNested(l.membersOf, t, 'g0', 9).map(x => x.id).join(','));
+'@
+            $out | Should -Be 'g1,g2;g1,g2,g3'
+        }
+    }
+
+    Context 'Tooling knows the tree table' {
+        It 'is mapped, listed and exported' {
+            $root = $script:root
+            (Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw) | Should -Match "treetable\s+= 'Add-DhTreeTable'"
+            (Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw) | Should -Match "'add-dhtreetable'='treetable'"
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+                (Get-Content (Join-Path $root $f) -Raw) | Should -Match "'Add-DhTreeTable'" -Because $f
+            }
+            (Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw) | Should -Match "'Add-DhTreeTable'\s+= @\{"
+            (Import-PowerShellDataFile (Join-Path $root 'DashHtml/DashHtml.psd1')).FunctionsToExport | Should -Contain 'Add-DhTreeTable'
+        }
+    }
+}
+
+Describe 'v2.5.0 menu features' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        # the nav model and lint are private to the module: load them here, as the nav suite does
+        . (Join-Path $PSScriptRoot '../DashHtml/Private/Test-DhNavMatch.ps1')
+        . (Join-Path $PSScriptRoot '../DashHtml/Private/Get-DhNavModel.ps1')
+        . (Join-Path $PSScriptRoot '../DashHtml/Private/Test-DhNavLint.ps1')
+        $script:root = Join-Path $PSScriptRoot '..'
+        $script:newReport = {
+            param([hashtable] $Dash = @{})
+            $r = New-DhDashboard -Title 't' @Dash
+            Add-DhHtmlBlock -Report $r -Id 'own'  -Title 'o' -Content 'x' -NavPath 'Storage'
+            Add-DhHtmlBlock -Report $r -Id 'cap'  -Title 'c' -Content 'x' -NavPath 'Storage/Capacity'
+            Add-DhHtmlBlock -Report $r -Id 'snap' -Title 's' -Content 'x' -NavPath 'Storage/Snapshots'
+            Add-DhHtmlBlock -Report $r -Id 'net'  -Title 'n' -Content 'x' -NavPath 'Network'
+            $r
+        }
+        $script:nodeRun = {
+            param([string] $Html, [string[]] $Functions, [string] $Body)
+            $src = ($Functions | ForEach-Object { Get-DhTestJsFunction -Html $Html -Name $_ }) -join "`n"
+            $f = Join-Path ([IO.Path]::GetTempPath()) ('dhnav_' + [guid]::NewGuid().ToString('N') + '.js')
+            try { Set-Content -LiteralPath $f -Value ($src + "`n" + $Body) -Encoding utf8NoBOM; (& node $f 2>&1) -join "`n" }
+            finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+        }
+    }
+
+    Context '-NavAllLabel' {
+        It 'matches everything at or below the parent for the reserved * segment (PowerShell)' {
+            Test-DhNavMatch -DeclaredPath @('Storage') -SelectedPath @('Storage', '*') -Scope Exact   | Should -BeTrue
+            Test-DhNavMatch -DeclaredPath @('Storage', 'Capacity') -SelectedPath @('Storage', '*') -Scope Exact | Should -BeTrue
+            Test-DhNavMatch -DeclaredPath @('Storage', 'Capacity', 'Vols') -SelectedPath @('Storage', '*') -Scope Exact | Should -BeTrue
+            Test-DhNavMatch -DeclaredPath @('Network') -SelectedPath @('Storage', '*') -Scope Exact | Should -BeFalse
+            Test-DhNavMatch -DeclaredPath @() -SelectedPath @('Storage', '*') -Scope Subtree | Should -BeTrue
+            Test-DhNavMatch -DeclaredPath @() -SelectedPath @('Storage', '*') -Scope Global  | Should -BeTrue
+            Test-DhNavMatch -DeclaredPath @('Storage') -SelectedPath @('Storage', 'Capacity', '*') -Scope Subtree | Should -BeTrue
+            Test-DhNavMatch -DeclaredPath @('Storage') -SelectedPath @('Storage', 'Capacity', '*') -Scope Exact   | Should -BeFalse
+            Test-DhNavMatch -DeclaredPath @('Storage') -SelectedPath @('*') -Scope Exact | Should -BeTrue
+        }
+        It 'rejects * as a path segment' {
+            { ConvertFrom-DhNavPath 'Storage/*' } | Should -Throw "*reserved*"
+        }
+        It 'accepts a string or a hashtable, rejects other things, and emits the attribute only when used' {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{})
+            $h | Should -Not -Match 'data-navall'
+            $h = Export-DhTestHtml -Report (& $script:newReport @{ NavAllLabel = 'Everything' })
+            $h | Should -Match 'data-navallall="Everything"'
+            $h = Export-DhTestHtml -Report (& $script:newReport @{ NavAllLabel = @{ 'Storage' = 'All storage' } })
+            $h | Should -Match 'data-navall="\[\{&quot;path&quot;:\[&quot;Storage&quot;\],&quot;label&quot;:&quot;All storage&quot;\}\]"'
+            { New-DhDashboard -Title 't' -NavAllLabel 42 } | Should -Throw '*string or a hashtable*'
+            { New-DhDashboard -Title 't' -NavAllLabel @{ 'A' = '' } } | Should -Throw '*non-empty label*'
+        }
+        It 'mirrors the matcher in the browser and never makes the All view the default' {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{ NavAllLabel = 'All' })
+            (Get-DhTestJsFunction -Html $h -Name 'navMatches') | Should -Match "path\[path\.length - 1\] === '\*'"
+            (Get-DhTestJsFunction -Html $h -Name 'navAutoDescend') | Should -Match "k !== '\*'"
+        }
+        It 'matches the PowerShell truth table in node' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{ NavAllLabel = 'All' })
+            $cases = @(
+                @(@('Storage'), 'exact', @('Storage', '*')), @(@('Storage', 'Capacity'), 'exact', @('Storage', '*')),
+                @(@('Storage', 'Capacity', 'Vols'), 'exact', @('Storage', '*')), @(@('Network'), 'exact', @('Storage', '*')),
+                @(@(), 'subtree', @('Storage', '*')), @(@(), 'global', @('Storage', '*')),
+                @(@('Storage'), 'subtree', @('Storage', 'Capacity', '*')), @(@('Storage'), 'exact', @('Storage', 'Capacity', '*')),
+                @(@('Storage'), 'exact', @('*')))
+            $expected = foreach ($c in $cases) { Test-DhNavMatch -DeclaredPath $c[0] -SelectedPath $c[2] -Scope ((Get-Culture).TextInfo.ToTitleCase($c[1])) }
+            $json = ConvertTo-Json -InputObject @($cases | ForEach-Object { , @($_[0], $_[1], $_[2]) }) -Compress -Depth 5
+            $body = "const cases = $json; console.log(cases.map(c => navMatches({ dataset: { navpath: JSON.stringify(c[0]), navscope: c[1] } }, c[2])).join(','));"
+            (& $script:nodeRun $h @('navPathOf', 'navMatches') $body) | Should -Be (($expected | ForEach-Object { $_.ToString().ToLower() }) -join ',')
+        }
+    }
+
+    Context '-NavTree' {
+        It 'validates and normalises the skeleton' {
+            { New-DhDashboard -Title 't' -NavTree @('Storage') } | Should -Throw '*hashtable with a Path*'
+            { New-DhDashboard -Title 't' -NavTree @(@{ Path = 'A' }, @{ Path = 'A' }) } | Should -Throw '*twice*'
+            { New-DhDashboard -Title 't' -NavTree @(@{ Path = 'A'; Order = 'x' }) } | Should -Throw '*Order must be*'
+            { New-DhDashboard -Title 't' -NavTree @(@{ Path = 'A/*' }) } | Should -Throw '*reserved*'
+            $r = New-DhDashboard -Title 't' -NavTree @(@{ Path = 'A'; Label = 'Alpha'; Order = 2 })
+            $r.NavTree.Count | Should -Be 1
+            $r.NavTree[0].Label | Should -Be 'Alpha'
+        }
+        It 'emits the skeleton only when given, and the runtime applies labels, order and empty nodes' {
+            (Export-DhTestHtml -Report (& $script:newReport @{})) | Should -Not -Match 'data-navtree'
+            $h = Export-DhTestHtml -Report (& $script:newReport @{ NavTree = @(@{ Path = 'Network' }, @{ Path = 'Storage'; Label = 'Disks' }) })
+            $h | Should -Match 'data-navtree="\[\{&quot;path&quot;:\[&quot;Network&quot;\]'
+            (Get-DhTestJsFunction -Html $h -Name 'buildNavTree') | Should -Match '-100000 \+ si'
+        }
+        It 'puts skeleton order ahead of declaration order in the opening view' {
+            $r = New-DhDashboard -Title 't' -NavTree @(@{ Path = 'Network' }, @{ Path = 'Storage' })
+            Add-DhHtmlBlock -Report $r -Id 'a' -Title 'a' -Content 'x' -NavPath 'Storage'
+            Add-DhHtmlBlock -Report $r -Id 'b' -Title 'b' -Content 'x' -NavPath 'Network'
+            $tree = Get-DhNavTree -Report $r
+            (Get-DhNavInitialPath -Tree $tree) | Should -Be @('Network')
+        }
+        It 'creates an empty node for a skeleton path with nothing on it' {
+            $r = New-DhDashboard -Title 't' -NavTree @(@{ Path = 'Later/Soon' })
+            Add-DhHtmlBlock -Report $r -Id 'a' -Title 'a' -Content 'x' -NavPath 'Storage'
+            (Get-DhNavTree -Report $r).Children.Contains('Later') | Should -BeTrue
+        }
+    }
+
+    Context 'Empty view' {
+        It 'is drawn by the runtime as a status note that ignores banners and global items' {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{})
+            $fn = Get-DhTestJsFunction -Html $h -Name 'updateEmptyView'
+            $fn | Should -Match "setAttribute\('role', 'status'\)"
+            $fn | Should -Match "classList\.contains\('alert-banner'\)"
+            $fn | Should -Match "=== 'global'"
+            (Get-DhTestJsFunction -Html $h -Name 'applyNav') | Should -Match 'updateEmptyView\(\)'
+        }
+    }
+
+    Context '-StrictNav' {
+        It 'is silent for a clean menu' {
+            $r = & $script:newReport @{ StrictNav = $true }
+            @(Test-DhNavLint -Report $r).Count | Should -Be 0
+        }
+        It 'flags <Name>' -ForEach @(
+            @{ Name = 'a path deeper than 3 levels';   Path = 'A/B/C/D';        Scope = 'Exact';   Pattern = '*4 levels deep*' }
+            @{ Name = 'names that differ only in case'; Path = 'storage';        Scope = 'Exact';   Pattern = "*differ only in case*" }
+            @{ Name = 'names one letter apart';        Path = 'Storag';         Scope = 'Exact';   Pattern = '*one letter apart*' }
+            @{ Name = 'a Subtree item with nothing below'; Path = 'Network';    Scope = 'Subtree'; Pattern = '*has no views below it*' }
+        ) {
+            $r = & $script:newReport @{ StrictNav = $true }
+            Add-DhHtmlBlock -Report $r -Id 'extra' -Title 'e' -Content 'x' -NavPath $Path -NavScope $Scope
+            ((Test-DhNavLint -Report $r) -join "`n") | Should -BeLike $Pattern
+        }
+        It 'flags labels that clash and a path that is not in -NavTree, and -NavTree nodes with nothing on them' {
+            $r = New-DhDashboard -Title 't' -StrictNav -NavTree @(@{ Path = 'Storage' }, @{ Path = 'Empty' })
+            Add-DhHtmlBlock -Report $r -Id 'a' -Title 'a' -Content 'x' -NavPath 'Storage'
+            Add-DhHtmlBlock -Report $r -Id 'b' -Title 'b' -Content 'x' -NavPath 'Other'
+            Add-DhHtmlBlock -Report $r -Id 'c' -Title 'c' -Content 'x' -NavPath 'Reports/Alpha' -NavLabel 'Same'
+            Add-DhHtmlBlock -Report $r -Id 'd' -Title 'd' -Content 'x' -NavPath 'Reports/Beta' -NavLabel 'same'
+            $m = (Test-DhNavLint -Report $r) -join "`n"
+            $m | Should -BeLike "*'Other' (used by 'b') is not listed in -NavTree*"
+            $m | Should -BeLike "*-NavTree node 'Empty' has no content*"
+            $m | Should -BeLike "*both show as 'Same'*"
+        }
+        It 'flags a -NavAllLabel that names no group' {
+            $r = & $script:newReport @{ StrictNav = $true; NavAllLabel = @{ 'Network' = 'All'; 'Storage' = 'All storage' } }
+            ((Test-DhNavLint -Report $r) -join "`n") | Should -BeLike "*-NavAllLabel 'Network' names no group*"
+        }
+        It 'warns at export only with -StrictNav, and marks the page for the empty-view hint' {
+            $r = & $script:newReport @{ StrictNav = $true }
+            Add-DhHtmlBlock -Report $r -Id 'x' -Title 'x' -Content 'x' -NavPath 'Storag'
+            $res = Export-DhTestHtml -Report $r -WithWarnings
+            ($res.Warnings -join ' ') | Should -Match 'Nav lint'
+            $res.Html | Should -Match 'data-navstrict="true"'
+            $r2 = & $script:newReport @{}
+            Add-DhHtmlBlock -Report $r2 -Id 'x' -Title 'x' -Content 'x' -NavPath 'Storag'
+            ((Export-DhTestHtml -Report $r2 -WithWarnings).Warnings -join ' ') | Should -Not -Match 'Nav lint'
+        }
+        It 'computes edit distance' {
+            Get-DhEditDistance 'Storage' 'Storag' | Should -Be 1
+            Get-DhEditDistance 'abc' 'abc' | Should -Be 0
+            Get-DhEditDistance 'kitten' 'sitting' | Should -Be 3
+            Get-DhEditDistance '' 'ab' | Should -Be 2
+        }
+    }
+
+    Context 'Overflow and keyboard' {
+        It 'emits the wrap opt-out only for -NavOverflow Wrap' {
+            # the attribute on <nav>; the CSS also names it in a selector (2.5.3)
+            (Export-DhTestHtml -Report (& $script:newReport @{})) | Should -Not -Match '<nav[^>]*data-navoverflow'
+            (Export-DhTestHtml -Report (& $script:newReport @{ NavOverflow = 'More' })) | Should -Not -Match '<nav[^>]*data-navoverflow'
+            (Export-DhTestHtml -Report (& $script:newReport @{ NavOverflow = 'Wrap' })) | Should -Match '<nav[^>]*data-navoverflow="wrap"'
+            { New-DhDashboard -Title 't' -NavOverflow Scroll } | Should -Throw
+        }
+        It 'fits chips into two rows with the selected one kept visible (node)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{})
+            $body = @'
+const w = Array(20).fill(100);                                   // 20 chips of 100px in a 450px strip, gap 4
+const none = dhNavFit(w, 450, 4, 2, 80, -1);
+const act = dhNavFit(w, 450, 4, 2, 80, 17);
+const small = dhNavFit([100, 100, 100], 450, 4, 2, 80, 1);
+const wide = dhNavFit(Array(40).fill(60), 2000, 4, 2, 80, 39);
+console.log([none.visible.length, none.overflow.length, act.visible.indexOf(17) !== -1, act.visible.length === none.visible.length,
+             small.overflow.length, wide.visible.indexOf(39) !== -1, none.visible.concat(none.overflow).length].join(','));
+'@
+            (& $script:nodeRun $h @('dhNavFit') $body) | Should -Be '7,13,true,true,0,true,20'
+        }
+        It 'keeps the menu on one row: More after the first row, badges filled before the fit (2.5.3)' {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{})
+            $h | Should -Match 'var DH_NAV_MAX_ROWS = 1;'
+            $fit = Get-DhTestJsFunction -Html $h -Name 'dhNavFitStrip'
+            $fit | Should -Match 'DH_NAV_MAX_ROWS, moreW, active'
+            $fit | Should -Match 'paddingLeft'
+            $strips = Get-DhTestJsFunction -Html $h -Name 'renderNavStrips'
+            $strips.IndexOf('dhNavDecorate(inner)') | Should -BeGreaterThan -1
+            $strips.IndexOf('dhNavDecorate(inner)') | Should -BeLessThan $strips.IndexOf('dhNavFitStrip(inner)')
+            (Get-DhTestJsFunction -Html $h -Name 'updateNavBadges') | Should -Match 'dhNavRefitIfWrapped'
+            # the top strip keeps its line: with flex-basis auto a long menu dropped onto a row of its own
+            $h | Should -Match '\.nav-strip-top \{[^}]*flex: 1 1 0;'
+            # -NavOverflow Wrap keeps the earlier layout
+            $h | Should -Match '\[data-navoverflow="wrap"\] \.nav-strip-top \{ flex: 1 1 auto;'
+        }
+        It 'emits no inline on* handler; the Top button is bound by the runtime (2.5.3)' {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{})
+            $markup = [regex]::Replace($h, '(?s)<script\b[^>]*>.*?</script>', '')
+            $markup | Should -Not -Match '\son[a-z]+\s*='
+            $h | Should -Match 'id="btn-nav-top"'
+            $h | Should -Match "getElementById\('btn-nav-top'\)"
+        }
+        It 'has one tab stop per strip, arrow keys, Escape and focus restore' {
+            $h = Export-DhTestHtml -Report (& $script:newReport @{})
+            (Get-DhTestJsFunction -Html $h -Name 'dhNavKeydown') | Should -Match "ArrowRight"
+            (Get-DhTestJsFunction -Html $h -Name 'dhNavKeydown') | Should -Match "Escape"
+            (Get-DhTestJsFunction -Html $h -Name 'dhNavTabStop') | Should -Match 'tabIndex = 0'
+            (Get-DhTestJsFunction -Html $h -Name 'applyNav') | Should -Match 'focusKey'
+            (Get-DhTestJsFunction -Html $h -Name 'renderNavStrips') | Should -Match "aria-current"
+            (Get-DhTestJsFunction -Html $h -Name 'renderNavCrumb') | Should -Match "role', 'navigation'"
+        }
+    }
+
+    Context 'Show-DhNavMap reads the new attributes' {
+        It 'does not fail on a page with a skeleton and All nodes' {
+            $r = & $script:newReport @{ NavAllLabel = 'All'; NavTree = @(@{ Path = 'Network' }, @{ Path = 'Storage' }) }
+            $f = Join-Path ([IO.Path]::GetTempPath()) ('nm_' + [guid]::NewGuid().ToString('N') + '.html')
+            try {
+                Set-Content -LiteralPath $f -Value (Export-DhTestHtml -Report $r) -Encoding utf8
+                $map = & (Join-Path $script:root 'Tools/Show-DhNavMap.ps1') -Path $f -Quiet -PassThru 6>$null
+                @($map.Views).Count | Should -BeGreaterThan 1
+            } finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+        }
+    }
+}
+
+Describe 'v2.5.0 column picker' {
+
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:rows = @([pscustomobject]@{ a = 1; b = 2; c = 3 })
+        $script:export = {
+            param([hashtable] $Table = @{}, [object[]] $Columns = $null, [string] $Title = 'T')
+            $r = New-DhDashboard -Title $Title -GeneratedBy 'g.ps1'
+            if ($Columns) { Add-DhTable -Report $r -TableId 'tb' -Title 'T' -Data $script:rows -Columns $Columns @Table }
+            else { Add-DhTable -Report $r -TableId 'tb' -Title 'T' -Data $script:rows @Table }
+            Export-DhTestHtml -Report $r
+        }
+        $script:cols = @(@{ Field = 'a'; Label = 'A' }, @{ Field = 'b'; Label = 'B'; Hidden = $true }, @{ Field = 'c'; Label = 'C' })
+    }
+
+    Context 'Add-DhTable' {
+        It 'emits hidden and remember only when used (existing tables export unchanged)' {
+            $h = & $script:export @{} $null
+            $h | Should -Not -Match '"hidden"'
+            $h | Should -Not -Match '"remember"'
+            $h = & $script:export @{ RememberColumns = $true } $script:cols
+            $h | Should -Match '"field":"b","label":"B","hidden":true'
+            $h | Should -Match '"remember":"[0-9a-f]{16}"'
+        }
+        It 'derives the same key for the same report and table, and a different one otherwise' {
+            $k = { param($h) [regex]::Match($h, '"remember":"([0-9a-f]{16})"').Groups[1].Value }
+            $a = & $k (& $script:export @{ RememberColumns = $true } $script:cols 'Report A')
+            $b = & $k (& $script:export @{ RememberColumns = $true } $script:cols 'Report A')
+            $c = & $k (& $script:export @{ RememberColumns = $true } $script:cols 'Report B')
+            $a | Should -Be $b
+            $a | Should -Not -Be $c
+        }
+        It 'rejects a non-boolean Hidden and a table where every column is hidden' {
+            $r = New-DhDashboard -Title 't'
+            { Add-DhTable -Report $r -TableId 'x' -Title 'X' -Data $script:rows -Columns @(@{ Field = 'a'; Label = 'A'; Hidden = 'yes' }, @{ Field = 'b'; Label = 'B' }) } | Should -Throw '*Hidden must be*'
+            { Add-DhTable -Report $r -TableId 'y' -Title 'Y' -Data $script:rows -Columns @(@{ Field = 'a'; Label = 'A'; Hidden = $true }) } | Should -Throw '*every column is Hidden*'
+        }
+    }
+
+    Context 'Runtime' {
+        BeforeAll { $script:html = & $script:export @{ RememberColumns = $true } $script:cols }
+        It 'starts hidden columns unticked, ticks by the live state, labels the button and offers a reset' {
+            $script:html | Should -Match 'colVisible\[i\]=!col\.hidden'
+            $fn = Get-DhTestJsFunction -Html $script:html -Name '_buildColToggle'
+            $fn | Should -Match 'chk\.checked=self\.colVisible\[i\]!==false'
+            $fn | Should -Match 'Default columns'
+            $fn | Should -Match '_colToggleLabel\(\)'
+            (Get-DhTestJsFunction -Html $script:html -Name '_colToggleLabel') | Should -Match "hidden\)"
+        }
+        It 'keeps the choice by field name, guarded against blocked storage (node)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            $src = ('_colsKey', '_restoreCols', '_saveCols' | ForEach-Object { Get-DhTestJsFunction -Html $script:html -Name $_ }) -join "`n"
+            $js = @'
+const TableEngine = function () {};
+'@ + "`n" + $src + @'
+
+const store = new Map();
+global.window = { localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v), removeItem: k => store.delete(k) } };
+const mk = (key) => ({ _colsKey: TableEngine.prototype._colsKey, rememberKey: key, columns: [{ field: 'a' }, { field: 'b', hidden: true }, { field: 'c' }], colVisible: { 0: true, 1: false, 2: true } });
+const e1 = mk('abc'); e1.colVisible[0] = false; e1.colVisible[1] = true; TableEngine.prototype._saveCols.call(e1);
+const saved = JSON.parse(store.get('dh:cols:abc'));
+const e2 = mk('abc'); TableEngine.prototype._restoreCols.call(e2);
+const e3 = mk('');   e3.colVisible[0] = false; TableEngine.prototype._saveCols.call(e3);          // no key: nothing stored
+const e4 = { _colsKey: TableEngine.prototype._colsKey, rememberKey: 'abc', columns: [{ field: 'a' }, { field: 'z' }], colVisible: { 0: true, 1: true } };   // a column added later keeps its default
+TableEngine.prototype._restoreCols.call(e4);
+global.window.localStorage.getItem = () => { throw new Error('blocked'); };
+global.window.localStorage.setItem = () => { throw new Error('blocked'); };
+let blocked = 'ok'; try { TableEngine.prototype._saveCols.call(mk('abc')); TableEngine.prototype._restoreCols.call(mk('abc')); } catch (x) { blocked = 'threw'; }
+console.log([JSON.stringify(saved), JSON.stringify(e2.colVisible), store.size, JSON.stringify(e4.colVisible), blocked].join(' | '));
+'@
+            $f = Join-Path ([IO.Path]::GetTempPath()) ('dhcols_' + [guid]::NewGuid().ToString('N') + '.js')
+            try { Set-Content -LiteralPath $f -Value $js -Encoding utf8NoBOM; $out = (& node $f 2>&1) -join "`n" } finally { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+            $out | Should -Be '{"a":false,"b":true,"c":true} | {"0":false,"1":true,"2":true} | 1 | {"0":false,"1":true} | ok'
+        }
+    }
+}
+
+Describe 'v2.4.2 print and theme checks' {
+    BeforeAll {
+        $d = Join-Path (Split-Path $PSScriptRoot) 'DashHtml/Private'
+        . (Join-Path $d 'Get-DhCssBase.ps1')
+        $script:base = Get-DhCssBase
+        $script:themes = foreach ($th in 'Default', 'Azure', 'VMware', 'Grey', 'Company', 'Rag') { foreach ($m in 'Light', 'Dark') {
+            . (Join-Path $d "Get-DhCss$th$m.ps1"); [pscustomobject]@{ Name = "$th$m"; Css = (& "Get-DhCss$th$m") } } }
+    }
+    It 'every CSS variable used without a fallback is defined in <Name>' -ForEach @(
+        'Default', 'Azure', 'VMware', 'Grey', 'Company', 'Rag' | ForEach-Object { $n = $_; 'Light', 'Dark' | ForEach-Object { @{ Name = "$n$_" } } }) {
+        $used = [regex]::Matches($script:base, 'var\((--[\w-]+)\s*\)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        $css = ($script:themes | Where-Object Name -eq $Name).Css
+        $defined = [regex]::Matches($script:base + $css, '(--[\w-]+)\s*:') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        @($used | Where-Object { $_ -notin $defined }) | Should -BeNullOrEmpty
+    }
+    It 'print rules wrap wide tables and keep the map and tree printable' {
+        $script:base | Should -Match '(?s)@media print \{\s*\.table-section \{ overflow: visible; \}\s*\.data-table \{ width: 100% !important'
+        $script:base | Should -Match '(?s)@media print \{\s*\.network-map-toolbar, \.nm-status \{ display: none !important; \}'
+        $script:base | Should -Match '(?s)\.treefilter-toolbar, \.dh-tree-info, \.treefilter-empty \{ display: none !important; \}'
+    }
+}
+Describe 'v2.5.1 hardening' {
+    BeforeAll { . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1') }
+    It 'runs the node runtime tests (node --test Tests/js/*.test.js)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Push-Location (Split-Path $PSScriptRoot)
+        try { $out = & node --test 'Tests/js/*.test.js' 2>&1 | Out-String; $LASTEXITCODE | Should -Be 0 -Because $out }
+        finally { Pop-Location }
+    }
+    It 'rounds an unformatted footer average instead of showing 37.333333333' {
+        $r = New-DhDashboard -Title 'F'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ v = 1 }, [pscustomobject]@{ v = 1 }, [pscustomobject]@{ v = 2 }) `
+            -Columns @(@{ Field = 'v'; Label = 'V'; Aggregate = 'avg' })
+        $h = Export-DhTestHtml -Report $r
+        $h | Should -Match "result\.toFixed\(col\.decimals >= 0 \? col\.decimals : 2\)"
+    }
+}
+Describe 'v2.5.1 print and contrast fixes' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $d = Join-Path (Split-Path $PSScriptRoot) 'DashHtml/Private'
+        . (Join-Path $d 'Get-DhCssBase.ps1'); $script:base = Get-DhCssBase
+    }
+    It 'drops soft shadows in print (blurred shadow groups hid heatmap cells and block titles in the PDF)' {
+        $script:base | Should -Match '(?s)@media print \{.{0,900}\*, \*::before, \*::after \{ box-shadow: none !important; text-shadow: none !important; \}'
+    }
+    It 'tightens wide tables in print' {
+        $script:base | Should -Match '\.data-table th, \.data-table td \{ padding: 3px 4px !important; \}'
+        $script:base | Should -Match '\.data-table td svg \{ max-width: 64px'
+    }
+    It 'gives every heatmap cell a text colour picked against its own background' {
+        $r = New-DhDashboard -Title 'H'
+        Add-DhHeatmap -Report $r -Id 'h' -Title 'H' -Rows @('a') -Columns @('x', 'y') -Cells @(@{ Row = 'a'; Column = 'x'; Value = 1 }, @{ Row = 'a'; Column = 'y'; Value = 99 }) -ShowValues
+        $h = Export-DhTestHtml -Report $r
+        $h | Should -Match "color:'\+dhTextOn\(col\)"
+    }
+    It 'nav badge and tree table type letters use the primary text colour' {
+        $script:base | Should -Match '(?s)\.nav-badge \{[^}]*color: var\(--text-primary\)'
+        $script:base | Should -Match '\.tt-type \{ color: var\(--text-primary\); \}'
+    }
+}
+Describe 'v2.5.2 release hygiene and contrast tool' {
+    It 'keeps the manifests'' ReleaseNotes well under the PSGallery cap (<Name>)' -ForEach @(
+        @{ Name = 'DashHtml';        Path = (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') }
+        @{ Name = 'DashHtml.Design'; Path = (Join-Path $PSScriptRoot '../DashHtml.Design/DashHtml.Design.psd1') }) {
+        $m = Import-PowerShellDataFile -LiteralPath $Path
+        $len = ([string]$m.PrivateData.PSData.ReleaseNotes).Length
+        $len | Should -BeLessThan 9500 -Because 'the cap is 10,600 and the next release needs room'
+    }
+    It 'ships the contrast tool with its selector list and measuring script' {
+        foreach ($f in 'Test-DhContrast.ps1', 'contrast-selectors.json', 'contrast-measure.js') { Test-Path (Join-Path $PSScriptRoot "../Tools/$f") | Should -BeTrue }
+        $cfg = Get-Content (Join-Path $PSScriptRoot '../Tools/contrast-selectors.json') -Raw | ConvertFrom-Json
+        @($cfg.selectors).Count | Should -BeGreaterThan 15
+    }
+    It 'finds no text below the minimum contrast in the Default theme, light and dark (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+        $r = @(& (Join-Path $PSScriptRoot '../Tools/Test-DhContrast.ps1') -Theme Default -PassThru 6>$null)
+        ($r | ForEach-Object { "$($_.Ratio) $($_.Selector) $($_.Text)" }) | Should -BeNullOrEmpty
+    }
+}
+Describe 'v2.5.2 accessibility' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $r = New-DhDashboard -Title 'A11y' -NavTitle 'A' -Search
+        Add-DhSummary -Report $r -Items @(@{ Label = 'One'; Value = 1 }, @{ Label = 'Two'; Value = 2 })
+        $rows = 1..12 | ForEach-Object { [pscustomobject]@{ Name = "n$_"; Site = "s$($_ % 3)"; Size = $_ * 3 } }
+        Add-DhTable -Report $r -TableId 'sel' -Title 'Selectable' -Data $rows -MultiSelect -NavPath 'One' -Columns @(
+            @{ Field = 'Name'; Label = 'Name' }, @{ Field = 'Site'; Label = 'Site' }, @{ Field = 'Size'; Label = 'Size'; Aggregate = 'sum' })
+        Add-DhFindings -Report $r -Id 'f' -Title 'Findings' -NavPath 'One' -Findings @(@{ Id = 'a'; Title = 'A finding'; Severity = 'warning'; Description = 'text' })
+        $script:html = Export-DhTestHtml -Report $r
+        $script:probe = Join-Path $PSScriptRoot '../Tools/Test-DhA11y.ps1'
+        $script:tmp = Join-Path ([IO.Path]::GetTempPath()) ('dh_a11y_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmp | Out-Null
+    }
+    AfterAll { if (Test-Path -LiteralPath $script:tmp) { [IO.Directory]::Delete($script:tmp, $true) } }
+    It 'names the table filter and the select-all checkbox, and gives rows aria-selected' {
+        $script:html | Should -Match 'id="filter-sel"[^>]*aria-label="Filter Selectable"'
+        $script:html | Should -Match 'id="filter-clear-sel"[^>]*aria-label="Clear filter"'
+        $script:html | Should -Match 'aria-label="Select all rows"'
+        $script:html | Should -Match "chk\.setAttribute\('aria-label','Select row '"
+        $script:html | Should -Match "tr\.setAttribute\('aria-selected'"
+    }
+    It 'binds every collapsible header through dhBindCollapsible (keyboard and aria-expanded)' {
+        $script:html | Should -Match 'function dhBindCollapsible\(toggle, body, chevron\)'
+        ([regex]::Matches($script:html, 'dhBindCollapsible\(toggle, body, chev(ron)?\)')).Count | Should -BeGreaterOrEqual 3
+    }
+    It 'passes the audit with no errors or warnings (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+        $file = Join-Path $script:tmp 'ok.html'
+        Set-Content -LiteralPath $file -Value $script:html -Encoding utf8
+        $f = @(& $script:probe -Path $file -Strict -PassThru 6>$null)
+        ($f | ForEach-Object { "$($_.Severity) $($_.Rule) $($_.Sample)" }) | Should -BeNullOrEmpty
+    }
+    It 'finds the defects it is meant to find (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+        $file = Join-Path $script:tmp 'bad.html'
+        Set-Content -LiteralPath $file -Encoding utf8 -Value '<!doctype html><html><head><title>x</title></head><body><button></button><div class="collapsible-toggle">T</div><table class="data-table"><tr><th class="sortable">A</th></tr></table><div id="a"></div><div id="a"></div></body></html>'
+        $rules = @(& $script:probe -Path $file -PassThru 6>$null | ForEach-Object Rule)
+        foreach ($want in 'control-without-name', 'duplicate-id', 'expandable-not-keyboard-operable', 'sortable-header-without-aria-sort', 'html-without-lang', 'no-main-landmark') { $rules | Should -Contain $want }
+    }
+}
+Describe 'v2.5.2 baseline markers' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        Import-Module (Join-Path $PSScriptRoot '../DashHtml.Design/DashHtml.Design.psd1') -Force   # this checkout, not an installed copy
+        $script:data = @(
+            [pscustomobject]@{ Name = 'a'; V = 1; W = 'x' }, [pscustomobject]@{ Name = 'b'; V = 2; W = 'y' },
+            [pscustomobject]@{ Name = 'c'; V = 3; W = 'z' }, [pscustomobject]@{ Name = 'd'; V = 4; W = $null })
+        $script:base = @(
+            [pscustomobject]@{ Name = 'A'; V = 1; W = 'x' }, [pscustomobject]@{ Name = 'b'; V = 9; W = 'y' },
+            [pscustomobject]@{ Name = 'd'; V = 4; W = '' }, [pscustomobject]@{ Name = 'gone'; V = 5; W = 'q' })
+        $script:diff = & (Get-Module DashHtml) { param($d, $b) Get-DhBaselineDiff -Data $d -Baseline $b -KeyField Name } $script:data $script:base
+        $script:render = {
+            param([hashtable] $Extra = @{})
+            $r = New-DhDashboard -Title 'B'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:data @Extra
+            Export-DhTestHtml -Report $r
+        }
+    }
+    Context 'comparison' {
+        It 'finds new, changed, removed and unchanged rows by key (case-insensitive; null equals empty)' {
+            $script:diff.Counts.New | Should -Be 1        # c
+            $script:diff.Counts.Changed | Should -Be 1    # b: V 2 vs 9
+            $script:diff.Counts.Removed | Should -Be 1    # gone
+            $script:diff.Counts.Same | Should -Be 2       # a (key case differs) and d (null vs empty)
+            $script:diff.Changes['2'].State | Should -Be 'new'
+            $script:diff.Changes['1'].Fields | Should -Be @('V')
+            $script:diff.Changes['1'].Was['V'] | Should -Be 9
+            @($script:diff.Removed).Count | Should -Be 1
+        }
+        It 'compares only -BaselineFields when given' {
+            $d = & (Get-Module DashHtml) { param($a, $b) Get-DhBaselineDiff -Data $a -Baseline $b -KeyField Name -Fields @('W') } $script:data $script:base
+            $d.Counts.Changed | Should -Be 0
+        }
+        It 'throws on a duplicate key in the data or in the baseline, and on a data row without the key' {
+            { & (Get-Module DashHtml) { Get-DhBaselineDiff -Data @([pscustomobject]@{ K = 1 }, [pscustomobject]@{ K = 1 }) -Baseline @() -KeyField K } } | Should -Throw '*duplicate*data*'
+            { & (Get-Module DashHtml) { Get-DhBaselineDiff -Data @() -Baseline @([pscustomobject]@{ K = 1 }, [pscustomobject]@{ K = 1 }) -KeyField K } } | Should -Throw '*duplicate*baseline*'
+            { & (Get-Module DashHtml) { Get-DhBaselineDiff -Data @([pscustomobject]@{ X = 1 }) -Baseline @() -KeyField K } } | Should -Throw '*not a property of data row 1*'
+        }
+        It 'ignores a baseline row without the key and says so' {
+            $d = & (Get-Module DashHtml) { Get-DhBaselineDiff -Data @([pscustomobject]@{ K = 1 }) -Baseline @([pscustomobject]@{ X = 1 }) -KeyField K }
+            $d.Warnings | Should -Match 'no .K. property'
+        }
+    }
+    Context 'Add-DhTable' {
+        It 'needs -KeyField with -Baseline and warns about -KeyField alone' {
+            $r = New-DhDashboard -Title 'x'
+            { Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:data -Baseline $script:base } | Should -Throw '*needs -KeyField*'
+            $w = Add-DhTable -Report $r -TableId 't2' -Title 'T' -Data $script:data -KeyField Name 3>&1
+            ($w | Out-String) | Should -Match 'no effect without -Baseline'
+        }
+        It 'warns when the baseline is empty and marks every row New' {
+            $r = New-DhDashboard -Title 'x'
+            $w = Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:data -Baseline @() -KeyField Name 3>&1
+            ($w | Out-String) | Should -Match 'baseline is empty'
+            $r.Tables[0].Baseline.Counts.New | Should -Be 4
+        }
+        It 'emits baseline JSON only when -Baseline is used (a plain table is unchanged)' {
+            (& $script:render @{}) | Should -Not -Match '"baseline"'
+            $h = & $script:render @{ Baseline = $script:base; KeyField = 'Name'; BaselineLabel = 'last night' }
+            $h | Should -Match '"baseline":\{"label":"last night","key":"Name","new":1,"changed":1,"removed":1'
+            $h | Should -Match '"changes":\{"1":\{"s":"c","f":\["V"\],"w":\{"V":9\}\},"2":\{"s":"n"'
+            $h | Should -Match '"removedRows":\[\{"Name":"gone","V":5,"W":"q"\}\]'
+        }
+    }
+    Context 'runtime and tooling' {
+        It 'ships the chips, the removed group and the export hook' {
+            $h = & $script:render @{ Baseline = $script:base; KeyField = 'Name' }
+            $h | Should -Match 'function dhBaselineNote\(b\)'
+            $h | Should -Match "_buildChangeBar = function"
+            $h | Should -Match 'class=.{1,2}chg-chip.{1,2}'
+            $h | Should -Match "__change"
+            $h | Should -Match "details\.tbl-removed"        # printed open
+        }
+        It 'does not write the baseline into the YAML layout' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:data -Baseline $script:base -KeyField Name
+            $y = $r | ConvertTo-DhYaml
+            $y | Should -Not -Match 'Baseline|removedRows|Counts'
+        }
+        It 'is in the generated schema as typed parameters' {
+            $s = (Export-DhYamlSchema -AsObject).properties.tables.items.properties
+            $s.Contains('Baseline') | Should -BeTrue
+            $s.Contains('keyField') | Should -BeTrue
+            $s['BaselineFields'].type | Should -Contain 'array'
+        }
+    }
+}
+Describe 'v2.5.2 review fixes' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:repo = Split-Path $PSScriptRoot
+    }
+    It 'compares only the table columns by default, so a hidden timestamp does not mark rows Changed' {
+        $r = New-DhDashboard -Title 'x'
+        $now = @([pscustomobject]@{ Name = 'a'; Cpu = 1; LastSeen = [datetime]'2026-10-19' })
+        $old = @([pscustomobject]@{ Name = 'a'; Cpu = 1; LastSeen = [datetime]'2026-10-18' })
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $now -Baseline $old -KeyField Name -Columns @(@{ Field = 'Name'; Label = 'Name' }, @{ Field = 'Cpu'; Label = 'CPU' })
+        $r.Tables[0].Baseline.Counts.Changed | Should -Be 0
+        Add-DhTable -Report $r -TableId 't2' -Title 'T' -Data $now -Baseline $old -KeyField Name -BaselineFields LastSeen -Columns @(@{ Field = 'Name'; Label = 'Name' })
+        $r.Tables[1].Baseline.Counts.Changed | Should -Be 1
+    }
+    It 'warns when a field is a date on one side and text on the other' {
+        $r = New-DhDashboard -Title 'x'
+        $w = Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ Name = 'a'; When = [datetime]'2026-10-18 10:00' }) `
+            -Baseline @([pscustomobject]@{ Name = 'a'; When = '2026-10-18 10:00:00' }) -KeyField Name 3>&1
+        ($w | Out-String) | Should -Match "'When' is a date on one side and text on the other in 1 row"
+    }
+    It 'lints a Global item that also has a path, and the nav map leaves its node out' {
+        $r = New-DhDashboard -Title 'P' -StrictNav
+        Add-DhHtmlBlock -Report $r -Id 'a' -Title 'A' -Content 'x' -NavPath 'Live/One'
+        Add-DhHtmlBlock -Report $r -Id 'g' -Title 'G' -Content 'x' -NavPath 'Ghost/Item' -NavScope Global
+        $res = Export-DhTestHtml -Report $r -WithWarnings
+        ($res.Warnings -join ' ') | Should -Match "'g' has -NavPath 'Ghost/Item' with -NavScope Global"
+        $f = Join-Path ([IO.Path]::GetTempPath()) ('dh_nm_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            Set-Content -LiteralPath $f -Value $res.Html -Encoding utf8
+            $map = (& (Join-Path $script:repo 'Tools/Show-DhNavMap.ps1') -Path $f 6>&1 | Out-String)
+            $map | Should -Not -Match 'Ghost'
+            $map | Should -Match 'Live'
+        } finally { [IO.File]::Delete($f) }
+    }
+    It 'ships the CSV formula guard on both CSV paths and the tag-free copy cell' {
+        $r = New-DhDashboard -Title 'x'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ a = 1 })
+        $h = Export-DhTestHtml -Report $r
+        ([regex]::Matches($h, 'dhCsvSafe\(FMT\.forExport')).Count | Should -Be 2
+        $h | Should -Match 'var text = dhCellText\(td\);'
+    }
+    It 'the accessibility tool exits with 1 when it finds an error (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+        $f = Join-Path ([IO.Path]::GetTempPath()) ('dh_a11y_exit_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            Set-Content -LiteralPath $f -Encoding utf8 -Value '<!doctype html><html><head><title>x</title></head><body><button></button></body></html>'
+            pwsh -NoProfile -File (Join-Path $script:repo 'Tools/Test-DhA11y.ps1') -Path $f 6>$null | Out-Null
+            $LASTEXITCODE | Should -Be 1
+        } finally { [IO.File]::Delete($f) }
+    }
+    It 'the browser probe passes -WindowStyle only on Windows' {
+        $src = Get-Content (Join-Path $script:repo 'Tools/BrowserProbe.ps1') -Raw
+        $src | Should -Match "if \(\`$IsWindows\) \{ \`$start\.WindowStyle = 'Hidden' \}"
+        $src | Should -Not -Match '-WindowStyle Hidden'
+    }
+}
+
+Describe 'Module source files' {
+    It 'are UTF-8 without BOM and with LF line endings (2.5.3)' {
+        $root = Join-Path $PSScriptRoot '..'
+        $bad = foreach ($f in Get-ChildItem -Path (Join-Path $root 'DashHtml'), (Join-Path $root 'DashHtml.Design') -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
+                Where-Object { $_.FullName -notmatch '[\\/]Vendor[\\/]' }) {
+            $b = [IO.File]::ReadAllBytes($f.FullName)
+            if ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF) { "$($f.Name): BOM" }
+            if ([Array]::IndexOf($b, [byte]13) -ge 0) { "$($f.Name): CR" }
+        }
+        @($bad) | Should -BeNullOrEmpty
     }
 }

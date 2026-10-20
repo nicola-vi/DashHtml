@@ -79,9 +79,9 @@ function Get-DhCssDefaultLight {
   --shadow-glow: 0 0 12px rgba(0,136,187,0.15);
 
   --cell-ok-fg:      #1B6B35;  --cell-ok-bg:      rgba(27,107,53,0.08);
-  --cell-warn-fg:    #8B5200;  --cell-warn-bg:    rgba(139,82,0,0.08);
+  --cell-warn-fg:    #885000;  --cell-warn-bg:    rgba(139,82,0,0.08);
   --cell-danger-fg:  #AA1100;  --cell-danger-bg:  rgba(170,17,0,0.08);
-  --cell-nodata-fg:  #6B7A89;  --cell-nodata-bg:  rgba(107,122,137,0.08);
+  --cell-nodata-fg:  #535F6B;  --cell-nodata-bg:  rgba(107,122,137,0.08);
 
   --progress-track-bg: rgba(0,0,0,0.08);
 

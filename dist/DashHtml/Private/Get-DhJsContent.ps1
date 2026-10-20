@@ -14,8 +14,13 @@ function Get-DhJsContent {
     return @(
         Get-DhJsCore
         Get-DhJsBlocks
+        Get-DhJsDrawer     # v2.3.0
         Get-DhJsNav
         Get-DhJsTable
+        Get-DhJsTree       # v2.4.0
+        Get-DhJsTreeTable  # v2.5.0
+        Get-DhJsNetwork    # v2.4.0
+        Get-DhJsSearch     # v2.4.0
         Get-DhJsPrint      # v2.2.0
         Get-DhJsBoot
     ) -join "`n"

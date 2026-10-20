@@ -100,6 +100,20 @@ function Test-DhReportLinks {
                     if (& $missing $tid) { "topology map '$bid' node '$($n['Id'])': LinkTableId '$tid' is not a table in this report - the click will do nothing." }
                 }
             }
+            'networkmap' {
+                foreach ($n in @($b.Nodes)) {
+                    $tid = [string]$n['LinkTableId']
+                    if (& $missing $tid) { "network map '$bid' node '$($n['Id'])': LinkTableId '$tid' is not a table in this report - the click will do nothing." }
+                }
+                foreach ($e in @($b.Edges)) {
+                    $tid = [string]$e['LinkTableId']
+                    if (& $missing $tid) { "network map '$bid' edge '$($e['From'])' to '$($e['To'])': LinkTableId '$tid' is not a table in this report - the click will do nothing." }
+                }
+            }
+            'treefilter' {
+                $tid = [string]$b['TableId']
+                if (& $missing $tid) { "tree filter '$bid': TableId '$tid' is not a table in this report - selecting a node will filter nothing." }
+            }
             'findings' {
                 foreach ($f in @($b.Findings)) {
                     $tid = [string]$f['AffectedTableId']

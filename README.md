@@ -18,6 +18,14 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 - **Per-NavGroup summary strips and alert banners** — each panel gets its own KPI hero row and banner set
 - **Auto-refresh** — `New-DhDashboard -AutoRefresh '30s' / '5m' / '1h'` for wall-display ops dashboards
 - **Assessment reports (2.2+)** — `Add-DhFindings` (severity, description, recommendation, affected objects, "show in table", reference links), a full-width **verdict** tile, and bar charts that **measure a value** (sum / average / min / max) instead of counting rows
+- **Detail panels and record lists (2.3+)** — click a table row, a status-grid cell or a finding to read its detail in a side panel (`Add-DhTable -DetailDrawer`); `Add-DhKeyValue` property tiles; `Add-DhRecordList` rows that expand to tiles, tables, bars and check lists
+- **Score ring and maturity ladder (2.3+)** — `Add-DhSummary Style='score'` and `Style='maturity'`, next to the verdict tile
+- **Split findings (2.3+)** — `Add-DhFindings -Layout Split` with per-finding facts, evidence rows and a "changed since last run" marker
+- **Network maps (2.4+)** — `Add-DhNetworkMap`: nodes joined by links in grouped boxes or Tier 0/1/2 lanes, deterministic layout, filters, node search, shortest-path trace to a target, SVG download
+- **OU tree filter (2.4+)** — `Add-DhTreeFilter`: click an OU, the linked table shows only that OU and below
+- **Directory explorer (2.5+)** — `Add-DhTreeTable`: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting
+- **Search and menu badges (2.4+)** — `New-DhDashboard -Search` (pages, findings, table rows; press `/`) and `-NavBadge` (worst finding severity on each menu item)
+- **Columns that fit (2.4+)** — every table column is as wide as its widest text, so the last character is no longer cut off
 - **Print and PDF (2.2+)** — a Print button; printed output shows every section in menu order, every finding expanded, tables unpaged, an optional cover page
 - **Client-side export** — CSV (built in, works offline), XLSX and PDF. The XLSX/PDF libraries load from cdnjs on first click, or are embedded for air-gapped readers (`Export-DhDashboard -ExportLibraries Cdn|Embed|None`, 2.2+)
 - **Light/dark theme toggle** — both variants embedded, switchable at runtime; the reader's choice is remembered (2.1.4+), and `New-DhDashboard -ThemeMode Light|Dark|Auto` sets the default (2.2+)
@@ -156,7 +164,12 @@ When using `-NavGroup`, a filter card or bar chart will still render **above** i
 | `Add-DhTabs` *(v1.5)* | Add an inline tabbed content block (local pivot within one section) |
 | `Add-DhGlobalFilter` *(v1.9)* | Add a page-level filter (dropdown or date range) that filters every table with that field |
 | `Add-DhRangeBar` *(v2.1)* | Add min / avg / max range bars on a shared 0–100 axis |
-| `Add-DhFindings` *(v2.2)* | Add assessment findings: severity, description, recommendation, affected objects, references |
+| `Add-DhFindings` *(v2.2)* | Add assessment findings: severity, description, recommendation, affected objects, references (v2.3: split layout, facts, evidence, change markers) |
+| `Add-DhKeyValue` *(v2.3)* | Add a grid of label/value property tiles |
+| `Add-DhRecordList` *(v2.3)* | Add rows (status, title, metrics) that expand to tiles, tables, bars and check lists |
+| `Add-DhNetworkMap` *(v2.4)* | Add a network / dependency map: nodes and links in groups or tier lanes, with filters, path tracing and SVG download |
+| `Add-DhTreeFilter` *(v2.4)* | Add an OU / folder tree that filters a table by path |
+| `Add-DhTreeTable` *(v2.5)* | Add a directory explorer: OUs, groups, users, computers, with properties, members, member of and nesting |
 | `Set-DhTableLink` | Link a master table to a detail table |
 | `Export-DhDashboard` | Write the self-contained HTML file |
 | `Get-DhTheme` | List or inspect built-in theme families |
@@ -311,10 +324,10 @@ $cols = @(
 
 ### Long values: tooltip and resizable columns
 
-Table cells never wrap — a value wider than its column is cut with an ellipsis, which keeps rows scannable but can hide the tail of a long string (a nested group chain, a DN, a stack frame). Two things make the full value reachable:
+Table cells never wrap, which keeps rows scannable. **As of 2.4 each column is as wide as its widest text** (header included, with room for the sort icon), measured in the browser over every row, so the last character is no longer cut off. A column grows up to `-ColumnMaxWidth` (default 800 px); beyond that a value ends in an ellipsis, which can still hide the tail of a very long string (a nested group chain, a stack frame). Two things make the full value reachable:
 
 - **Hover a clipped cell** and its complete text appears as a tooltip. The tooltip is added only to cells that are *actually* clipped, measured after render — short cells stay tooltip-free, so hovering means something. Clipped cells also carry a dotted right edge as the visual cue.
-- **Drag the right edge of any column header** to widen it. Double-click the grip (or press `Home` with it focused) to reset to the declared width; `←` / `→` nudge it 16px at a time. The width is per-viewer and per-session — it does not change the report for anyone else.
+- **Drag the right edge of any column header** to widen it. Double-click the grip to fit the column to its widest text (2.4+; before that it reset to the declared width), press `Home` with it focused to go back to the automatic width; `←` / `→` nudge it 16px at a time. The width is per-viewer and per-session — it does not change the report for anyone else.
 
 Headers truncate the same way, and a clipped header carries its full text as a tooltip too — worth knowing because a truncated header is the only thing naming the column.
 
@@ -329,7 +342,51 @@ Add-DhTable -Report $report -TableId 'accessi' -Title 'Access by user' -Data $ro
 )
 ```
 
-Nothing needs enabling — this applies to every text column in every table.
+Nothing needs enabling: this applies to every column in every table. Precedence is a width the reader dragged, then the column's `Width`, then the measured width. Measuring repeats after web fonts load and when the density changes.
+
+```powershell
+# -ColumnMaxWidth: widest an automatic column may grow (default 800, range 120-2000)
+# MinWidth: the floor for the automatic width of one column
+Add-DhTable -Report $report -TableId 'ous' -Title 'OUs' -Data $rows -ColumnMaxWidth 1000 `
+    -Columns @(@{ Field='DN'; Label='Distinguished name'; MinWidth=200 })
+
+Add-DhTable -Report $report -TableId 'old' -Title 'As before 2.4' -Data $rows -ColumnFit Fixed   # the 340 px cut-off
+```
+
+**Behaviour change in 2.4.** Tables that relied on the old 340 px cut-off get wider columns, and a table wider than the page scrolls sideways inside its frame. Put `-ColumnFit Fixed` on a table to keep the old look.
+
+### Column picker: hidden columns and remembered choice (2.5+)
+
+Every table has a **Columns** button that lists the columns so a reader can tick or untick them. Two additions:
+
+```powershell
+Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $rows -RememberColumns -Columns @(
+    @{ Field='Name';   Label='Server' }
+    @{ Field='Os';     Label='Operating system' }
+    @{ Field='Serial'; Label='Serial number'; Hidden=$true }     # starts unticked
+)
+```
+
+- **`Hidden = $true`** on a column: it starts unticked, stays in the data and in the detail panel, and the button says how many are hidden ("Columns (1 hidden)"). At least one column must stay visible (every column Hidden throws).
+- **`-RememberColumns`** (opt-in): the reader's ticks are kept per viewer in the browser's local storage and restored on the next visit, also after the report is regenerated (the key comes from the report title, `-GeneratedBy` and the table id). Columns are matched by field name, so a column added later keeps its default. **Default columns** in the picker puts your choice back and forgets the saved one. Nothing is stored unless the switch is on, and a blocked storage (private window) just means no memory.
+- A hidden or unticked column is left out of CSV, Excel and PDF exports, as an unticked column always was.
+
+### What changed since the last run (2.5.2+)
+
+A report that runs on a schedule can mark its rows against the previous run:
+
+```powershell
+$last = Import-Clixml .\servers-last-run.xml           # whatever you saved at the end of the previous run
+Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $now `
+    -Baseline $last -KeyField Name -BaselineLabel 'last night'
+$now | Export-Clixml .\servers-last-run.xml           # becomes the next run's baseline
+```
+
+- **New** and **Changed** rows carry a tag (text, so it also prints and reads without colour) and a coloured left edge. A changed cell is outlined and shows the old value on hover ("was: 5").
+- A line under the toolbar counts them ("vs last night: +3 new, ~2 changed, -2 removed"); the **Change chips** (All, New, Changed, Removed) filter the table and combine with the text filter, column filters and paging.
+- Rows that disappeared are not in the table, its footer or its paging. They wait in a collapsed **Removed since last night** group under it (open when printed). CSV, Excel and PDF exports gain a **Change** column; a checkbox adds the removed rows.
+- `-KeyField` is matched as case-insensitive text. A duplicate key (in either set) or a data row without the key throws; a baseline row without the key is ignored with a warning. `-BaselineFields` sets what counts as Changed (default: the table's columns, without the key, so a hidden `LastSeen` timestamp does not mark every row). Null equals an empty string. A field that is a date on one side and text on the other (a baseline read with `Import-Csv`) gives a warning: save the baseline with `Export-Clixml` to keep the types.
+- The baseline is data, so `ConvertTo-DhYaml` does not write it. Without `-Baseline` nothing changes.
 
 ### Link cells (2.2+)
 
@@ -467,7 +524,7 @@ Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
 Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
 ```
 
-Full runnable example: [`Examples/Demo-Feature-NavMultiPanel.ps1`](Examples/Demo-Feature-NavMultiPanel.ps1).
+Full runnable example: [`Examples/Feature-KpiTiles.ps1`](Examples/Feature-KpiTiles.ps1) (strips) and [`Examples/Feature-Navigation.ps1`](Examples/Feature-Navigation.ps1).
 
 NavGroup-specific keys:
 - `-Id` — explicit block Id; auto-derived by slugifying `NavGroup` (+ optional `NavSubGroup`) when omitted, e.g. `My Group` → `summary-my-group`. Duplicate Ids throw.
@@ -517,9 +574,21 @@ Add-DhSummary -Report $report -Items @(
 )
 ```
 
+- `'score'` *(2.3+)* — full-width ring with a verdict label: `Value` (numeric, `Max` defaults to 100), `Caption` (the label, e.g. "Elevated risk"), `Facts` (one line of small facts), `Previous` for the delta (`LowerIsBetter` shows a drop as an improvement), `NotAssessed` (checks that could not be assessed, shown beside the delta so a score that rose because checks went dark is visible). Colour from `-Rag` or `Class`. A missing `Value` needs `Rag=@{ NoData=$true }`, like a gauge.
+- `'maturity'` *(2.3+)* — full-width ladder: `Levels` (2 to 10, names or `@{ Name; Description }`), `Current` (0 = none reached, otherwise the level reached), `Value` (the headline text) and optional `Criteria=@(@{ Level=2; Text='Enable the Recycle Bin'; Met=$false })` listing what the next level still needs. Your script decides the level; DashHtml draws it.
+
+``powershell
+Add-DhSummary -Report $report -Items @(
+    @{ Style='score'; Label='Security posture'; Value=69; Caption='Elevated risk'; Facts=@('211 checks','31 failed')
+       Previous=66; NotAssessed=20; Rag=@{ Red=@{ Max=50 }; Amber=@{ Min=50; Max=80 }; Green=@{ Min=80 } } }
+    @{ Style='maturity'; Label='Maturity'; Value='Initial'; Current=1; Levels=@('Initial','Managed','Defined','Measured','Optimised')
+       Criteria=@(@{ Level=2; Text='Enable the AD Recycle Bin'; Met=$false }) }
+)
+``
+
 **Threshold matching:** mirrors `Add-DhTable` column thresholds. A band matches when `Min ≤ value < Max` (either bound may be omitted). When multiple bands match, the one with the highest `Min` wins — so the spec-friendly "Min-only" pattern in the example above does the intuitive thing.
 
-All three styles still honour `Class`, `Format`/`Locale`/`Decimals`/`Currency`, and (where it makes visual sense) the v1.4 delta and sparkline keys.
+All styles still honour `Class`, `Format`/`Locale`/`Decimals`/`Currency`, and (where it makes visual sense) the v1.4 delta and sparkline keys.
 
 ### Trend and delta indicators on tiles (v1.4+)
 
@@ -925,15 +994,15 @@ Add-DhTopologyMap -Report $report -Id 'ad-forest' -Title 'AD Forest' `
 Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
     -Direction 'horizontal' -NodeWidth 220 -AutoFitWidth `
     -Nodes @(
-        @{ Id='farm';       Label='CAI-DC';            Parent=$null;       Status='ok'; Icon='F'; Badge='Farm'  }
-        @{ Id='site';       Label='EGSI-RAS-BRK01';    Parent='farm';      Status='ok'; Icon='S'; Badge='Site'  }
+        @{ Id='farm';       Label='FARM-01';            Parent=$null;       Status='ok'; Icon='F'; Badge='Farm'  }
+        @{ Id='site';       Label='RAS-SITE-01';    Parent='farm';      Status='ok'; Icon='S'; Badge='Site'  }
         # Intermediate categories keep the tree visually balanced when a site has 10+ leaves
         @{ Id='cat-brk';    Label='Brokers';           Parent='site';      Status='ok'; Icon='B'; Badge='2'     }
         @{ Id='cat-gw';     Label='Gateways';          Parent='site';      Status='ok'; Icon='G'; Badge='2'     }
         @{ Id='cat-pool';   Label='RDS Host Pools';    Parent='site';      Status='ok'; Icon='P'; Badge='5'     }
         # Leaves
-        @{ Id='brk-1';      Label='EGSI-RAS-BRK01.egsi.local'; Parent='cat-brk';  Status='ok';   Icon='B'; Badge='Primary'
-           Tooltip='EGSI-RAS-BRK01.egsi.local — role Primary, agent OK'; LinkTableId='brokers' }
+        @{ Id='brk-1';      Label='RAS-BRK01.contoso.local'; Parent='cat-brk';  Status='ok';   Icon='B'; Badge='Primary'
+           Tooltip='RAS-BRK01.contoso.local — role Primary, agent OK'; LinkTableId='brokers' }
         # … etc.
     )
 ```
@@ -1108,7 +1177,7 @@ Worth knowing:
 
 `Add-DhRangeBar` is the only one whose bar floats, and the only one whose colour encodes position rather than category or state.
 
-Full runnable example: [`Examples/Demo-Feature-RangeBar.ps1`](Examples/Demo-Feature-RangeBar.ps1). Every chart type side by side, with guidance on which to pick: [`Examples/Demo-Feature-AllChartTypes.ps1`](Examples/Demo-Feature-AllChartTypes.ps1).
+Full runnable example: [`Examples/Feature-Charts.ps1`](Examples/Feature-Charts.ps1): every chart type side by side, with guidance on which to pick.
 
 ---
 
@@ -1141,7 +1210,139 @@ Add-DhFindings -Report $report -Id 'sec' -Title 'Security findings' -NavPath 'Fi
 - **Text is always HTML-encoded.** There is no `-AllowHtml`, because finding text usually comes from collected data.
 - **When printed**, every finding is shown expanded.
 
-`Examples/Demo-Feature-Findings.ps1` builds a complete assessment report: verdict, findings, value bar charts, link cells and the print cover.
+`Examples/Feature-Assessment.ps1` builds the assessment pieces: verdict, score, findings (list and split), tiles and record lists; `Examples/Demo-ActiveDirectory.ps1` uses them in a full report.
+
+### Split layout, evidence and change markers (2.3+)
+
+`-Layout Split` shows the findings as a list on the left and the selected finding on the right, which suits many findings that each carry proof (a settings audit). Both layouts print fully expanded; on a phone the detail shows under the list.
+
+```powershell
+Add-DhFindings -Report $report -Id 'hardening' -Title 'Protocols and hardening' -Layout Split -GroupBy Area -Findings @(
+    @{ Severity='warning'; Area='Authentication'; Title='NTLM level'; Change='new'
+       Recommendation='Raise the level to 5 after confirming no NTLMv1 clients remain.'
+       Facts    = @(@{ Label='Recommended'; Value='5 - NTLMv2 only' }, @{ Label='Domain controllers'; Value='4 of 4 not as recommended'; Status='warn' })
+       Evidence = @(@{ Object='DC01'; Value='Level 4'; Status='warn' }, @{ Object='DC02'; Value='Level 4'; Status='warn' })
+       Detail   = @{ Title='How to check'; Sections=@(@{ Kind='text'; Text='Audit NTLM use for two weeks first.' }) } }
+)
+```
+
+- **Facts** are label/value tiles. **Evidence** is one row per object (Object required; Value, Status, Note optional, a column appears only when some row uses it), capped by `-MaxEvidenceShown` (default 50, then "+N more"; `AffectedTableId` still jumps to the full table).
+- **Change** is 
+ew, worse, etter or esolved: a badge and a filter chip. Your script compares with the previous run; DashHtml only shows the result.
+- **Detail** opens in the side panel (see below). It takes text, one section, an array of sections or `@{ Title; Subtitle; Sections }`.
+- **`-AllClearText 'No stale objects found.'`** shows a check mark and the sentence when the block has no findings (also on `Add-DhTable` for an empty `-Data`), so a passed check is visible.
+
+---
+
+## Detail panel, property tiles and record lists (2.3+)
+
+One side panel serves everything that has "the detail of one thing". Escape or a click outside closes it, focus returns to where you were, switching view closes it, and it never prints.
+
+```powershell
+# a table row opens its properties (names, or @{ Field; Label }; hidden properties allowed)
+Add-DhTable -Report $r -TableId 'dcs' -Title 'Domain controllers' -Data $dcs -DetailDrawer -DetailTitleField 'Name' `
+    -DetailFields @('Name','Site',@{ Field='RamGB'; Label='RAM (GB)' },'Roles')
+
+# a status-grid cell opens a breakdown; -SelfDiagonal hatches "a DC with itself"
+Add-DhStatusGrid -Report $r -Id 'repl' -Title 'Replication' -Rows $names -Columns $names -SelfDiagonal -Cells @(
+    @{ Row='DC01'; Column='DC02'; Status='danger'; Glyph='x'; LinkTableId='dcs'
+       Detail=@{ Title='DC01 to DC02'; Sections=@(
+           @{ Kind='kv'; Items=@(@{ Label='Last success'; Value='3 days ago'; Status='danger' }) }
+           @{ Kind='statusList'; Title='Naming contexts'; Items=@(@{ Label='Configuration'; Status='danger'; Text='Failing' }) }) } } )
+
+Add-DhKeyValue -Report $r -Id 'scope' -Title 'Scope' -Columns 4 -Items @(@{ Label='Forest'; Value='corp.example' }, @{ Label='Pending reboot'; Value='None'; Status='ok' })
+
+Add-DhRecordList -Report $r -Id 'hw' -Title 'Hardware' -Items @(
+    @{ Title='dc01'; Subtitle='FIT00'; Status='ok'; Metrics=@(@{ Label='RAM'; Value='8 GB' }, @{ Label='CPU'; Value='2%' })
+       Sections=@(@{ Kind='kv'; Title='System'; Items=@(@{ Label='Model'; Value='VMware20,1' }) }
+                  @{ Kind='table'; Title='Volumes'; Columns=@('Drive','Free'); Rows=@(,@('C:','73 GB')) }) } )
+```
+
+**Sections** are the shared building block: `kv` (tiles), `bars`, `statusList`, `checks`, `table` (capped by `MaxRows`, default 50), `text` and `links` (http, https, mailto, tel or # only). A status is `ok`, `warn`, `danger`, `info` or `nodata` (`cell-danger` style names and `critical` / `failed` are accepted too). All text is HTML-encoded.
+
+Also new in 2.3: table cell types `chips` (an array as tags) and `path` (an array as `A → B → Tier 0`), and `Add-DhBarChart -Rag` / `-KeyClass @{ Critical='cell-danger' }` to colour bars by value or category.
+
+`Examples/Feature-Assessment.ps1` and `Examples/Feature-Tables.ps1` show all of it.
+
+---
+
+## Network map (2.4+)
+
+For what is not a tree: domain controllers and their replication links, sites and site links, trusts, or accounts and the tier they can reach. A node can have any number of links, several links can join the same two nodes, and a link can have a direction, a label, a status colour and a dashed style.
+
+```powershell
+Add-DhNetworkMap -Report $r -Id 'repl' -Title 'Replication' -Legend `
+    -Groups @(@{ Id='hq'; Label='HQ site' }, @{ Id='eu'; Label='EU site' }) `
+    -Nodes @(
+        @{ Id='dc01'; Label='DC01'; Group='hq'; Badge=@('PDC','GC'); Status='ok'
+           Detail=@{ Sections=@(@{ Kind='kv'; Items=@(@{ Label='OS'; Value='Windows Server 2022' }) }) } }
+        @{ Id='dc02'; Label='DC02'; Group='eu'; Status='danger'; LinkTableId='dcs'; LinkFilter='DC02' }
+    ) `
+    -Edges @(
+        @{ From='dc01'; To='dc02'; Label='15 min'; Direction='both'; Status='danger'; Style='dashed'; Tooltip='Access denied' }
+    )
+
+# lanes by Tier (0 on top), with "Trace path" to the nodes marked Target
+Add-DhNetworkMap -Report $r -Id 'tiers' -Title 'Reaching Tier 0' -Layout layered -Nodes $nodes -Edges $edges
+```
+
+- **Layout is deterministic**: the same data always draws the same picture (no force simulation). `grouped` puts nodes in boxes (boxes can nest via `Parent`); `layered` puts nodes in lanes by `Tier`. A node without a `Tier` takes its depth from the links (`From` above `To`), and one pass orders each lane by where its neighbours sit.
+- **Reading it**: pan and zoom, filter chips by status and by badge, a node search box (Enter centres the first match), **Labels** to hide link labels (hidden by default above 400 links), **SVG** to download the map with its styles. Hovering a node or link shows its `Tooltip`.
+- **Clicking a node** highlights its links and neighbours and opens its `Detail` in the side panel (or jumps to `LinkTableId` / `LinkFilter`). Clicking a link with a `LinkTableId` jumps to that table. Click the background, or press Escape, to clear.
+- **Trace path** (shown when a node has `Target=$true`): select a node and the shortest path to the nearest target is highlighted and spelled out. `forward` links are followed in their direction only; `both` and `none` links either way. Ties go to the link declared first.
+- Status is `ok | warn | danger | info | nodata` (`warning` and `critical` are accepted). Limits: `-MaxNodes` 300, `-MaxEdges` 1500 (both throw above). The map includes a text list of its links for screen readers.
+
+`Examples/Feature-MapsAndGrids.ps1` shows both layouts; `Examples/Demo-AzureInfrastructure.ps1` and `Examples/Demo-ActiveDirectory.ps1` use them in full reports.
+
+## OU tree filter (2.4+)
+
+A tree that filters a table. Choose a node and the table shows the rows at that path and below; choose it again, or use the table's clear button, to remove the filter. The tree is a filter, not a second copy of the data, so the objects stay in the table.
+
+```powershell
+Add-DhTable -Report $r -TableId 'ous' -Title 'OUs' -Data $ous        # the table comes first
+
+Add-DhTreeFilter -Report $r -Id 'ou-tree' -Title 'Browse by OU' -TableId 'ous' -PathField 'CanonicalName' -CountFromTable -Nodes @(
+    @{ Id='root'; Label='corp.example'; Path='corp.example' }
+    @{ Id='hq';   Parent='root'; Label='Headquarters'; Path='corp.example/Headquarters'; Status='ok' }
+    @{ Id='svc';  Parent='hq';   Label='Service accounts'; Path='corp.example/Headquarters/Service accounts'
+       Status='warn'; Flags=@('review'); Detail='Passwords never expire here.' }
+)
+```
+
+- `-Match Prefix` (default) matches root-first paths such as `corp.example/Headquarters/Servers` (separator `/`); `-Match Suffix` matches distinguished names such as `OU=Servers,OU=HQ,DC=corp,DC=example` (separator `,`). Matching ignores case and respects the separator, so `HQ` never matches `HQ2`.
+- Counts: give each node a `Count`, or add `-CountFromTable` and the browser counts the table's rows at or below each node (counts ignore the table's other filters).
+- A node can carry `Status`, `Flags` (short chips such as `empty`) and a `Detail` (any section spec, opened with the "i" button). The find box filters the tree; arrow keys, Home / End, Enter and Space work as in any tree.
+- It combines with the table's text filter, card filters and global filters, shows in the table's "filtered by" badge, and is saved in the URL. `-MaxNodes` (default 5000) warns above, and the cmdlet throws above 20,000 nodes.
+
+## Directory explorer (2.5+)
+
+`Add-DhTreeTable` browses objects in their containers and answers "who is in this group, and through what?". The left pane is a tree (find box, type filter, status, flags, counts); the right pane shows the selected object in tabs: **Properties**, **Members** (groups), **Member of**, and **Nesting** (the groups nested below, and every path up to the top-level groups, i.e. effective membership). Click a member or a group in any tab to jump to it.
+
+```powershell
+Add-DhTreeTable -Report $r -Id 'dir' -Title 'Directory' -NavPath 'Identity/Directory' -Rows @(
+    @{ Id='ou-hq';  Type='ou';    Label='Headquarters' }
+    @{ Id='g-da';   ParentId='ou-hq'; Type='group'; Label='Domain Admins'; Status='warn'; Flags=@('privileged')
+       Properties=[ordered]@{ 'Scope'='Global'; 'Description'='Domain administrators' } }
+    @{ Id='u-rossi';ParentId='ou-hq'; Type='user'; Label='adm.rossi'; Properties=[ordered]@{ 'Password age'='41 days' } }
+) -Memberships @(
+    @{ GroupId='g-da'; MemberId='u-rossi' }
+)
+```
+
+- **Two flat lists, no recursion.** `-Rows` are the objects (`Id`, `ParentId` for the OU it sits in, `Type` = ou, group, user, computer, container or other, `Label`, optional `Status`, `Flags`, `Properties` as a label = value hashtable, `Detail` sections). `-Memberships` are `@{ GroupId; MemberId }` pairs, so a collector can emit them straight from `Get-ADGroupMember` or LDAP.
+- **Group nesting is not container nesting.** `ParentId` chains must not loop (that throws). Memberships may loop, because real directories do: a circular nesting is detected, marked "circular nesting", and not followed.
+- It is a browser, not a grid for thousands: rows draw only when their parent is open; the cmdlet warns above `-MaxRows` (5,000) and throws above 20,000. For a large estate use `Add-DhTreeFilter` with a table.
+- `Examples/Demo-ActiveDirectory.ps1` has one (view Identity / Directory).
+## Search and menu badges (2.4+)
+
+```powershell
+$r = New-DhDashboard -Title 'Assessment' -Search -NavBadge
+```
+
+- **`-Search`** adds a box to the menu bar (press `/` to focus it). It finds menu pages, block and table titles, findings, and table rows, with a hit count per table. Arrow keys move, Enter opens, Escape closes. A table hit opens the page and filters that table; a finding hit opens and highlights the finding. Table rows are scanned in time slices, so typing never freezes the page; a very large report shows `+` after a count when the one-second budget ran out.
+- **`-NavBadge`** puts a pill on each menu item with the worst severity among its non-OK findings (`Add-DhFindings`, at that page and below) and the count of that severity; the tooltip gives the breakdown. Findings in blocks with no menu path are not counted.
+
+Both are off by default.
 
 ---
 
@@ -1298,6 +1499,27 @@ New-DhDashboard -Title 'Net' -NavLayout Auto -NavMaxDepth 4
 
 `Auto` (default) renders horizontal strips up to 3 levels and switches to a left tree rail with a breadcrumb at 4+, where stacked sticky strips would consume about a fifth of the viewport. Force either with `-NavLayout Strips|Sidebar`. Selecting a node descends to the first child that has content of its own, so one click never teleports you several levels down.
 
+### All view, menu skeleton, lint and overflow (2.5+)
+
+```powershell
+$r = New-DhDashboard -Title 'Estate' -StrictNav `
+    -NavAllLabel @{ 'Storage' = 'All storage' } `
+    -NavTree @(
+        @{ Path = 'Overview' }
+        @{ Path = 'Storage'; Label = 'Storage and backup' }
+        @{ Path = 'Storage/Capacity' }
+        @{ Path = 'Later'; Label = 'Later (nothing here yet)' } )
+```
+
+- **`-NavAllLabel`** adds an "All" view to a group (a string adds it to every group; a hashtable names them). It shows the group's own content and everything below it, has its own link, sorts first among its siblings and is never the opening view. The path of an All view ends in `*`, which is reserved.
+- **`-NavTree`** declares the menu once: labels, sibling order, and nodes that exist before anything is placed on them. An item's own `-NavLabel` / `-NavOrder` wins over the skeleton; the skeleton wins over declaration order.
+- **Empty view.** A view with nothing of its own (an empty `-NavTree` node, a link to a renamed node) says "No content in this view" and offers a way back, instead of a blank page.
+- **`-StrictNav`** warns at export (never an error) about likely mistakes: paths deeper than 3 levels, sibling names that differ only in case or by one letter, clashing labels, a path missing from `-NavTree`, a `-NavTree` node with nothing on it, a Subtree item with nothing below it, a `-NavAllLabel` naming no group.
+- **Overflow.** When a strip would wrap to a second row, the chips that do not fit go into a **More (n)** menu at the end of the row (2.5.3; 2.5.0 to 2.5.2 waited for a third row) and the selected chip always stays visible. `-NavOverflow Wrap` keeps the old wrapping.
+- **Keyboard.** One tab stop per strip; Left, Right, Home, End move along it; the More menu opens with Down or Enter and closes with Escape; the sidebar rail takes Up, Down, Left (to the parent) and Right (open or step in). Focus stays on the same item when the menu is rebuilt.
+
+`Examples/Feature-Navigation.ps1` shows the All view and the skeleton.
+
 ### Upgrading from 1.x
 
 `-NavGroup` / `-NavSubGroup` **keep working** and map onto the new model — no edit required. See **[MIGRATION-v2.md](MIGRATION-v2.md)**, and run:
@@ -1426,7 +1648,16 @@ $report | ConvertTo-DhYaml -OutFile layout.yaml
 
 # existing .ps1  ->  YAML (best-effort static parse)
 ConvertFrom-DhScript -Path build-dashboard.ps1
+
+# JSON Schema of the layout file (editor completion, typo detection)
+Export-DhYamlSchema -OutFile dashhtml.schema.json
 ```
+
+**Editor and CI checks (2.5.2).** The schema is generated from the live cmdlet parameters, so it cannot drift. Put
+`# yaml-language-server: $schema=dashhtml.schema.json` on the first line of a layout file and VS Code (YAML extension)
+completes keys and flags a mistyped one. The reader ignores unknown keys silently, so the schema is the only place a
+typo such as `navTitel` is caught. Keys may be written PascalCase, camelCase or lowercase. In a script:
+`Test-Json -Json (<layout as JSON>) -Schema (Get-Content dashhtml.schema.json -Raw)`.
 
 See the [module README](DashHtml.Design/README.md) and the
 [example](Examples/design/) for the layout schema and full details.
@@ -1545,6 +1776,11 @@ DashHtml/
     Add-DhHeatmap.ps1          # v1.5
     Add-DhTopologyMap.ps1      # v1.5
     Add-DhTabs.ps1             # v1.5
+    Add-DhKeyValue.ps1         # v2.3
+    Add-DhRecordList.ps1       # v2.3
+    Add-DhNetworkMap.ps1       # v2.4
+    Add-DhTreeFilter.ps1       # v2.4
+    Add-DhTreeTable.ps1        # v2.5
     Set-DhTableLink.ps1
     Export-DhDashboard.ps1
     Get-DhTheme.ps1
@@ -1568,18 +1804,22 @@ DashHtml/
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
 Tests/
-  DashHtml.Tests.ps1               # 524 tests at 2.2.0 (598 across the three suites)
-Examples/                            # Demo-<Domain> = a realistic report
-                                     # Demo-Feature-* = one capability, isolated
-  Demo-ActiveDirectory.ps1           # AD ops report
-  Demo-VMware.ps1                    # vSphere ops report
-  Demo-Feature-FullShowcase.ps1      # every cmdlet, realistic data
-  Demo-Feature-AllChartTypes.ps1     # every chart type + when to use each
-  Demo-Feature-RangeBar.ps1          # Add-DhRangeBar, both data modes
-  Demo-Feature-TabsHeatmapTopology.ps1
-  Demo-Feature-NavMultiPanel.ps1     # per-NavGroup KPI strips
-  Demo-Feature-NavTree.ps1           # v2 -NavPath tree
-  Demo-Feature-NavDeepSidebar.ps1    # v2 deep nav sidebar
+  DashHtml.Tests.ps1               # see Build.ps1 for the current counts (Pester across the three suites plus the node tests) at 2.5.2
+Examples/                            # Demo-* = a realistic report, Feature-* = one capability
+  README.md                          # what each example shows and the menu rules
+  Demo-ActiveDirectory.ps1
+  Demo-VMware.ps1
+  Demo-AzureInfrastructure.ps1
+  Demo-Microsoft365.ps1
+  Feature-Navigation.ps1
+  Feature-NavigationSidebar.ps1
+  Feature-Tables.ps1
+  Feature-Charts.ps1
+  Feature-KpiTiles.ps1
+  Feature-Assessment.ps1
+  Feature-MapsAndGrids.ps1
+  Feature-FiltersAndSearch.ps1
+  Feature-PageElements.ps1
 Build.ps1
 Build-DhReference.ps1              # Generates DashHtml-Reference.html
 Install.ps1
@@ -1589,6 +1829,13 @@ readme-dev.md                      # AI-assistant reference
 ```
 
 ---
+
+## Acknowledgements and licences
+
+The optional XLSX/PDF export libraries (SheetJS, jsPDF, jsPDF-AutoTable) are
+bundled in `DashHtml/Vendor/` with their licences. Some widgets were designed
+after looking at other Active Directory report generators; no code was copied.
+See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the full list.
 
 ## License
 

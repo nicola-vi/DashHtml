@@ -176,6 +176,13 @@ function Get-DhJsCore {
           if (engines[id].filterText) filters[id] = engines[id].filterText;
         });
         if (Object.keys(filters).length) state.filters = filters;
+        /* v2.4.0 - tree-filter selection per table: { tableId: [treeId, nodeId] } */
+        var pfs = {};
+        Object.keys(engines).forEach(function (id) {
+          var pf = engines[id].pathFilter;
+          if (pf && pf.treeId) pfs[id] = [pf.treeId, pf.nodeId];
+        });
+        if (Object.keys(pfs).length) state.pathFilters = pfs;
         /* card filters */
         if (Object.keys(cardFilters).length) state.cardFilters = cardFilters;
         /* density */
@@ -210,6 +217,12 @@ function Get-DhJsCore {
   var FMT = {
     apply: function (col, rawVal) {
       if (rawVal === null || rawVal === undefined || rawVal === '') return '';
+      /* v2.3.0 - chips / path cells hold a list: plain text is the joined list */
+      if (Array.isArray(rawVal)) {
+        var ct = (col.cellType || '').toLowerCase();
+        if (ct === 'path') return rawVal.join(' → ');
+        if (ct === 'chips') return rawVal.join(', ');
+      }
       var str = String(rawVal);
       var fmt = (col.format || '').toLowerCase();
       if (!fmt || fmt === 'text') return str;
@@ -263,6 +276,7 @@ function Get-DhJsCore {
     forExport: function (col, rawVal) {
       if (rawVal===null||rawVal===undefined) return '';
       var fmt=(col.format||'').toLowerCase();
+      if (Array.isArray(rawVal)) return FMT.apply(col, rawVal);   /* v2.3.0 chips / path */
       if (!fmt||fmt==='text') return rawVal;
       return FMT.apply(col, rawVal);
     }
@@ -395,6 +409,8 @@ function Get-DhJsCore {
       if (mode !== 'normal') document.body.classList.add('density-' + mode);
       var btn = document.getElementById('btn-density-toggle');
       if (btn) btn.textContent = self.labels[mode];
+      /* v2.4.0 - cell padding and font size change with density, so measured column widths do too */
+      if (typeof engines !== 'undefined') Object.keys(engines).forEach(function (id) { if (engines[id]._refit) engines[id]._refit(); });
       return true;
     }
   };
@@ -601,6 +617,17 @@ function Get-DhJsCore {
          picks up [data-navgroup] elements anywhere in the body. */
       if (alert.navGroup)    banner.setAttribute('data-navgroup',    alert.navGroup);
       if (alert.navSubGroup) banner.setAttribute('data-navsubgroup', alert.navSubGroup);
+      /* A banner bound to a menu path is a nav section like any other: applyNav
+         shows it when the path matches (Exact / Subtree). Before, only the legacy
+         attribute above was emitted, which nothing ever matched, so a -NavPath
+         banner showed everywhere and a -NavGroup banner never showed. */
+      if (alert.navPath && alert.navPath.length) {
+        banner.setAttribute('data-navpath', JSON.stringify(alert.navPath));
+        banner.setAttribute('data-navscope', alert.navScope || 'exact');
+        if (typeof navMatches === 'function' && navMatches(banner, (typeof currentNavPath !== 'undefined' && currentNavPath) || [])) {
+          banner.classList.add('panel-active');
+        }
+      }
 
       var iconHtml = alert.icon
         ? '<span class="alert-icon">' + esc(alert.icon) + '</span>'
@@ -953,9 +980,105 @@ function Get-DhJsCore {
     return tile;
   }
 
+  /* Score ring tile (v2.3.0) — a full ring (two stroked circles, the gauge's
+     technique) with a verdict label, facts and an optional delta. The ring's
+     colour comes from the thresholds, else the tile's class; only theme tokens
+     are used, so all 12 themes apply. A missing value draws an empty track. */
+  function buildScoreTile(item) {
+    var tile = document.createElement('div');
+    var rawVal = Number(item.value);
+    var min = (item.min != null) ? Number(item.min) : 0;
+    var max = (item.max != null) ? Number(item.max) : 100;
+    if (max <= min) max = min + 1;
+    var isMissing = (item.value === null || item.value === undefined || item.value === '' || !isFinite(rawVal));
+    var ratio = isMissing ? 0 : Math.max(0, Math.min(1, (rawVal - min) / (max - min)));
+
+    var matchClass;
+    if (isMissing && item.ragNoData) matchClass = 'cell-nodata';
+    else { matchClass = pickThresholdClass(rawVal, item.thresholds); if (!matchClass) matchClass = item['class'] || ''; }
+    tile.className = 'summary-tile tile-score' + (matchClass ? ' ' + matchClass : '');
+
+    var C = 2 * Math.PI * 50;
+    var readout = isMissing ? '—' : tileFormatValue(item);
+    var unitTxt = (!isMissing && item.unit) ? String(item.unit) : '';
+    var svg =
+      '<svg class="score-svg" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">' +
+        '<circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-subtle)" stroke-width="10"/>' +
+        (ratio > 0 ? '<circle class="score-arc" cx="60" cy="60" r="50" fill="none" stroke="' + classToAccent(matchClass) + '" stroke-width="10" stroke-linecap="round" ' +
+                     'stroke-dasharray="' + C.toFixed(3) + '" stroke-dashoffset="' + (C * (1 - ratio)).toFixed(3) + '" transform="rotate(-90 60 60)"/>' : '') +
+      '</svg>';
+
+    /* LowerIsBetter flips only the delta colour, and only when the author gave no TrendIsGood */
+    var di = item;
+    if (item.lowerIsBetter && item.trendIsGood == null && item.previous != null) {
+      di = {}; for (var k in item) { if (Object.prototype.hasOwnProperty.call(item, k)) di[k] = item[k]; }
+      var dv = Number(item.value) - Number(item.previous);
+      if (dv < 0) di.trendIsGood = true; else if (dv > 0) di.trendIsGood = false;
+    }
+    var na = (item.notAssessed != null && item.notAssessed > 0)
+      ? '<span class="score-na" title="Checks that could not be assessed this run">' + esc(item.notAssessed) + ' not assessed</span>' : '';
+    var label = String(item.caption || '');
+    var aria = 'Score ' + (isMissing ? 'not available' : readout + (unitTxt ? ' ' + unitTxt : '') + ' of ' + max) + (label ? ', ' + label : '');
+
+    tile.innerHTML =
+      '<div class="score-ring" role="img" aria-label="' + esc(aria) + '">' + svg +
+        '<div class="score-value">' + esc(readout) + (unitTxt ? '<span class="score-unit">' + esc(unitTxt) + '</span>' : '') + '</div>' +
+      '</div>' +
+      '<div class="score-detail">' +
+        (item.icon ? '<span class="summary-icon">' + esc(item.icon) + '</span>' : '') +
+        '<span class="summary-label">' + esc(item.label) + '</span>' +
+        (label ? '<div class="score-caption">' + esc(label) + '</div>' : '') +
+        ((item.facts && item.facts.length) ? '<div class="score-facts">' + item.facts.map(esc).join(' &middot; ') + '</div>' : '') +
+        '<div class="score-delta">' + tileDeltaHtml(di) + na + '</div>' +
+      '</div>';
+    return tile;
+  }
+
+  /* Maturity ladder tile (v2.3.0) — N steps, the reached ones filled, the
+     current one marked, and what the next level still needs. */
+  function buildMaturityTile(item) {
+    var tile = document.createElement('div');
+    tile.className = 'summary-tile tile-maturity' + (item['class'] ? ' ' + item['class'] : '');
+    var levels = item.levels || [];
+    var cur = item.current || 0;
+    var steps = levels.map(function (l, i) {
+      var n = i + 1;
+      var st = n < cur ? 'is-done' : (n === cur ? 'is-done is-current' : (n === cur + 1 ? 'is-next' : 'is-todo'));
+      return '<li class="maturity-step ' + st + '"' + (n === cur ? ' aria-current="step"' : '') + '>' +
+               '<span class="maturity-dot">' + n + '</span><span class="maturity-name">' + esc(l.name) + '</span></li>';
+    }).join('');
+    var curDesc = (cur >= 1 && levels[cur - 1]) ? levels[cur - 1].description : '';
+    var crit = '';
+    if (cur < levels.length) {
+      var want = (item.criteria || []).filter(function (c) { return c.level === cur + 1; })
+                   .sort(function (a, b) { return (a.met ? 1 : 0) - (b.met ? 1 : 0); });
+      if (want.length) {
+        var shown = want.slice(0, 8), more = want.length - shown.length;
+        crit = '<div class="maturity-criteria"><div class="maturity-crit-title">To reach level ' + (cur + 1) + ' (' + esc(levels[cur].name) + ')</div><ul>' +
+          shown.map(function (c) {
+            return '<li class="' + (c.met ? 'is-met' : 'is-unmet') + '"><span class="maturity-crit-ico" aria-hidden="true">' + (c.met ? '&#10003;' : '&#9675;') + '</span>' + esc(c.text) + '</li>';
+          }).join('') + (more > 0 ? '<li class="maturity-more">+' + more + ' more</li>' : '') + '</ul></div>';
+      }
+    }
+    tile.innerHTML =
+      '<div class="maturity-head">' +
+        (item.icon ? '<span class="summary-icon">' + esc(item.icon) + '</span>' : '') +
+        '<div><span class="summary-label">' + esc(item.label) + '</span>' +
+        '<div class="maturity-value">' + esc(tileFormatValue(item)) + '</div>' +
+        '<div class="maturity-sub">' + (cur === 0 ? 'No level reached yet' : 'Level ' + cur + ' of ' + levels.length) +
+          (item.caption ? ' &middot; ' + esc(item.caption) : '') + '</div></div>' +
+      '</div>' +
+      '<ol class="maturity-steps">' + steps + '</ol>' +
+      (curDesc ? '<div class="maturity-desc">' + esc(curDesc) + '</div>' : '') +
+      crit;
+    return tile;
+  }
+
   function buildTile(item) {
     var tile;
     switch ((item.style || 'tile').toLowerCase()) {
+      case 'score':     tile = buildScoreTile(item);     break;   /* v2.3.0 */
+      case 'maturity':  tile = buildMaturityTile(item);  break;   /* v2.3.0 */
       case 'bignumber': tile = buildBignumberTile(item); break;
       case 'gauge':     tile = buildGaugeTile(item);     break;
       case 'verdict':   tile = buildVerdictTile(item);   break;   /* v2.2.0 */
@@ -986,6 +1109,26 @@ function Get-DhJsCore {
   /* fillStrip — common workhorse used by both renderSummary (top-of-page)
      and the v1.4.1 summarystrip block (per-NavGroup). Optionally wraps the
      tile flow in the collapsible chrome shared with Add-DhCollapsible. */
+  /* A collapsible header is a div with a click handler: invisible to the keyboard. It gets the button role,
+     a tab stop, aria-expanded / aria-controls and Enter / Space, and its chevron is hidden from screen readers. */
+  function dhBindCollapsible(toggle, body, chevron) {
+    toggle.setAttribute('role', 'button');
+    toggle.setAttribute('tabindex', '0');
+    toggle.setAttribute('aria-expanded', body.classList.contains('open') ? 'true' : 'false');
+    if (body.id) toggle.setAttribute('aria-controls', body.id);
+    if (chevron) chevron.setAttribute('aria-hidden', 'true');
+    function flip() {
+      var open = body.classList.toggle('open');
+      toggle.classList.toggle('open', open);
+      if (chevron) chevron.textContent = open ? '\u25BE' : '\u25B8';
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    toggle.addEventListener('click', flip);
+    toggle.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); flip(); }
+    });
+  }
+
   function fillStrip(container, items, opts) {
     opts = opts || {};
     container.innerHTML = '';
@@ -1014,11 +1157,8 @@ function Get-DhJsCore {
       var toggle = container.querySelector('#ctoggle-'+uid);
       var body   = container.querySelector('#cbody-'+uid);
       var chev   = container.querySelector('.collapsible-chevron');
-      toggle.addEventListener('click', function () {
-        var open = body.classList.toggle('open');
-        toggle.classList.toggle('open', open);
-        chev.textContent = open ? '▾' : '▸';
-      });
+      dhBindCollapsible(toggle, body, chev);
+
 
       var inner = container.querySelector('#cinner-'+uid);
       items.forEach(function (item) { inner.appendChild(buildTile(item)); });

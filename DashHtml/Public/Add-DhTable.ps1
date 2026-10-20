@@ -23,6 +23,8 @@ function Add-DhTable {
 
           # Cell type
           CellType    = 'progressbar'     # 'text'(default) | 'progressbar' | 'badge' | 'sparkline' | 'link'
+                                          #   | 'chips' (v2.3.0: an array of tags, e.g. FSMO roles)
+                                          #   | 'path'  (v2.3.0: an array drawn as A → B → Tier 0)
           ProgressMax = 100               # denominator for progressbar
 
           # Link cells (v2.2.0, CellType='link')
@@ -96,6 +98,63 @@ function Add-DhTable {
     .PARAMETER MultiSelect  Checkbox multi-select (default $false).
     .PARAMETER Description  Paragraph below the table title.
 
+    .PARAMETER AllClearText
+        v2.3.0. For a check that should find nothing: when -Data is empty, the table shows
+        this sentence under a large check mark instead of an empty grid (and the "empty
+        table" warning is skipped). Ignored when there is data.
+
+    .PARAMETER Baseline
+        v2.5.2. The rows of the PREVIOUS run, same shape as -Data (hashtables or objects). With -KeyField the
+        table marks every row New or Changed against it, counts them in a line under the toolbar, offers Change
+        chips (All / New / Changed / Removed), shows the old value of a changed cell as a tooltip, and lists the rows
+        that disappeared in a collapsed "Removed since the previous run" group under the table. Removed rows are not in
+        the table, its footer or its paging; CSV / Excel / PDF exports gain a Change column and can include them
+        through a checkbox. The baseline is data: ConvertTo-DhYaml does not write it. An empty baseline marks every
+        row New (with a warning). Without -Baseline nothing changes.
+
+    .PARAMETER KeyField
+        v2.5.2. The property that identifies a row across runs (case-insensitive text). Required with -Baseline.
+        A duplicate key in the data or the baseline throws; a data row without the property throws; a baseline row
+        without it is ignored with a warning.
+
+    .PARAMETER BaselineFields
+        v2.5.2. The properties compared to decide "Changed". Default: the table's columns (what the reader sees),
+        except the key; a property that is not a column (a LastSeen timestamp, say) is ignored unless you list it.
+
+    .PARAMETER BaselineLabel
+        v2.5.2. What the baseline is called in the table: "vs <label>". Default 'previous run'.
+
+    .PARAMETER RememberColumns
+        v2.5.0. Remember which columns the reader ticks or unticks in the Columns picker, per viewer, in
+        the browser's local storage, and restore it on the next visit (also after the report is
+        regenerated: the key comes from the report title, -GeneratedBy and the table id). Columns are
+        matched by field name, so a column added later keeps its default. A Default columns entry in
+        the picker clears the choice. Off by default; nothing is stored unless it is on.
+        A column with Hidden = $true starts unticked (see the Columns key list).
+
+    .PARAMETER ColumnFit
+        v2.4.0. Auto (default) sizes every column to its widest text, header included, so
+        a value is not cut off at an arbitrary width; the widest a column may grow is
+        -ColumnMaxWidth, and text beyond that still shows an ellipsis and a tooltip. A
+        column with a declared Width, or one the reader has dragged, keeps that width.
+        Fixed keeps the pre-2.4.0 behaviour (cells cut off at 340 px).
+    .PARAMETER ColumnMaxWidth
+        v2.4.0. Widest an auto-sized column may grow, in pixels (default 800, 120 to 2000).
+        A column's own MinWidth (pixels, 24 to 2000) sets its floor.
+
+    .PARAMETER DetailDrawer
+        v2.3.0. Clicking (or pressing Enter on) a row opens a side panel with that row's
+        properties as label/value tiles, so a 40-column object can be read without a
+        40-column table. Master-detail links (Set-DhTableLink) still fire. Escape or a
+        click outside closes the panel; focus returns to the row.
+    .PARAMETER DetailFields
+        Properties to show in the panel, in order: names, or @{ Field='X'; Label='Nice name' }.
+        May name properties that are not visible columns. Default: every column, then
+        every other property of the data. Names are case-sensitive and must exist in the data.
+    .PARAMETER DetailTitleField
+        Property used as the panel title (default: the first column). The table title
+        is shown under it.
+
     .EXAMPLE
         # Basic table — columns auto-detected from object properties
         $servers = @(
@@ -141,7 +200,7 @@ function Add-DhTable {
         [ValidatePattern('^[A-Za-z0-9_-]+$')]
         [string]      $TableId,
         [Parameter(Mandatory)] [string]      $Title,
-        [Parameter(Mandatory)] [object[]]    $Data,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $Data,   # v2.3.0: empty is allowed (see -AllClearText)
         [object[]]  $Columns     = @(),
         [object[]]  $Charts      = @(),
         [int]       $PageSize    = 15,
@@ -151,6 +210,19 @@ function Add-DhTable {
         [switch]    $MultiSelect,
         [string]    $Description    = '',
         [string]    $ExportFileName = '',   # custom filename for CSV/XLSX/PDF download
+        [ValidateSet('Auto','Fixed')]
+        [string]    $ColumnFit = 'Auto',        # v2.4.0 - Auto sizes each column to its widest text; Fixed keeps the old 340px cap
+        [ValidateRange(120, 2000)]
+        [int]       $ColumnMaxWidth = 800,      # v2.4.0 - widest an auto-sized column may grow (px)
+        [switch]    $RememberColumns,          # v2.5.0 - keep the reader's column choice (per viewer, per browser)
+        [AllowEmptyCollection()] [object[]] $Baseline,   # v2.5.2 - rows of the previous run (with -KeyField): New / Changed / Removed markers
+        [string]    $KeyField = '',            # v2.5.2 - the property that identifies a row across runs
+        [string[]]  $BaselineFields = @(),     # v2.5.2 - compared properties (default: the table's columns, without the key)
+        [string]    $BaselineLabel = 'previous run',
+        [string]    $AllClearText = '',         # v2.3.0 - shown with a check mark instead of an empty table
+        [switch]    $DetailDrawer,              # v2.3.0 - row click opens a side panel
+        [object[]]  $DetailFields = @(),        # v2.3.0 - names or @{Field;Label}; default all properties
+        [string]    $DetailTitleField = '',     # v2.3.0 - panel title property; default first column
         [bool]      $Collapsible    = $true,    # v1.5.1 — wrap the section in a collapsible header (chevron + click-to-toggle)
         [bool]      $DefaultOpen    = $true,    # v1.5.1 — whether the table body starts expanded (only used when -Collapsible is $true)
         [string]    $Icon           = '',       # v1.5.1 — optional emoji / unicode glyph shown in the collapsible header
@@ -181,7 +253,7 @@ function Add-DhTable {
         throw "Add-DhTable: A table with Id '$TableId' already exists."
     }
 
-    if ($Data.Count -eq 0) {
+    if ($Data.Count -eq 0 -and -not $AllClearText) {
         Write-Warning "Add-DhTable: '$TableId' — Data array is empty. An empty table will be rendered."
     }
 
@@ -202,8 +274,8 @@ function Add-DhTable {
         if (-not $c.Contains('CellType'))     { $c['CellType']     = 'text'     }
         # v1.4 F8 — explicit validation now that the set is widened to include 'sparkline'
         $ctNorm = ([string]$c['CellType']).ToLowerInvariant()
-        if ($ctNorm -notin @('text','progressbar','badge','sparkline','link')) {
-            throw "Add-DhTable: column '$($c.Field)' — CellType must be 'text', 'progressbar', 'badge', 'sparkline' or 'link'. Got: $($c['CellType'])"
+        if ($ctNorm -notin @('text','progressbar','badge','sparkline','link','chips','path')) {
+            throw "Add-DhTable: column '$($c.Field)' — CellType must be 'text', 'progressbar', 'badge', 'sparkline', 'link', 'chips' or 'path'. Got: $($c['CellType'])"
         }
         $c['CellType'] = $ctNorm
 
@@ -238,6 +310,20 @@ function Add-DhTable {
             $c['SparklineStyle'] = $sps
         }
 
+        # v2.5.0 - Hidden: the column starts unticked in the Columns picker (still in the data and the detail panel)
+        if ($c.Contains('Hidden') -and $null -ne $c['Hidden'] -and $c['Hidden'] -isnot [bool]) {
+            throw "Add-DhTable: column '$($c.Field)' - Hidden must be $true or $false. Got: $($c['Hidden'])"
+        }
+        if (-not $c.Contains('Hidden')) { $c['Hidden'] = $false }
+        # v2.4.0 - MinWidth: a floor for the measured width, '80', 80 or '80px'
+        if ($c.Contains('MinWidth') -and $null -ne $c['MinWidth'] -and "$($c['MinWidth'])" -ne '') {
+            $mw = 0
+            $mwText = ([string]$c['MinWidth']) -replace 'px\s*$', ''
+            if (-not [int]::TryParse($mwText, [ref]$mw) -or $mw -lt 24 -or $mw -gt 2000) {
+                throw "Add-DhTable: column '$($c.Field)' - MinWidth must be a whole number of pixels from 24 to 2000. Got: $($c['MinWidth'])"
+            }
+            $c['MinWidth'] = $mw
+        }
         if (-not $c.Contains('ProgressMax'))  { $c['ProgressMax']  = 100        }
         if (-not $c.Contains('Bold'))         { $c['Bold']         = $false     }
         if (-not $c.Contains('Italic'))       { $c['Italic']       = $false     }
@@ -291,6 +377,74 @@ function Add-DhTable {
         }
     }
 
+    # v2.5.2 - baseline markers: New / Changed / Removed against the previous run, matched by -KeyField
+    $baselineOut = $null
+    $hasBaseline = $PSBoundParameters.ContainsKey('Baseline')
+    if (-not $hasBaseline -and ($KeyField -or @($BaselineFields).Count)) {
+        Write-Warning "Add-DhTable '$TableId': -KeyField / -BaselineFields have no effect without -Baseline."
+    }
+    if ($hasBaseline) {
+        if (-not $KeyField) { throw "Add-DhTable '$TableId': -Baseline needs -KeyField (the property that identifies a row across runs)." }
+        if (@($normData).Count -gt 50000 -or @($Baseline).Count -gt 50000) {
+            Write-Warning "Add-DhTable '$TableId': a baseline over 50,000 rows makes a large page; consider comparing a narrower set."
+        }
+        # compare what the reader sees (the table's columns) unless told otherwise: a property that is not
+        # shown, such as a LastSeen timestamp, would otherwise mark nearly every row Changed with nothing to see
+        $cmpFields = if (@($BaselineFields).Count) { @($BaselineFields) } else { @($normCols | ForEach-Object { [string]$_.Field }) }
+        $diff = Get-DhBaselineDiff -Data @($normData) -Baseline @($Baseline | Where-Object { $null -ne $_ }) -KeyField $KeyField -Fields $cmpFields -TableId $TableId
+        foreach ($w in $diff.Warnings) { Write-Warning "Add-DhTable '$TableId': $w" }
+        $baselineOut = [ordered]@{
+            Label    = $BaselineLabel
+            KeyField = $KeyField
+            Counts   = $diff.Counts
+            Changes  = $diff.Changes
+            Removed  = @($diff.Removed)
+        }
+    }
+
+    # v2.3.0 - detail drawer. Fields are checked against the data (case-sensitive,
+    # as the browser reads them) when there is data; without data they are kept as given.
+    $detail = $null
+    if ((@($DetailFields | Where-Object { $null -ne $_ }).Count -gt 0 -or $DetailTitleField) -and -not $DetailDrawer) {
+        Write-Warning "Add-DhTable '$TableId': -DetailFields / -DetailTitleField have no effect without -DetailDrawer."
+    }
+    if ($DetailDrawer) {
+        # Direct assignment on purpose: Get-DhTableFieldNames returns ,@(...), and only a
+        # plain assignment unrolls that one level (@(...) around it would nest the array).
+        $fieldPool = @()
+        if (@($normData).Count -gt 0) { $fieldPool = Get-DhTableFieldNames -Table @{ Id = $TableId; Columns = @($normCols); Data = @($normData) } }
+        $titleOf = @{}
+        foreach ($c in @($normCols)) { $titleOf[[string]$c.Field] = [string]$c.Label }
+        $fields = [System.Collections.Generic.List[object]]::new()
+        foreach ($df in @($DetailFields | Where-Object { $null -ne $_ })) {
+            if ($df -is [System.Collections.IDictionary]) {
+                if (-not $df.Contains('Field') -or [string]::IsNullOrWhiteSpace([string]$df['Field'])) { throw "Add-DhTable '$TableId': each -DetailFields hashtable needs a Field." }
+                $f = [string]$df['Field']; $lbl = if ($df['Label']) { [string]$df['Label'] } else { $null }
+            } else { $f = [string]$df; $lbl = $null }
+            if ($fieldPool.Count -gt 0 -and $f -cnotin $fieldPool) {
+                throw "Add-DhTable '$TableId': -DetailFields names '$f', which is not a property of the data. Fields: $($fieldPool -join ', ')"
+            }
+            if (-not $lbl) { $lbl = if ($titleOf.ContainsKey($f) -and $titleOf[$f]) { $titleOf[$f] } else { $f } }
+            $fields.Add([ordered]@{ Field = $f; Label = $lbl })
+        }
+        if ($fields.Count -eq 0) {
+            $ordered = @(@($normCols | ForEach-Object { [string]$_.Field }) + @($fieldPool)) | Select-Object -Unique
+            foreach ($f in $ordered) {
+                $fields.Add([ordered]@{ Field = $f; Label = $(if ($titleOf.ContainsKey($f) -and $titleOf[$f]) { $titleOf[$f] } else { $f }) })
+            }
+        }
+        $titleField = $DetailTitleField
+        if (-not $titleField) { $titleField = if (@($normCols).Count -gt 0) { [string]@($normCols)[0].Field } else { '' } }
+        elseif ($fieldPool.Count -gt 0 -and $titleField -cnotin $fieldPool) {
+            throw "Add-DhTable '$TableId': -DetailTitleField '$titleField' is not a property of the data. Fields: $($fieldPool -join ', ')"
+        }
+        $detail = [ordered]@{ TitleField = $titleField; Fields = $fields.ToArray() }
+    }
+    # Stored under the cmdlet's own parameter names (DetailDrawer / DetailFields /
+    # DetailTitleField), so DashHtml.Design's codegen round-trips them.
+    $detailFieldsOut = if ($detail) { @($detail.Fields) } else { @() }
+    $detailTitleOut  = if ($detail) { [string]$detail.TitleField } else { '' }
+
     # Normalise charts.
     # v2.1.4 - Type is validated. Before 2.1.4 the runtime rendered only 'pie'
     # (always drawn as a donut) and silently dropped anything else. A missing
@@ -299,6 +453,9 @@ function Add-DhTable {
     # than throwing, so a script that runs today keeps running.
     # v2.2.0 - 'bar' renders, with optional ValueField / Aggregate / TopN /
     # Unit / Decimals (same rules as Add-DhBarChart).
+    if (@($normCols).Count -gt 0 -and @(@($normCols) | Where-Object { -not $_.Hidden }).Count -eq 0) {
+        throw "Add-DhTable '$TableId': every column is Hidden. At least one column must be visible."
+    }
     $thisTable = @{ Id = $TableId; Columns = @($normCols); Data = @($normData) }
     $normCharts = foreach ($ch in $Charts) {
         $c = @{} + $ch
@@ -336,6 +493,14 @@ function Add-DhTable {
         Pageable    = $Pageable
         MultiSelect    = $MultiSelect
         ExportFileName = $ExportFileName
+        DetailDrawer     = [bool]$DetailDrawer
+        DetailFields     = $detailFieldsOut
+        DetailTitleField = $detailTitleOut
+        AllClearText   = $AllClearText
+        RememberColumns = [bool]$RememberColumns
+        Baseline       = $baselineOut
+        ColumnFit      = $ColumnFit
+        ColumnMaxWidth = $ColumnMaxWidth
         NavGroup       = $NavGroup
         NavSubGroup    = $NavSubGroup
         NavPath     = $NavPath

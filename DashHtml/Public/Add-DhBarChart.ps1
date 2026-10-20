@@ -65,6 +65,21 @@ function Add-DhBarChart {
         Add-DhBarChart -Report $report -Id 'repl-lag' -Title 'Replication lag by DC' `
             -TableId 'repl' -Field 'DC' -ValueField 'LagMinutes' -Aggregate avg -Unit 'min' -Decimals 1
 
+    .PARAMETER Rag
+        v2.3.0. Colour each bar by its value, with the same Green / Amber / Red bands as
+        a gauge or a table column. Use it with -ValueField (average lag, size) or for
+        counts. Ignored on a stacked chart.
+    .PARAMETER KeyClass
+        v2.3.0. Colour each bar by its category: @{ Critical='cell-danger'; Medium='cell-warn' }.
+        Classes: cell-ok, cell-warn, cell-danger, cell-nodata. Wins over -Rag. Categories
+        that are not listed keep the default colour. Ignored on a stacked chart.
+
+    .EXAMPLE
+        # v2.3.0 - bars coloured by severity, so the critical row stands out
+        Add-DhBarChart -Report $report -Id 'by-sev' -Title 'Findings by severity' `
+            -TableId 'findings' -Field 'Severity' `
+            -KeyClass @{ Critical='cell-danger'; High='cell-danger'; Medium='cell-warn'; Low='cell-ok' }
+
     .EXAMPLE
         # v1.4 — stacked: items per Region, segments coloured by Status
         Add-DhBarChart -Report $report -Id 'by-region-stacked' `
@@ -94,6 +109,9 @@ function Add-DhBarChart {
         [string] $Unit           = '',
         [ValidateRange(-1, 10)]
         [int]    $Decimals       = -1,
+        # ---- v2.3.0 bar colours (single-series bars only) ----
+        [System.Collections.IDictionary] $Rag      = $null,   # value bands: @{ Green=@{Max=10}; Amber=@{Min=10;Max=25}; Red=@{Min=25} }
+        [System.Collections.IDictionary] $KeyClass = $null,   # category -> class: @{ Critical='cell-danger'; Low='cell-ok' }
         [bool]   $Collapsible = $true,    # wrap the block in a collapsible header (chevron + click-to-toggle)
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
         [ValidateRange(0,12)]
@@ -145,6 +163,29 @@ function Add-DhBarChart {
         throw "Add-DhBarChart '$Id': a stacked chart adds its segments up, so -Aggregate must be count or sum. Got: $($aggDecl.Aggregate)"
     }
 
+    # v2.3.0 - bar colours. -Rag colours a bar by its value, -KeyClass by its
+    # category (KeyClass wins). Stacked segments use the series palette, so
+    # both are ignored there, with a warning rather than an error.
+    $ragThresholds = @()
+    if ($PSBoundParameters.ContainsKey('Rag') -and $null -ne $Rag) {
+        $ragThresholds = @((ConvertTo-DhRagThresholds -Rag $Rag -Context "Add-DhBarChart '$Id'").Thresholds)
+    }
+    $keyClassNorm = [ordered]@{}
+    if ($PSBoundParameters.ContainsKey('KeyClass') -and $null -ne $KeyClass) {
+        # sorted, so the same input always exports the same bytes (a plain @{} has no order)
+        foreach ($k in @($KeyClass.Keys | ForEach-Object { [string]$_ } | Sort-Object -CaseSensitive)) {
+            $cls = ([string]$KeyClass[$k]).Trim().ToLowerInvariant() -replace '^cell-', ''
+            if ($cls -notin 'ok', 'warn', 'danger', 'nodata') {
+                throw "Add-DhBarChart '$Id': -KeyClass['$k'] must be cell-ok, cell-warn, cell-danger or cell-nodata. Got: '$($KeyClass[$k])'"
+            }
+            $keyClassNorm[[string]$k] = "cell-$cls"
+        }
+    }
+    if ($isStacked -and ($ragThresholds.Count -or $keyClassNorm.Count)) {
+        Write-Warning "Add-DhBarChart '$Id': -Rag / -KeyClass are ignored on a stacked chart (segments use the series colours)."
+        $ragThresholds = @(); $keyClassNorm = [ordered]@{}
+    }
+
     if (-not $Report.Contains('Blocks')) {
         $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
     }
@@ -172,6 +213,8 @@ function Add-DhBarChart {
         Aggregate    = $aggDecl.Aggregate
         Unit         = $Unit
         Decimals     = $Decimals
+        Thresholds   = $ragThresholds
+        KeyClass     = $keyClassNorm
         NavGroup     = $NavGroup
         NavSubGroup = $NavSubGroup
         NavPath     = $NavPath

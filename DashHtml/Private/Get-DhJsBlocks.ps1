@@ -39,11 +39,8 @@ function Get-DhJsBlocks {
     var toggle = outer.querySelector('#ctoggle-'+uid);
     var body   = outer.querySelector('#cbody-'+uid);
     var chev   = outer.querySelector('.collapsible-chevron');
-    toggle.addEventListener('click', function () {
-      var open = body.classList.toggle('open');
-      toggle.classList.toggle('open', open);
-      chev.textContent = open ? '▾' : '▸';
-    });
+    dhBindCollapsible(toggle, body, chev);
+
 
     /* Clone block, strip title + icon so the inner renderer doesn't repeat them */
     var innerBlock = {};
@@ -76,6 +73,10 @@ function Get-DhJsBlocks {
         case 'topologymap':    renderTopologyMap(container, b); break;
         case 'rangebar':       renderRangeBar(container, b); break;
         case 'findings':       renderFindings(container, b); break;   /* v2.2.0 */
+        case 'keyvalue':       renderKeyValue(container, b); break;   /* v2.3.0 */
+        case 'recordlist':     renderRecordList(container, b); break; /* v2.3.0 */
+        case 'networkmap':     renderNetworkMap(container, b); break; /* v2.4.0 */
+        case 'treetable':      renderTreeTable(container, b); break;  /* v2.5.0 */
       }
     });
   }
@@ -776,6 +777,17 @@ function Get-DhJsBlocks {
   }
   function _rgbStr(arr) { return 'rgb(' + arr[0] + ',' + arr[1] + ',' + arr[2] + ')'; }
 
+  /* Text colour for a cell painted `rgb(r,g,b)`: the dark or the white that reads better on it
+     (the theme text colour is light in dark mode and unreadable on a pale cell). */
+  function dhTextOn(rgb) {
+    var m = /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(rgb || '');
+    if (!m) return '';
+    function lin(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    var L = 0.2126 * lin(+m[1]) + 0.7152 * lin(+m[2]) + 0.0722 * lin(+m[3]);
+    var dark = 0.0139, light = 1;                      /* luminance of #1a2332 and #ffffff */
+    return ((L + 0.05) / (dark + 0.05) >= (light + 0.05) / (L + 0.05)) ? '#1a2332' : '#ffffff';
+  }
+
   function renderHeatmap(container, block) {
     container.className = 'heatmap-section heatmap-size-' + (block.cellSize || 'normal');
     var rows = block.rows || [];
@@ -848,7 +860,7 @@ function Get-DhJsBlocks {
         var col = colourFor(def.value);
         var tipParts = [esc(rn), '×', esc(cn), '—', esc(def.value) + esc(block.unit || '')];
         if (def.tooltip) tipParts.push('('+esc(def.tooltip)+')');
-        var styleAttr = col ? ' style="background:'+col+'"' : '';
+        var styleAttr = col ? ' style="background:'+col+';color:'+dhTextOn(col)+'"' : '';
         var inner = block.showValues ? '<span class="hm-value">'+esc(def.value)+'</span>' : '';
         body += '<div class="hm-cell"'+styleAttr+' title="'+tipParts.join(' ')+'" aria-label="'+esc(rn)+' × '+esc(cn)+': '+esc(def.value)+esc(block.unit||'')+'">'+inner+'</div>';
       });
@@ -952,6 +964,130 @@ function Get-DhJsBlocks {
         vCenter→Cluster→Host, etc.). */
   /* v1.5.2 — shared canvas for text measurement (created lazily) */
   var _topoMeasureCanvas = null;
+  /* createPanZoom — pan (drag), zoom (wheel and toolbar buttons) and fit for an SVG
+     viewport. Extracted in 2.3.0 from renderTopologyMap so that Add-DhNetworkMap
+     can share it. The window-level move/up listeners exist only while a drag is
+     in progress (they used to be added once per map and never removed), and the
+     resize wiring takes itself down when the map has left the document.
+       o.innerDiv  the sized container      o.svgEl  the <svg>
+       o.vp        the <g> that is transformed
+       o.toolbar   element holding [data-topo-act=zoom-in|zoom-out|reset] buttons
+       o.initH     fallback height          o.getContent()  -> {w,h} of the drawing, or null
+     Returns { fit, applyTransform, syncViewBox, zoomAround, onResize, dragged, view, dispose }. */
+  function createPanZoom(o) {
+    var innerDiv = o.innerDiv, svgEl = o.svgEl, vp = o.vp;
+    var view = { scale: 1, tx: 0, ty: 0 };
+    var userInteracted = false;   /* true once the user pans / wheel-zooms; stops auto-fit */
+    var dragMoved = false;        /* set by the pan handler; lets a caller suppress the click that ends a drag */
+    var observer = null, disposed = false;
+
+    function viewportSize() {
+      var r = innerDiv.getBoundingClientRect();
+      return { w: r.width || 600, h: r.height || o.initH || 400 };
+    }
+    function applyTransform() {
+      vp.setAttribute('transform', 'translate('+view.tx.toFixed(2)+','+view.ty.toFixed(2)+') scale('+view.scale.toFixed(4)+')');
+    }
+    function fit() {
+      var vs = viewportSize();
+      var c = o.getContent();
+      /* Never fit against a not-yet-laid-out container — a ~0 width would latch a
+         microscopic scale. Bail; onResize will call again once it has real size. */
+      if (vs.w < 40 || vs.h < 40 || !c) return;
+      var s = Math.min(vs.w / c.w, vs.h / c.h, 1);
+      if (!isFinite(s) || s <= 0) s = 1;
+      view.scale = s;
+      view.tx = (vs.w - c.w * s) / 2;
+      view.ty = (vs.h - c.h * s) / 2;
+      userInteracted = false;     /* a fresh fit hands auto-fit back to the container */
+      applyTransform();
+    }
+    function syncViewBox() {
+      var vs = viewportSize();
+      svgEl.setAttribute('viewBox', '0 0 '+vs.w+' '+vs.h);
+    }
+    function zoomAround(cx, cy, factor) {
+      var ns = Math.max(0.15, Math.min(4, view.scale * factor));
+      view.tx = cx - (cx - view.tx) * (ns / view.scale);
+      view.ty = cy - (cy - view.ty) * (ns / view.scale);
+      view.scale = ns;
+      userInteracted = true;      /* user has taken manual control of the view */
+      applyTransform();
+    }
+
+    /* Toolbar */
+    if (o.toolbar) o.toolbar.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-topo-act]'); if (!btn) return;
+      var act = btn.getAttribute('data-topo-act');
+      if (act === 'reset') { fit(); return; }
+      var vs = viewportSize();
+      zoomAround(vs.w / 2, vs.h / 2, act === 'zoom-in' ? 1.25 : 1 / 1.25);
+    });
+
+    /* Wheel zoom around the cursor */
+    svgEl.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var rect = svgEl.getBoundingClientRect();
+      zoomAround(e.clientX - rect.left, e.clientY - rect.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+    }, { passive: false });
+
+    /* Drag to pan; the move/up listeners live on window only for the length of a drag */
+    var sx = 0, sy = 0, otx = 0, oty = 0;
+    function onMove(e) {
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { dragMoved = true; userInteracted = true; }
+      view.tx = otx + dx; view.ty = oty + dy;
+      applyTransform();
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      innerDiv.classList.remove('topo-panning');
+    }
+    svgEl.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      dragMoved = false;
+      sx = e.clientX; sy = e.clientY; otx = view.tx; oty = view.ty;
+      innerDiv.classList.add('topo-panning');
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+
+    /* Fit-to-view timing. The container may have zero width when this runs — it is
+       often inside a nav panel that is display:none until its tab is selected, or
+       simply not laid out yet at DOMContentLoaded. Measuring then yields a ~0 width
+       and a microscopic fit scale. Rather than fitting exactly once (which would
+       latch onto an early bad measurement), re-fit on every size change UNTIL the
+       user takes manual control by panning or zooming. */
+    function dispose() {
+      if (disposed) return;
+      disposed = true;
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', onResize);
+      onUp();
+    }
+    function onResize() {
+      if (disposed) return;
+      if (!innerDiv.isConnected) { dispose(); return; }   /* the map was replaced: stop listening */
+      var vs = viewportSize();
+      /* < 40px means "not laid out yet" (hidden panel, pre-layout) rather than a
+         legitimately narrow column — fitting then yields a microscopic scale. */
+      if (vs.w < 40) return;
+      syncViewBox();
+      if (!userInteracted) fit();
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(onResize);
+      observer.observe(innerDiv);
+    }
+    window.addEventListener('resize', onResize);
+
+    return {
+      fit: fit, applyTransform: applyTransform, syncViewBox: syncViewBox, zoomAround: zoomAround,
+      onResize: onResize, dragged: function () { return dragMoved; }, view: view, dispose: dispose
+    };
+  }
+
   function _topoMeasureText(txt, fontCss) {
     if (!_topoMeasureCanvas) _topoMeasureCanvas = document.createElement('canvas');
     var ctx = _topoMeasureCanvas.getContext('2d');
@@ -1057,7 +1193,6 @@ function Get-DhJsBlocks {
        collapsed node, so the layout treats it as a leaf and its descendants
        are neither positioned nor drawn. */
     var collapsed = {};
-    var dragMoved = false;   /* set by the pan handler; suppresses the drill click */
     function kidsOf(n)   { return collapsed[n.id] ? [] : childrenOf[n.id]; }
     function isParent(n) { return childrenOf[n.id].length > 0; }
 
@@ -1169,7 +1304,7 @@ function Get-DhJsBlocks {
     function wireNodes(root) {
       root.querySelectorAll('.topo-clickable').forEach(function (el) {
         el.addEventListener('click', function () {
-          if (dragMoved) return;   /* the mousedown→up was a pan, not a click */
+          if (pz.dragged()) return;   /* the mousedown→up was a pan, not a click */
           var tableId = el.getAttribute('data-link-table');
           var filter  = el.getAttribute('data-link-filter');
           if (tableId) jumpToTable(tableId, filter);
@@ -1217,51 +1352,20 @@ function Get-DhJsBlocks {
     var innerDiv = container.querySelector('.topology-map-inner');
     var svgEl    = container.querySelector('.topology-map-svg');
     var vp       = container.querySelector('.topo-viewport');
-    var view     = { scale: 1, tx: 0, ty: 0 };
     var lastLayout = null;
-
-    function viewportSize() {
-      var r = innerDiv.getBoundingClientRect();
-      return { w: r.width || 600, h: r.height || initH };
-    }
-    function applyTransform() {
-      vp.setAttribute('transform', 'translate('+view.tx.toFixed(2)+','+view.ty.toFixed(2)+') scale('+view.scale.toFixed(4)+')');
-    }
-    var userInteracted = false;   /* true once the user pans / wheel-zooms; stops auto-fit */
-    function fitView() {
-      var vs = viewportSize();
-      /* Never fit against a not-yet-laid-out container — a ~0 width would latch a
-         microscopic scale. Bail; onResize will call again once it has real size. */
-      if (vs.w < 40 || vs.h < 40 || !lastLayout) return;
-      var s = Math.min(vs.w / lastLayout.contentW, vs.h / lastLayout.contentH, 1);
-      if (!isFinite(s) || s <= 0) s = 1;
-      view.scale = s;
-      view.tx = (vs.w - lastLayout.contentW * s) / 2;
-      view.ty = (vs.h - lastLayout.contentH * s) / 2;
-      userInteracted = false;     /* a fresh fit hands auto-fit back to the container */
-      applyTransform();
-    }
-    function syncViewBox() {
-      var vs = viewportSize();
-      svgEl.setAttribute('viewBox', '0 0 '+vs.w+' '+vs.h);
-    }
-    function zoomAround(cx, cy, factor) {
-      var ns = Math.max(0.15, Math.min(4, view.scale * factor));
-      view.tx = cx - (cx - view.tx) * (ns / view.scale);
-      view.ty = cy - (cy - view.ty) * (ns / view.scale);
-      view.scale = ns;
-      userInteracted = true;      /* user has taken manual control of the view */
-      applyTransform();
-    }
+    var pz = createPanZoom({
+      innerDiv: innerDiv, svgEl: svgEl, vp: vp, initH: initH,
+      toolbar: container.querySelector('.topology-map-toolbar'),
+      getContent: function () { return lastLayout ? { w: lastLayout.contentW, h: lastLayout.contentH } : null; }
+    });
     function redraw(refit) {
       lastLayout = computeLayout();
-      syncViewBox();
+      pz.syncViewBox();
       vp.innerHTML = buildInner(lastLayout.positioned, true);
       wireNodes(vp);
       wireToggles();
-      if (refit) fitView(); else applyTransform();
-    }
-    function wireToggles() {
+      if (refit) pz.fit(); else pz.applyTransform();
+    }    function wireToggles() {
       vp.querySelectorAll('.topo-toggle').forEach(function (g) {
         function toggle(e) {
           e.stopPropagation();
@@ -1276,68 +1380,8 @@ function Get-DhJsBlocks {
       });
     }
 
-    /* Toolbar */
-    container.querySelector('.topology-map-toolbar').addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-topo-act]'); if (!btn) return;
-      var act = btn.getAttribute('data-topo-act');
-      if (act === 'reset') { fitView(); return; }
-      var vs = viewportSize();
-      zoomAround(vs.w / 2, vs.h / 2, act === 'zoom-in' ? 1.25 : 1 / 1.25);
-    });
-
-    /* Wheel zoom around the cursor */
-    svgEl.addEventListener('wheel', function (e) {
-      e.preventDefault();
-      var rect = svgEl.getBoundingClientRect();
-      zoomAround(e.clientX - rect.left, e.clientY - rect.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
-    }, { passive: false });
-
-    /* Drag to pan. dragMoved gates the node drill click (see wireNodes). */
-    var panning = false, sx = 0, sy = 0, otx = 0, oty = 0;
-    svgEl.addEventListener('mousedown', function (e) {
-      if (e.button !== 0) return;
-      panning = true; dragMoved = false;
-      sx = e.clientX; sy = e.clientY; otx = view.tx; oty = view.ty;
-      innerDiv.classList.add('topo-panning');
-    });
-    window.addEventListener('mousemove', function (e) {
-      if (!panning) return;
-      var dx = e.clientX - sx, dy = e.clientY - sy;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { dragMoved = true; userInteracted = true; }
-      view.tx = otx + dx; view.ty = oty + dy;
-      applyTransform();
-    });
-    window.addEventListener('mouseup', function () {
-      if (!panning) return;
-      panning = false;
-      innerDiv.classList.remove('topo-panning');
-    });
-
-    /* Fit-to-view timing. The container may have zero width when this runs —
-       it is often inside a nav panel that is display:none until its tab is
-       selected, or simply not laid out yet at DOMContentLoaded. Measuring then
-       yields a ~0 width and a microscopic fit scale.
-
-       Rather than fitting exactly once (which would latch onto an early bad
-       measurement), we re-fit on every size change UNTIL the user takes manual
-       control by panning or zooming. This self-corrects when the container
-       finally reaches its real size (hidden panel shown, layout settled) and
-       stops interfering the moment the user grabs the view. */
-    function onResize() {
-      var vs = viewportSize();
-      /* < 40px means "not laid out yet" (hidden panel, pre-layout) rather than a
-         legitimately narrow column — fitting then yields a microscopic scale. */
-      if (vs.w < 40) return;
-      syncViewBox();
-      if (!userInteracted) fitView();
-    }
-    if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(onResize).observe(innerDiv);
-    }
-    window.addEventListener('resize', onResize);
-
     redraw(false);   /* build content now; onResize performs the fit once sized */
-    onResize();      /* attempt an immediate fit when the size is already known */
+    pz.onResize();   /* attempt an immediate fit when the size is already known */
   }
 
   /* ── Status Grid (v1.4 F5) — rows × columns RAG matrix ──
@@ -1371,7 +1415,8 @@ function Get-DhJsBlocks {
        The NUL separator is chosen because it can't appear in JS object keys
        coming from PS string data. */
     var cellMap = {};
-    (block.cells || []).forEach(function (c) {
+    (block.cells || []).forEach(function (c, ci) {
+      c._ci = ci;                               /* v2.3.0: index for the click handler */
       cellMap[c.row + '\0' + c.column] = c;
     });
 
@@ -1393,8 +1438,8 @@ function Get-DhJsBlocks {
         if (!def) {
           bodyHtml += '<div class="sg-cell sg-cell-empty" aria-label="'+esc(rn)+' × '+esc(cn)+': no data"></div>';
         } else {
-          var statusClass = 'sg-status-' + (def.status || 'info');
-          var clickable   = def.linkTableId ? ' sg-clickable' : '';
+          var statusClass = 'sg-status-' + (def.status || 'info') + (def.self ? ' sg-self' : '');
+          var clickable   = (def.linkTableId || def.detail) ? ' sg-clickable' : '';
           var tipAttr     = def.tooltip
             ? ' title="' + esc(def.tooltip) + '"'
             : ' title="' + esc(rn) + ' × ' + esc(cn) + ': ' + esc(def.status) + '"';
@@ -1403,7 +1448,9 @@ function Get-DhJsBlocks {
             dataAttrs += ' data-link-table="' + esc(def.linkTableId) + '"';
             if (def.linkFilter) dataAttrs += ' data-link-filter="' + esc(def.linkFilter) + '"';
           }
-          bodyHtml += '<div class="sg-cell '+statusClass+clickable+'"'+tipAttr+dataAttrs+' role="img" aria-label="'+esc(rn)+' × '+esc(cn)+': '+esc(def.status)+(def.tooltip?'. '+esc(def.tooltip):'')+'"></div>';
+          /* v2.3.0: a cell with detail (or a link) is a button: reachable and operable by keyboard */
+          var roleAttr = clickable ? ' role="button" tabindex="0" data-ci="'+def._ci+'"' : ' role="img"';
+          bodyHtml += '<div class="sg-cell '+statusClass+clickable+'"'+tipAttr+dataAttrs+roleAttr+' aria-label="'+esc(rn)+' × '+esc(cn)+': '+esc(def.status)+(def.tooltip?'. '+esc(def.tooltip):'')+'">'+(def.glyph?'<span class="sg-glyph" aria-hidden="true">'+esc(def.glyph)+'</span>':'')+'</div>';
         }
       });
     });
@@ -1437,10 +1484,23 @@ function Get-DhJsBlocks {
     /* Wire clickable cells — navigate to a registered table and optionally
        apply a text filter (same machinery as Add-DhAlertBanner Action). */
     container.querySelectorAll('.sg-clickable').forEach(function (el) {
-      el.addEventListener('click', function () {
+      function activate() {
         var tableId = el.getAttribute('data-link-table');
         var filter  = el.getAttribute('data-link-filter');
-        if (tableId) jumpToTable(tableId, filter);
+        var def = (block.cells || [])[parseInt(el.getAttribute('data-ci'), 10)];
+        if (def && def.detail) {
+          /* v2.3.0: detail opens the shared side panel; a link, if any, becomes its "Show in table" button */
+          dhDrawerOpen({
+            title:    def.detail.title || (def.row + ' × ' + def.column),
+            subtitle: def.detail.subtitle || (def.detail.title ? def.row + ' × ' + def.column : ''),
+            sections: def.detail.sections,
+            tableId:  tableId, filter: filter
+          }, { opener: el });
+        } else if (tableId) jumpToTable(tableId, filter);
+      }
+      el.addEventListener('click', activate);
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
       });
     });
   }
@@ -1477,11 +1537,8 @@ function Get-DhJsBlocks {
     var toggle = container.querySelector('#ctoggle-'+block.id);
     var body   = container.querySelector('#cbody-'+block.id);
     var chevron= container.querySelector('.collapsible-chevron');
-    toggle.addEventListener('click', function () {
-      var open = body.classList.toggle('open');
-      toggle.classList.toggle('open', open);
-      chevron.textContent = open ? '▾' : '▸';
-    });
+    dhBindCollapsible(toggle, body, chevron);
+
 
     /* Render cards or free content */
     var inner = container.querySelector('#cinner-'+block.id);
@@ -1679,9 +1736,20 @@ function Get-DhJsBlocks {
           (opts.showCount!==false?'<span class="bar-label-count">'+esc(shown)+'</span>':'')+
           (opts.showPercent && pctTotal !== null?'<span class="bar-label-pct">'+esc(pctTotal)+'%</span>':'')+
         '</div>'+
-        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div>'+
+        '<div class="bar-track"><div class="bar-fill'+barFillClass(e, opts)+'" style="width:'+pct+'%"></div></div>'+
       '</div>';
     }).join('');
+  }
+
+  /* v2.3.0 - a bar's colour class: by category (keyClass) first, then by value
+     (thresholds). Only the four cell-* names are honoured, so a hand-edited
+     BLOCKS_CONFIG cannot put arbitrary text into a class attribute. */
+  function barFillClass(e, opts) {
+    var cls = '';
+    if (opts.keyClass && Object.prototype.hasOwnProperty.call(opts.keyClass, e.label)) cls = opts.keyClass[e.label];
+    else if (opts.thresholds && opts.thresholds.length) cls = pickThresholdClass(e.value, opts.thresholds) || '';
+    var m = /^cell-(ok|warn|danger|nodata)$/.exec(String(cls));
+    return m ? ' bar-fill-' + m[1] : '';
   }
 
   /* Bind click + Enter/Space on rendered bars. */
@@ -1712,7 +1780,8 @@ function Get-DhJsBlocks {
 
     var opts = { valueField: block.valueField, aggregate: block.aggregate, topN: block.topN,
                  unit: block.unit, decimals: block.decimals,
-                 showCount: block.showCount, showPercent: block.showPercent, clickable: !!block.clickFilters };
+                 showCount: block.showCount, showPercent: block.showPercent, clickable: !!block.clickFilters,
+                 thresholds: block.thresholds, keyClass: block.keyClass };   /* v2.3.0 colours */
     var agg = aggregateBars(engine._getFiltered(), block.field, opts);
     opts.total = agg.total;
 
@@ -1822,22 +1891,68 @@ function Get-DhJsBlocks {
   };
   var FINDING_URL_OK = /^(https?:|mailto:|tel:|#)/i;
 
+  /* v2.3.0 - positive empty state: the check ran and found nothing */
+  function allClearHtml(text) {
+    return '<div class="dh-allclear" role="status"><span class="dh-allclear-ico" aria-hidden="true">&#10003;</span>' +
+           '<div class="dh-allclear-text">' + esc(text) + '</div></div>';
+  }
+
+  var FINDING_CHANGE = {
+    'new':      'New',
+    worse:      'Worse',
+    better:     'Better',
+    resolved:   'Resolved'
+  };
+
   function renderFindings(container, block) {
     container.className = 'findings-section';
     var list = block.findings || [];
     var expand = {};
     (block.expandSeverity || []).forEach(function (s) { expand[s] = true; });
     var maxShown = (block.maxAffectedShown >= 0) ? block.maxAffectedShown : 20;
+    var maxEvidence = (block.maxEvidenceShown >= 1) ? block.maxEvidenceShown : 50;   /* v2.3.0 */
+    var split = block.layout === 'split';                                            /* v2.3.0 */
     var uid = 'fnd-' + block.id;
 
     /* counters */
     var counts = { critical: 0, warning: 0, info: 0, ok: 0 };
-    list.forEach(function (f) { if (counts[f.severity] !== undefined) counts[f.severity]++; });
+    var changeCounts = {};
+    list.forEach(function (f) {
+      if (counts[f.severity] !== undefined) counts[f.severity]++;
+      if (f.change && FINDING_CHANGE[f.change]) changeCounts[f.change] = (changeCounts[f.change] || 0) + 1;
+    });
+
+    /* v2.3.0 - facts (label/value tiles) and evidence (object / value / status / note rows)
+       are drawn by the shared section renderer, so they look like the drawer's. */
+    function evidenceSection(f) {
+      var ev = f.evidence || [];
+      if (!ev.length) return '';
+      var hasVal = ev.some(function (e) { return e.value !== '' && e.value != null; });
+      var hasNote = ev.some(function (e) { return e.note !== '' && e.note != null; });
+      var hasStatus = ev.some(function (e) { return e.status; });
+      var cols = ['Object'];
+      if (hasVal) cols.push('Value');
+      if (hasStatus) cols.push('Status');
+      if (hasNote) cols.push('Note');
+      var rows = ev.map(function (e) {
+        var r = [e.object];
+        if (hasVal) r.push(e.value);
+        if (hasStatus) r.push(e.status ? { text: SEC_LABEL[secStatus(e.status)] || e.status, status: e.status } : '');
+        if (hasNote) r.push(e.note);
+        return r;
+      });
+      return '<div class="finding-section"><div class="finding-label">Evidence ('+esc(ev.length)+')</div>' +
+             renderSection({ kind: 'table', columns: cols, rows: rows, maxRows: maxEvidence }) + '</div>';
+    }
 
     function bodyHtml(f, i) {
       var h = '';
       if (f.description)    h += '<div class="finding-section"><div class="finding-label">Description</div><p>'+esc(f.description)+'</p></div>';
       if (f.recommendation) h += '<div class="finding-section"><div class="finding-label">Recommendation</div><p>'+esc(f.recommendation)+'</p></div>';
+      if (f.facts && f.facts.length) {
+        h += '<div class="finding-section">' + renderSection({ kind: 'kv', columns: 2, items: f.facts }) + '</div>';
+      }
+      h += evidenceSection(f);
       var aff = f.affected || [];
       if (aff.length || f.affectedCount) {
         var shown = aff.slice(0, maxShown);
@@ -1853,6 +1968,9 @@ function Get-DhJsBlocks {
       if (f.affectedTableId) {
         links += '<button type="button" class="finding-jump" data-fi="'+i+'">Show in table &#8594;</button>';
       }
+      if (f.detail) {
+        links += '<button type="button" class="finding-more-detail" data-fi="'+i+'">Open details</button>';
+      }
       (f.references || []).forEach(function (r) {
         if (FINDING_URL_OK.test(String(r.url || ''))) {
           links += '<a class="finding-ref" href="'+esc(r.url)+'" target="_blank" rel="noopener noreferrer">'+esc(r.label || r.url)+'</a>';
@@ -1864,13 +1982,20 @@ function Get-DhJsBlocks {
       return h || '<p class="finding-empty">No further detail.</p>';
     }
 
+    function changeBadge(f) {
+      return (f.change && FINDING_CHANGE[f.change])
+        ? '<span class="finding-change finding-change-'+f.change+'">'+esc(FINDING_CHANGE[f.change])+'</span>' : '';
+    }
+
     function rowHtml(f, i) {
       var sev = FINDING_SEV[f.severity] ? f.severity : 'info';
       var open = !!expand[sev];
       var fid = uid + '-' + i;
-      return '<div class="finding finding-'+sev+(open?' open':'')+'" data-fi="'+i+'" data-sev="'+sev+'" id="'+esc(fid)+'" data-finding-id="'+esc(f.id)+'">'+
+      return '<div class="finding finding-'+sev+(open?' open':'')+'" data-fi="'+i+'" data-sev="'+sev+'"'+
+        (f.change ? ' data-change="'+esc(f.change)+'"' : '')+' id="'+esc(fid)+'" data-finding-id="'+esc(f.id)+'">'+
         '<button type="button" class="finding-head" aria-expanded="'+(open?'true':'false')+'" aria-controls="'+esc(fid)+'-body">'+
           '<span class="finding-badge finding-badge-'+sev+'">'+esc(FINDING_SEV[sev].label)+'</span>'+
+          changeBadge(f)+
           '<span class="finding-title">'+esc(f.title)+'</span>'+
           (f.area ? '<span class="finding-area">'+esc(f.area)+'</span>' : '')+
           ((f.affectedCount || (f.affected||[]).length) ? '<span class="finding-count" title="Affected objects">'+esc(f.affectedCount || f.affected.length)+'</span>' : '')+
@@ -1880,8 +2005,32 @@ function Get-DhJsBlocks {
       '</div>';
     }
 
+    /* v2.3.0 split layout: one list item per finding on the left, one detail pane
+       per finding on the right. Every pane stays in the DOM (hidden), so print can
+       show them all stacked and the filter never has to rebuild anything. */
+    function itemHtml(f, i) {
+      var sev = FINDING_SEV[f.severity] ? f.severity : 'info';
+      var n = f.affectedCount || (f.affected || []).length;
+      return '<button type="button" class="finding finding-item finding-'+sev+'" data-fi="'+i+'" data-sev="'+sev+'"'+
+        (f.change ? ' data-change="'+esc(f.change)+'"' : '')+' id="'+esc(uid+'-'+i)+'" data-finding-id="'+esc(f.id)+'" aria-selected="false" aria-controls="'+esc(uid+'-pane-'+i)+'">'+
+        '<span class="finding-badge finding-badge-'+sev+'">'+esc(FINDING_SEV[sev].label)+'</span>'+
+        '<span class="finding-item-text"><span class="finding-title">'+esc(f.title)+'</span>'+
+          '<span class="finding-item-sub">'+(f.area ? esc(f.area) : '')+(f.area && n ? ' &middot; ' : '')+(n ? esc(n)+' affected' : '')+'</span></span>'+
+        changeBadge(f)+
+      '</button>';
+    }
+    function paneHtml(f, i) {
+      var sev = FINDING_SEV[f.severity] ? f.severity : 'info';
+      return '<div class="finding-pane finding-'+sev+'" id="'+esc(uid+'-pane-'+i)+'" data-fi="'+i+'" role="region" aria-label="'+esc(f.title)+'" hidden>'+
+        '<div class="finding-pane-head"><span class="finding-badge finding-badge-'+sev+'">'+esc(FINDING_SEV[sev].label)+'</span>'+
+          changeBadge(f)+'<h4 class="finding-pane-title">'+esc(f.title)+'</h4>'+
+          (f.area ? '<span class="finding-area">'+esc(f.area)+'</span>' : '')+'</div>'+
+        '<div class="finding-pane-body">'+bodyHtml(f, i)+'</div></div>';
+    }
+
     /* list markup, with optional group headers */
     var groupBy = block.groupBy || 'none';
+    var cellFn = split ? itemHtml : rowHtml;
     var rows = '';
     if (groupBy === 'area' || groupBy === 'severity') {
       var groups = {}, order = [];
@@ -1893,13 +2042,14 @@ function Get-DhJsBlocks {
       order.forEach(function (k) {
         rows += '<div class="findings-group" data-group="'+esc(k)+'"><div class="findings-group-header">'+esc(k)+
                 ' <span class="findings-group-count">'+groups[k].length+'</span></div>'+
-                groups[k].map(function (i) { return rowHtml(list[i], i); }).join('')+'</div>';
+                groups[k].map(function (i) { return cellFn(list[i], i); }).join('')+'</div>';
       });
     } else {
-      rows = list.map(rowHtml).join('');
+      rows = list.map(cellFn).join('');
     }
 
     var counters = '';
+    var changeKeys = ['new','worse','better','resolved'].filter(function (c) { return changeCounts[c] > 0; });
     if (block.showCounters !== false) {
       counters = '<div class="findings-counters" role="group" aria-label="Show severity">'+
         ['critical','warning','info','ok'].filter(function (s) { return counts[s] > 0; }).map(function (s) {
@@ -1907,68 +2057,122 @@ function Get-DhJsBlocks {
                  '<span class="findings-chip-count">'+counts[s]+'</span> '+esc(FINDING_SEV[s].label)+'</button>';
         }).join('')+'</div>';
     }
+    /* v2.3.0 - change chips (only when some finding carries a Change) */
+    var changeBar = changeKeys.length
+      ? '<div class="findings-counters findings-changes" role="group" aria-label="Show change since the last run">'+
+        changeKeys.map(function (c) {
+          return '<button type="button" class="findings-chip findings-chip-change findings-chip-change-'+c+'" data-change="'+c+'" aria-pressed="false">'+
+                 '<span class="findings-chip-count">'+changeCounts[c]+'</span> '+esc(FINDING_CHANGE[c])+'</button>';
+        }).join('')+'</div>'
+      : '';
     var filterBox = (block.filterable !== false)
       ? '<input type="search" class="findings-filter" placeholder="Filter findings&#8230;" aria-label="Filter findings">'
       : '';
 
+    var body;
+    if (!list.length) {
+      body = block.allClear ? allClearHtml(block.allClear) : '<p class="findings-none">No findings.</p>';
+    } else if (split) {
+      body = '<div class="findings-split"><div class="findings-split-list findings-list" role="group" aria-label="Findings">'+rows+'</div>'+
+             '<div class="findings-split-detail">'+list.map(paneHtml).join('')+'</div></div>'+
+             '<p class="findings-none" hidden>No findings match the filter.</p>';
+    } else {
+      body = '<div class="findings-list">'+rows+'</div><p class="findings-none" hidden>No findings match the filter.</p>';
+    }
+
     container.innerHTML =
       (block.title ? '<h3 class="findings-title">'+esc(block.title)+'</h3>' : '')+
-      ((counters || filterBox) ? '<div class="findings-toolbar">'+counters+filterBox+'</div>' : '')+
-      (list.length
-        ? '<div class="findings-list">'+rows+'</div><p class="findings-none" hidden>No findings match the filter.</p>'
-        : '<p class="findings-none">No findings.</p>');
+      ((counters || changeBar || filterBox) ? '<div class="findings-toolbar">'+counters+changeBar+filterBox+'</div>' : '')+
+      body;
 
-    /* expand / collapse */
+    /* expand / collapse (list) or select (split) */
     function setOpen(el, open) {
       el.classList.toggle('open', open);
-      var head = el.querySelector('.finding-head'), body = el.querySelector('.finding-body');
+      var head = el.querySelector('.finding-head'), bodyEl = el.querySelector('.finding-body');
       if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (body) { if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', ''); }
+      if (bodyEl) { if (open) bodyEl.removeAttribute('hidden'); else bodyEl.setAttribute('hidden', ''); }
       var chev = el.querySelector('.finding-chevron');
       if (chev) chev.innerHTML = open ? '&#9662;' : '&#9656;';
     }
-    container.querySelectorAll('.finding-head').forEach(function (head) {
-      head.addEventListener('click', function () {
-        var el = head.parentNode;
-        setOpen(el, !el.classList.contains('open'));
+    var selectedFi = -1;
+    function selectFinding(fi) {
+      selectedFi = fi;
+      container.querySelectorAll('.finding-item').forEach(function (it) {
+        var on = parseInt(it.getAttribute('data-fi'), 10) === fi;
+        it.classList.toggle('selected', on);
+        it.setAttribute('aria-selected', on ? 'true' : 'false');
       });
-    });
+      container.querySelectorAll('.finding-pane').forEach(function (p) {
+        p.hidden = parseInt(p.getAttribute('data-fi'), 10) !== fi;
+      });
+    }
+    if (split) {
+      container.querySelectorAll('.finding-item').forEach(function (it) {
+        it.addEventListener('click', function () { selectFinding(parseInt(it.getAttribute('data-fi'), 10)); });
+      });
+      if (list.length) selectFinding(0);
+    } else {
+      container.querySelectorAll('.finding-head').forEach(function (head) {
+        head.addEventListener('click', function () {
+          var el = head.parentNode;
+          setOpen(el, !el.classList.contains('open'));
+        });
+      });
+    }
     container.querySelectorAll('.finding-jump').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var f = list[parseInt(btn.getAttribute('data-fi'), 10)];
         if (f) jumpToTable(f.affectedTableId, f.affectedFilter);
       });
     });
+    container.querySelectorAll('.finding-more-detail').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var f = list[parseInt(btn.getAttribute('data-fi'), 10)];
+        if (f && f.detail) dhDrawerOpen({
+          title: f.detail.title || f.title, subtitle: f.detail.subtitle || f.area || '',
+          sections: f.detail.sections, tableId: f.affectedTableId, filter: f.affectedFilter
+        }, { opener: btn });
+      });
+    });
 
-    /* filtering: severity chips (none pressed = all) AND text */
-    var activeSev = {};
+    /* filtering: severity chips and change chips (none pressed = all) AND text */
+    var activeSev = {}, activeChange = {};
     var input = container.querySelector('.findings-filter');
     function haystack(f) {
-      return [f.title, f.area, f.description, f.recommendation, (f.affected || []).join(' '), f.severity]
+      return [f.title, f.area, f.description, f.recommendation, (f.affected || []).join(' '), f.severity, f.change || '',
+              (f.evidence || []).map(function (e) { return e.object + ' ' + (e.value || '') + ' ' + (e.note || ''); }).join(' ')]
         .join('\n').toLowerCase();
     }
     var hay = list.map(haystack);
     function applyFilter() {
       var term = input ? input.value.trim().toLowerCase() : '';
       var anySev = Object.keys(activeSev).length > 0;
-      var visible = 0;
+      var anyChange = Object.keys(activeChange).length > 0;
+      var visible = 0, firstVisible = -1, selectedVisible = false;
       container.querySelectorAll('.finding').forEach(function (el) {
         var i = parseInt(el.getAttribute('data-fi'), 10);
-        var ok = (!anySev || activeSev[el.getAttribute('data-sev')]) && (!term || hay[i].indexOf(term) !== -1);
+        var ok = (!anySev || activeSev[el.getAttribute('data-sev')]) &&
+                 (!anyChange || activeChange[el.getAttribute('data-change')]) &&
+                 (!term || hay[i].indexOf(term) !== -1);
         el.hidden = !ok;
-        if (ok) visible++;
+        if (ok) { visible++; if (firstVisible < 0) firstVisible = i; if (i === selectedFi) selectedVisible = true; }
       });
       container.querySelectorAll('.findings-group').forEach(function (g) {
         g.hidden = !g.querySelector('.finding:not([hidden])');
       });
+      if (split && visible && !selectedVisible) selectFinding(firstVisible);
       var none = container.querySelector('.findings-none');
       if (none && list.length) none.hidden = visible > 0;
+      var splitEl = container.querySelector('.findings-split');
+      if (splitEl) splitEl.hidden = visible === 0;
     }
     container.querySelectorAll('.findings-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
-        var s = chip.getAttribute('data-sev');
-        if (activeSev[s]) delete activeSev[s]; else activeSev[s] = true;
-        chip.setAttribute('aria-pressed', activeSev[s] ? 'true' : 'false');
+        var isChange = chip.hasAttribute('data-change');
+        var bag = isChange ? activeChange : activeSev;
+        var s = chip.getAttribute(isChange ? 'data-change' : 'data-sev');
+        if (bag[s]) delete bag[s]; else bag[s] = true;
+        chip.setAttribute('aria-pressed', bag[s] ? 'true' : 'false');
         applyFilter();
       });
     });
@@ -1977,7 +2181,10 @@ function Get-DhJsBlocks {
     /* for print and search: open one finding by its stable id */
     container._dhOpenFinding = function (findingId) {
       var el = container.querySelector('.finding[data-finding-id="'+String(findingId).replace(/["\\]/g, '')+'"]');
-      if (el) { setOpen(el, true); if (el.scrollIntoView) el.scrollIntoView({ block: 'center' }); }
+      if (el) {
+        if (split) selectFinding(parseInt(el.getAttribute('data-fi'), 10)); else setOpen(el, true);
+        if (el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+      }
       return !!el;
     };
   }

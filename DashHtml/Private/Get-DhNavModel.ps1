@@ -66,9 +66,27 @@ function Get-DhNavTree {
     $root  = New-DhNavNode
     $items = Get-DhNavItem -Report $Report
 
+    # -NavTree skeleton: create its nodes first, with a sequence below any declaration, so its
+    # order wins over declaration order and an empty node exists.
+    $skeleton = @(if ($Report.Contains('NavTree') -and $Report.NavTree) { $Report.NavTree })
+    for ($si = 0; $si -lt $skeleton.Count; $si++) {
+        $segs = @(ConvertFrom-DhNavPath ([string]$skeleton[$si].Path))
+        $cur = $root
+        for ($i = 0; $i -lt $segs.Count; $i++) {
+            if (-not $cur.Children.Contains($segs[$i])) {
+                $cur.Children[$segs[$i]] = New-DhNavNode -Path @($segs[0..$i]) -Segment $segs[$i]
+                $cur.Children[$segs[$i]].Seq = -100000 + $si
+            }
+            $cur = $cur.Children[$segs[$i]]
+        }
+    }
+
     foreach ($it in $items) {
         $path = @($it.Path)
         if ($path.Count -eq 0) { continue }   # page-global: no menu node
+        # 2.5.3: a Global item that carries a path adds no node either. The menu prunes that dead end
+        # (dhNavPrune), so counting it here could switch -NavLayout Auto to the sidebar for a node nobody sees.
+        if ("$($it.Scope)" -eq 'Global') { continue }
 
         $node = $root
         for ($i = 0; $i -lt $path.Count; $i++) {
@@ -84,7 +102,12 @@ function Get-DhNavTree {
         if ($it.Label -and $node.Label -eq $node.Segment) { $node.Label = $it.Label }
         if ($it.Order -ne 0 -and $node.Order -eq 0)       { $node.Order = $it.Order }
     }
-    return $root
+    foreach ($e in $skeleton) {
+        if ([int]$e.Order -eq 0) { continue }
+        $cur = $root
+        foreach ($sg in (ConvertFrom-DhNavPath ([string]$e.Path))) { $cur = $cur.Children[$sg] }
+        if ($cur.Order -eq 0) { $cur.Order = [int]$e.Order }
+    }    return $root
 }
 
 function Get-DhNavChildOrder {

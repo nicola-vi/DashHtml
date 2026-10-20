@@ -14,10 +14,10 @@
 #>
 
 BeforeAll {
-    $script:modulePath = Join-Path $PSScriptRoot '..\DashHtml\DashHtml.psd1'
+    $script:modulePath = Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1'
     Import-Module $script:modulePath -Force
     # Private helpers: dot-source directly so they can be tested in isolation.
-    . (Join-Path $PSScriptRoot '..\DashHtml\Private\Test-DhNavMatch.ps1')
+    . (Join-Path $PSScriptRoot '../DashHtml/Private/Test-DhNavMatch.ps1')
 }
 
 AfterAll { Remove-Module DashHtml -ErrorAction SilentlyContinue }
@@ -208,7 +208,7 @@ Describe 'Structural: no content can be unreachable' {
 }
 
 Describe 'Resolve-DhNavDeclaration' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\DashHtml\Private\Resolve-DhNavDeclaration.ps1') }
+    BeforeAll { . (Join-Path $PSScriptRoot '../DashHtml/Private/Resolve-DhNavDeclaration.ps1') }
 
     Context 'v2 API' {
         It 'parses a path and defaults scope to Exact' {

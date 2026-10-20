@@ -72,7 +72,10 @@ function Update-DhScript {
         'Add-DhHtmlBlock','Add-DhCollapsible','Add-DhStatusGrid','Add-DhHeatmap',
         'Add-DhTopologyMap','Add-DhEventFeed','Add-DhTabs','Add-DhFilterCard','Add-DhAlertBanner',
         'Add-DhRangeBar',  # v2.1.4 - missed when Add-DhRangeBar shipped in 2.1.0
-        'Add-DhFindings'   # DashHtml 2.2.0
+        'Add-DhFindings',  # DashHtml 2.2.0
+        'Add-DhKeyValue','Add-DhRecordList',   # DashHtml 2.3.0
+        'Add-DhTreeFilter','Add-DhNetworkMap',   # DashHtml 2.4.0
+        'Add-DhTreeTable'   # DashHtml 2.5.0
     )
     # The content parameter differs per cmdlet; Add-DhTabs carries markup inside
     # its -Tabs hashtables, which is why it is treated as always-needs-review.

@@ -1,0 +1,12 @@
+{
+  "selectors": [
+    ".nav-link", ".nav-more-btn", ".nav-sev", ".nav-badge", ".nav-crumb-item", ".nav-empty",
+    ".dh-tree-label", ".dh-tree-count", ".dh-tree-flag", ".tt-type", ".tt-head-label", ".tt-find", ".col-toggle-reset",
+    ".nm-node-label", ".nm-node-sub", ".nm-legend-item", ".nm-status", ".network-map-title",
+    ".hm-value", ".table-section-title", ".collapsible-title", ".alert-banner",
+    ".summary-label", ".kv-label", ".data-table th", ".data-table td", ".finding-title", ".chg-tag", ".chg-chip", ".tbl-baseline-note", ".chg-incl", ".tbl-removed > summary", ".tbl-removed-table td"
+  ],
+  "accept": [
+    { "selector": ".hm-value", "min": 3.8, "why": "mid-tone heatmap cells: neither dark nor white text reaches 4.5 on them" }
+  ]
+}

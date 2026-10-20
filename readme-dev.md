@@ -29,7 +29,7 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 
 ---
 
-## 2 — Cmdlet cheat sheet (22 cmdlets, grouped by role)
+## 2 — Cmdlet cheat sheet (27 cmdlets, grouped by role)
 
 | Group | Cmdlet | Use when… |
 |---|---|---|
@@ -53,6 +53,11 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 | **Layout** | `Add-DhTabs` *(v1.5)* | Inline tabbed content block. Local pivot inside one block; distinct from `-NavGroup` (page-level). |
 | **Global filter** *(v1.9)* | `Add-DhGlobalFilter` | Page-level facet dropdown or from/to date range in a bar above the body. Re-filters EVERY table that has the field at once; charts re-aggregate; AND-combined; persists in URL. Tables lacking the field are unaffected. |
 | | `Add-DhFilterCard` | Clickable filter card grid; single or multi-select; filters a target table. |
+| | `Add-DhKeyValue` *(2.3)* | A grid of label/value tiles (a property sheet): `-Items @(@{ Label; Value; Status })`, `-Columns 1..6`. |
+| | `Add-DhRecordList` *(2.3)* | One row per record (status dot, title, sub line, ≤4 metrics) that expands to sections (kv / bars / statusList / checks / table / text / links). Filter, expand all, printed expanded. |
+| **Maps and trees** *(2.4)* | `Add-DhNetworkMap` | A graph, not a tree: nodes + links (replication, site links, trusts, tiers). `-Layout grouped` (boxes) or `layered` (lanes by `Tier`), deterministic. Nodes: `Group, Tier, Status, Badge (list), Target, Detail, LinkTableId`; edges: `Label, Status, Style, Direction`. Filters, node search, shortest-path trace to a `Target`, SVG download. Caps 300 nodes / 1500 edges. |
+| | `Add-DhTreeFilter` | An OU / folder tree that filters a table by path: `-TableId -PathField -Nodes @(@{ Id; Parent; Label; Path; Count; Status; Flags; Detail })`, `-Match Prefix` (`a/b/c`) or `Suffix` (distinguished names), `-CountFromTable`. The table must already exist. |
+| | `Add-DhTreeTable` *(2.5)* | A directory explorer: `-Rows @(@{ Id; ParentId; Type ou/group/user/computer/container/other; Label; Status; Flags; Properties; Detail })` and `-Memberships @(@{ GroupId; MemberId })`. Tabs Properties / Members / Member of / Nesting (effective membership, circular nesting marked). Browsing tool: warns above 5,000 rows, throws above 20,000. |
 | | `Add-DhHtmlBlock` | Free-form HTML in one of 6 RAG-coloured styles. |
 | | `Add-DhCollapsible` | Collapsible card grid or free-form content. |
 
@@ -213,11 +218,12 @@ spike that proved the approach on a private copy; keep it as history.)
 
 ### 5.2 — Nav-aware cmdlets
 
-**17 accept the nav parameters:** `Add-DhTable`, `Add-DhSummary`, `Add-DhFindings`,
+**22 accept the nav parameters:** `Add-DhTable`, `Add-DhSummary`, `Add-DhFindings`,
 `Add-DhBarChart`, `Add-DhPieChart`, `Add-DhLineChart`, `Add-DhRangeBar`,
 `Add-DhBullet`, `Add-DhStatusGrid`, `Add-DhHeatmap`, `Add-DhTopologyMap`,
 `Add-DhTabs`, `Add-DhEventFeed`, `Add-DhFilterCard`, `Add-DhHtmlBlock`,
-`Add-DhCollapsible`, `Add-DhAlertBanner`.
+`Add-DhCollapsible`, `Add-DhAlertBanner`, `Add-DhKeyValue`, `Add-DhRecordList`,
+`Add-DhNetworkMap`, `Add-DhTreeFilter`, `Add-DhTreeTable`.
 
 **5 do not:** `New-DhDashboard`, `Export-DhDashboard`, `Get-DhTheme`,
 `Set-DhTableLink`, `Add-DhGlobalFilter`.
@@ -486,13 +492,13 @@ Add-DhTopologyMap -Report $report -Id 'ad-forest' -Title 'AD Forest' `
 Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
     -Direction 'horizontal' -NodeWidth 220 -AutoFitWidth `
     -Nodes @(
-        @{ Id='farm';     Label='CAI-DC';                     Parent=$null;     Status='ok'; Icon='🏗️'; Badge='Farm' }
-        @{ Id='site';     Label='EGSI-RAS-BRK01';             Parent='farm';    Status='ok'; Icon='🌐';  Badge='Site' }
+        @{ Id='farm';     Label='FARM-01';                     Parent=$null;     Status='ok'; Icon='🏗️'; Badge='Farm' }
+        @{ Id='site';     Label='RAS-SITE-01';             Parent='farm';    Status='ok'; Icon='🌐';  Badge='Site' }
         @{ Id='cat-brk';  Label='Brokers';                    Parent='site';    Status='ok'; Icon='🔀';  Badge='2'    }
         @{ Id='cat-gw';   Label='Gateways';                   Parent='site';    Status='ok'; Icon='🛡️'; Badge='2'    }
         @{ Id='cat-pool'; Label='RDS Host Pools';             Parent='site';    Status='ok'; Icon='📦';  Badge='5'    }
-        @{ Id='brk-01';   Label='EGSI-RAS-BRK01.egsi.local';  Parent='cat-brk'; Status='ok'; Icon='🔀';  Badge='Primary'
-           Tooltip='EGSI-RAS-BRK01.egsi.local — role Primary, agent OK'; LinkTableId='brokers' }
+        @{ Id='brk-01';   Label='RAS-BRK01.contoso.local';  Parent='cat-brk'; Status='ok'; Icon='🔀';  Badge='Primary'
+           Tooltip='RAS-BRK01.contoso.local — role Primary, agent OK'; LinkTableId='brokers' }
         # … etc.
     )
 ```
@@ -582,6 +588,166 @@ Add-DhFindings -Report $report -Id 'sec' -Title 'Security findings' -NavPath 'Fi
 - Reference URLs go through `Test-DhSafeActionUrl` (http, https, mailto, tel, #); anything else throws.
 - Verdict `Counts` take the same severities and aliases. Without `Class`, the colour follows the worst count.
 - Gotcha: findings text is always encoded. To emphasise something, use the structure (Description vs Recommendation), not markup.
+
+### 7.19 — Detail drawer, property tiles, record lists (v2.3+)
+
+```powershell
+Add-DhTable -Report $r -TableId 'dcs' -Title 'Domain controllers' -Data $dcs -DetailDrawer -DetailTitleField 'Name' `
+    -DetailFields @('Name','Site',@{ Field='RamGB'; Label='RAM (GB)' },'Roles')
+
+Add-DhStatusGrid -Report $r -Id 'repl' -Title 'Replication' -Rows $names -Columns $names -SelfDiagonal -Cells @(
+    @{ Row='DC01'; Column='DC02'; Status='danger'; Glyph='x'; LinkTableId='dcs'
+       Detail=@{ Title='DC01 to DC02'; Sections=@(@{ Kind='kv'; Items=@(@{ Label='Last success'; Value='3 days ago'; Status='danger' }) }) } })
+
+Add-DhKeyValue   -Report $r -Id 'scope' -Title 'Scope' -Columns 4 -Items @(@{ Label='Forest'; Value='corp.example' })
+Add-DhRecordList -Report $r -Id 'hw' -Title 'Hardware' -Items @(
+    @{ Title='dc01'; Status='ok'; Metrics=@(@{ Label='RAM'; Value='8 GB' })
+       Sections=@(@{ Kind='table'; Title='Volumes'; Columns=@('Drive','Free'); Rows=@(,@('C:','73 GB')) }) })
+```
+
+- **One section spec** (`ConvertTo-DhSections` in PowerShell, `renderSections` in JS) feeds the drawer, `Add-DhKeyValue`, `Add-DhRecordList` and the findings split layout. Kinds: `kv`, `bars`, `statusList`, `checks`, `table`, `text`, `links`. A status is `ok|warn|danger|info|nodata`; `cell-danger`, `critical`, `failed` etc. are normalised, an unknown word shows grey (it never throws).
+- `ConvertTo-DhSections` returns `, @($out)` on purpose: without the comma a single section unrolls to a bare ordered dictionary and `.Count` / `[0]` then mean keys. Same trap as `Get-DhTableFieldNames`: assign its result directly (`$x = Get-...`), never `@(Get-...)`.
+- `ConvertTo-DhDetailSpec` accepts text, one section, an array of sections or `@{ Title; Subtitle; Sections }` and returns one shape (or `$null`). Status-grid cells and findings share it.
+- **The drawer** is one element on `<body>` (`dhDrawerOpen(spec, { opener, restore })`, also `window._dhOpenDrawer`). Pass `restore` as a selector when the opener is re-rendered (table rows are). `applyNav` and `dhBeforePrint` close it. Build new consumers on `dhDrawerOpen`; do not add a second popover.
+- Table drawer options are stored as `DetailDrawer` / `DetailFields` / `DetailTitleField` (the cmdlet's own parameter names) so `DashHtml.Design` round-trips them. `Add-DhKeyValue` stores `Items` / `Columns` for the same reason. A YAML round trip drops table data and empty lists, so `Add-DhTable -Data` may be empty and `Add-DhFindings -Findings` is not mandatory.
+
+### 7.20 — Score ring and maturity ladder (v2.3+)
+
+```powershell
+Add-DhSummary -Report $r -Items @(
+    @{ Style='score'; Label='Posture'; Value=69; Caption='Elevated risk'; Facts=@('211 checks'); Previous=66; NotAssessed=20
+       Rag=@{ Red=@{ Max=50 }; Amber=@{ Min=50; Max=80 }; Green=@{ Min=80 } } }
+    @{ Style='maturity'; Label='Maturity'; Value='Initial'; Current=1; Levels=@('Initial','Managed','Defined')
+       Criteria=@(@{ Level=2; Text='Enable the AD Recycle Bin'; Met=$false }) }
+)
+```
+
+- They are tile **styles**, not cmdlets, so nav-aware strips, the global strip, `Action`, `Previous` and the link lint all work. `score` is validated like a gauge (a missing `Value` needs `Rag NoData`); colours come from `-Rag` / `Class` through theme tokens only.
+- `LowerIsBetter` flips only the delta colour. The ring still fills as value / max.
+- `Current` is 0..N (0 = nothing reached); the script owns the model, e.g. "the lowest unmet control caps the level".
+- The score also appears on the print cover (`Get-DhJsPrint` clones `.tile-verdict` and `.tile-score`).
+
+### 7.21 — Findings: split layout, evidence, change (v2.3+)
+
+```powershell
+Add-DhFindings -Report $r -Id 'h' -Title 'Hardening' -Layout Split -MaxEvidenceShown 50 -AllClearText 'Every setting is as recommended.' -Findings @(
+    @{ Severity='warning'; Title='NTLM level'; Area='Auth'; Change='new'
+       Facts=@(@{ Label='Recommended'; Value='5' }); Evidence=@(@{ Object='DC01'; Value='Level 4'; Status='warn' })
+       Detail=@{ Title='How to check'; Sections=@(@{ Kind='text'; Text='...' }) } } )
+```
+
+- `List` output of a finding without the new keys is byte-identical to 2.2.0 (tested). The new keys are emitted only when present.
+- Split keeps every detail pane in the DOM (hidden) so print can stack them and the filter never rebuilds; the cost is that evidence is built eagerly, which is why `-MaxEvidenceShown` exists.
+- `Change` is a marker supplied by the script (it compares with the last run); DashHtml adds a badge and a filter chip.
+
+### 7.22 — Small things (v2.3+)
+
+- `CellType='chips'` (array as tags) and `'path'` (array as `A → B → Tier 0`): the export keeps list elements as strings for these columns ("007" stays "007"); CSV/XLSX get the joined text.
+- `Add-DhBarChart -Rag` colours by value, `-KeyClass @{ Critical='cell-danger' }` by category (four classes only; `barFillClass` whitelists them). Ignored with a warning on a stacked chart.
+- `-AllClearText` on `Add-DhTable` (empty `-Data`) and `Add-DhFindings` (no findings): a check mark and a sentence instead of nothing.
+
+### 7.23 — Network map (v2.4+)
+
+```powershell
+Add-DhNetworkMap -Report $r -Id 'repl' -Title 'Replication' -NavPath 'Network' -Legend `
+    -Groups @(@{ Id='hq'; Label='HQ site' }, @{ Id='eu'; Label='EU site' }) `
+    -Nodes @(
+        @{ Id='dc01'; Label='DC01'; Group='hq'; Badge=@('PDC','GC'); Status='ok' }
+        @{ Id='dc02'; Label='DC02'; Group='eu'; Status='danger'; LinkTableId='dcs'; LinkFilter='DC02' } ) `
+    -Edges @( @{ From='dc01'; To='dc02'; Label='15 min'; Direction='both'; Status='danger'; Style='dashed' } )
+
+# lanes: -Layout layered, Tier 0 on top; Target=$true marks what "Trace path" aims for
+Add-DhNetworkMap -Report $r -Id 'tiers' -Title 'Reaching Tier 0' -Layout layered -Nodes $nodes -Edges $edges
+```
+
+- Not a tree: use `Add-DhTopologyMap` when every node has exactly one parent. Edges between the same pair are parallel curves; a self edge is a loop; unknown `From`/`To` throws.
+- Layout is computed in the browser by `dhNetLayout` (pure, tested in node): same input, same picture. `grouped` flows boxes left to right and wraps at 1100 px; `layered` orders each lane by declaration, then one barycentre sweep. Do not add randomness or a force simulation (decision D3).
+- Path trace is `dhNetPath` (BFS, directed for `forward`, both ways for `both`/`none`, ties by declaration order).
+- Edge labels are hidden above 400 links (the **Labels** button turns them on). Clicks are one delegated handler; a drag must not count as a click (`pz.dragged()`).
+- SVG download copies the `.nm-*` rules and the CSS variables they use into the file (`dhNetDownload`); if you add a new `.nm-*` rule that uses a variable, it is picked up automatically.
+
+### 7.24 — OU tree filter (v2.4+)
+
+```powershell
+Add-DhTable -Report $r -TableId 'ous' -Title 'OUs' -Data $ous                 # declare the table first
+Add-DhTreeFilter -Report $r -Id 'ou-tree' -Title 'Browse by OU' -TableId 'ous' -PathField 'CanonicalName' -CountFromTable -Nodes @(
+    @{ Id='root'; Label='corp.example'; Path='corp.example' }
+    @{ Id='hq';   Parent='root'; Label='HQ'; Path='corp.example/HQ'; Status='ok'; Flags=@('large') } )
+```
+
+- `Path` is what table rows are compared with (case-insensitive, separator-aware: `HQ` does not match `HQ2`). Prefix for `a/b/c`, Suffix for distinguished names.
+- The filter lives in the table engine: `TableEngine.setPathFilter(spec)` is the only place `pathFilter` is assigned (a test pins it). It ANDs with the text, card and global filters, shows in the link badge, and is saved in the URL as `pathFilters`.
+- The tree renders in the Boot loop **after** the engines exist (like table-fed bar charts), not in `renderBlocks`.
+- `-CountFromTable` credits each row to the deepest node it reaches, then rolls up: O(rows x depth).
+- A runtime marker the older tests pin: the strings `"detail"`, `"layout"`, `"glyph"`, `"self"` must not appear in the runtime as exact quoted words (the tree uses `data-act="info"`), because the 2.3.0 byte-identity tests search the whole HTML for them.
+
+### 7.25 — Search and menu badges (v2.4+)
+
+- `New-DhDashboard -Search` adds `#nav-search-input`; `initSearch` (`Get-DhJsSearch.ps1`) is booted after `initNav`. The index (`dhSearchIndex`) is built once; table rows are scanned in time slices through `TableEngine._matchText`, the same matcher as the table's filter. Results go through `applyNav` / `jumpToTable`; the query never reaches the URL or `innerHTML`.
+- `-NavBadge` sets `data-navbadge` on `#report-nav`; `buildNavSevIndex` rolls findings counts up to every ancestor path; `updateNavSeverity` (called from `updateNavBadges`) draws the `.nav-sev` pill on every `[data-navto]` element (strip chips and sidebar items).
+
+### 7.26 — Columns that fit (v2.4+)
+
+- Auto-fit is on by default (`Add-DhTable -ColumnFit Auto`). `TableEngine._measureCol` measures the formatted text with canvas `measureText` (fonts and padding read from a rendered cell), clamps to `[MinWidth, -ColumnMaxWidth]`, and `_effWidth` applies it after a dragged width and the author's `Width`.
+- Re-measure on `document.fonts.ready`, on density change (`DENSITY.set`) and when a hidden column is shown. Large tables: unique strings only, the 3,000 longest if there are more.
+- `-ColumnFit Fixed` restores the 340 px CSS cap exactly. Emitted JSON has no `columnFit`/`columnMax`/`minWidth` unless used.
+
+### 7.27 — Directory explorer (v2.5+)
+
+```powershell
+Add-DhTreeTable -Report $r -Id 'dir' -Title 'Directory' -NavPath 'Identity/Directory' -Rows @(
+    @{ Id='ou-hq'; Type='ou'; Label='Headquarters' }
+    @{ Id='g-da'; ParentId='ou-hq'; Type='group'; Label='Domain Admins'; Flags=@('privileged') }
+    @{ Id='u-rossi'; ParentId='ou-hq'; Type='user'; Label='adm.rossi'; Properties=[ordered]@{ 'Password age'='41 days' } }
+) -Memberships @( @{ GroupId='g-da'; MemberId='u-rossi' } )
+```
+
+- Two flat lists. `ParentId` is the container (it must not loop: that throws); `-Memberships` is group nesting (it may loop: real directories do, and the browser marks it "circular nesting").
+- The membership logic is three pure functions in `Get-DhJsTreeTable.ps1`: `dhTtLinks` (pairs to both directions), `dhTtPaths` (every path up, capped by `-MaxNestingPaths`, a cut loop ends a path and sets `circular`), `dhTtNested` (groups below a group, depth-capped). They are tested in node; keep them pure.
+- The tree is drawn flat, only rows whose parent is open (like `Add-DhTreeFilter`); do not render everything and hide it. Cap: warn above `-MaxRows`, throw above 20,000.
+- A tab link (`data-goto`) calls `goTo(id)`: it opens the ancestors, clears the find box and type filter if they hide the row, then selects it.
+- It does not read or filter a table, so it renders in `renderBlocks` (no engine needed).
+### 7.28 — Menu: All view, skeleton, lint, overflow, keyboard (v2.5+)
+
+```powershell
+$r = New-DhDashboard -Title 'Estate' -StrictNav `
+    -NavAllLabel @{ 'Storage' = 'All storage' } `              # or -NavAllLabel 'All' for every group
+    -NavTree @( @{ Path='Overview' }, @{ Path='Storage'; Label='Storage and backup' }, @{ Path='Storage/Capacity' } ) `
+    -NavOverflow More                                          # default; Wrap keeps the old wrapping
+```
+
+- **All view** = path ending in `*`. Matching (both `Test-DhNavMatch` and JS `navMatches`): visible if the declared path is at or below the parent (any scope), global, or a Subtree item above the parent. `*` is reserved: `ConvertFrom-DhNavPath` rejects it. The JS tree adds the node from `data-navall` / `data-navallall` on `#report-nav`; `navAutoDescend` skips `*`.
+- **Skeleton** = `data-navtree` on `#report-nav`; both `Get-DhNavTree` (PowerShell: initial path, depth) and `buildNavTree` (JS: the menu) create its nodes first with a sequence below any declaration. Order and label from the skeleton apply only where the item gave none.
+- **Lint** = `Test-DhNavLint` (private, returns strings); it compares siblings case-sensitively from the raw paths because PowerShell ordered-dictionary keys are case-insensitive.
+- **Overflow** = pure `dhNavFit(widths, avail, gap, maxRows, moreW, active)` plus `dhNavFitStrip` (measure, then move chips into `.nav-more-menu`). `DH_NAV_MAX_ROWS` is 1 since 2.5.3 (was 2). The selected chip is never moved. Rules that keep the fit honest (2.5.3): `.nav-strip-top` has `flex: 1 1 0` so a long menu stays on the title line instead of dropping onto its own; `dhNavDecorate` fills row-count badges and `-NavBadge` pills **before** the fit; `avail` excludes the strip padding; the More button is measured, not guessed; `updateNavBadges` calls `dhNavRefitIfWrapped` (a filter can widen a badge). A window width change, or a width change of `#nav-strips-top` (ResizeObserver: the theme/density labels and fonts settle after `initNav`), re-renders the menu (debounced).
+- **Keyboard** = one delegated `dhNavKeydown`. The menu is rebuilt on every `applyNav`, so `applyNav` remembers the focused `data-navto` and refocuses it.
+- **Empty view** = `updateEmptyView` after every `applyNav`: no panel-active section that has a path and a non-global scope means "no content".
+
+### 7.29 — Column picker (v2.5+)
+
+- Column key `Hidden = $true` (bool only; anything else throws) starts the column unticked. Export emits `"hidden":true` only when set; `Add-DhTable` throws when every column is Hidden.
+- `Add-DhTable -RememberColumns` adds `"remember":"<16 hex>"` to the table config: the first 16 hex of SHA-256 over `ReportTitle|GeneratedBy|TableId`, so the key is stable across regenerations and different per report. The runtime stores `{ field: bool }` under `dh:cols:<key>` (`_saveCols`) and applies it by field name (`_restoreCols`); every localStorage access is in try/catch. `Default columns` (`.col-toggle-reset`) restores `!col.hidden` and removes the key.
+- Picker label: `_colToggleLabel` ("Columns (n hidden)"). Showing a hidden column re-measures its width through the usual `_ensureFit` path.
+- Exports use `_visibleCols`, so unticked and hidden columns are not exported (unchanged behaviour).
+
+### 7.31 — Baseline markers (v2.5.2)
+
+- `Add-DhTable -Baseline -KeyField [-BaselineFields] [-BaselineLabel]`. Add-DhTable passes the table's column fields as the compared set unless `-BaselineFields` is given (a hidden timestamp must not mark rows Changed). A field that is a date on one side and text on the other is counted and reported as a warning. Copy cell uses `dhCellText` (drops the tag); CSV and copy-as-CSV go through `dhCsvSafe` (formula guard). The comparison is `Get-DhBaselineDiff` (Private, unit-tested): key = case-insensitive text, values compared as invariant-culture text (null = empty), duplicate keys throw, result `Changes` by DATA ROW INDEX (`'3' = @{State='new|changed'; Fields; Was}`), `Removed` rows, `Counts`. The table object carries `Baseline` (null without the parameter).
+- Export emits `"baseline":{label,key,new,changed,removed,changes:{"<idx>":{s:"n|c",f:[..],w:{..}}},removedRows:[..declared columns..]}` only when set, so a plain table's JSON is unchanged.
+- Runtime (`Get-DhJsTable.ps1`): `_baseState` maps row object to its entry (rows are never reordered, so the index is stable); `_getFiltered` applies the chip filter (`dhChangeKeep`); `_buildRow` adds the tag, `row-new/row-changed` and `cell-changed` + `data-was` (kept by `_markTruncated`, which rewrites `title`); `_exportRows` adds the `Change` column and, with the checkbox, the removed rows; `_buildChangeBar` / `_renderRemoved` build the line, chips and the `details.tbl-removed` group (opened by `dhBeforePrint`). Column fit adds 62 px to the first column for the tag.
+- YAML: `ConvertTo-DhYaml` drops `Baseline` (it is data); the schema lists the four parameters.
+
+### 7.30 — Quality tools: print, contrast, accessibility, schema (v2.5.2)
+
+- **Tools\Test-DhPrint.ps1** prints reports to PDF with headless Edge/Chrome (page count, size). Review the pages as images with a pdf.js page if no rasteriser is installed.
+- **Tools\Test-DhContrast.ps1** builds three examples in all 6 families (or takes -Path), injects contrast-measure.js into a COPY of each page and measures WCAG ratios for the selectors in contrast-selectors.json in light and dark (3.0 for large text; ccept lists documented exceptions, currently heatmap mid-tones at 3.8). Text over a gradient or image counts as skipped, never as a pass. A fix goes into the theme tokens (--cell-*-fg, --text-secondary), not into one selector.
+- **Tools\Test-DhA11y.ps1** runs 11y-probe.js the same way: duplicate ids, controls without a name, sortable headers without ria-sort/keyboard access, tabs and expandables without state, dialogs, tables without a name, selection that is not announced, lang/main/alt, focus-visible and reduced-motion rules. Errors fail; warnings fail with -Strict. Add a rule in the probe and a bad-HTML case in the Pester test.
+- Both use **BrowserProbe.ps1**: current Edge prints nothing for --dump-dom, so the injected script etchs its JSON to a loopback HttpListener (/*%%PORT%%*/0 is replaced). Find-DhBrowser.ps1 returns Edge/Chrome/Chromium on Windows, macOS and Linux; the Pester tests skip when none exists.
+- **Collapsible headers** are divs: dhBindCollapsible(toggle, body, chevron) in Get-DhJsCore.ps1 gives them role=button, a tab stop, ria-expanded/ria-controls and Enter/Space. Use it for any new collapsible; never add a bare click handler to a div.
+- **Menu pruning:** dhNavPrune(root, hasOwn) in Get-DhJsNav.ps1 drops nodes with no own content and no kept child (a Global item that carries a path); a node declared in -NavTree stays.
+- **Export-DhYamlSchema** (DashHtml.Design) writes DashHtml.Design\dashhtml.schema.json from Get-Command metadata; property maps must be ordinal ([ordered] is case-insensitive and would merge Id and id). A Pester test fails when the committed file differs from a fresh export: regenerate it after changing a cmdlet parameter.
+- **Node tests:** Tests\js\dh-extract.js (load, loadWith for top-level vars like FMT, loadMethods for TableEngine.prototype.X) loads functions from the fragments; run 
+ode --test "Tests/js/*.test.js". A missing function throws, so a rename fails the test.
 
 ### 7.17 — Bars that measure a value (v2.2+)
 
@@ -729,6 +895,9 @@ DashHtml/
 │   │   ├── Add-DhEventFeed.ps1
 │   │   ├── Add-DhAlertBanner.ps1
 │   │   ├── Add-DhFilterCard.ps1
+│   │   ├── Add-DhNetworkMap.ps1       ← v2.4
+│   │   ├── Add-DhTreeFilter.ps1       ← v2.4
+│   │   ├── Add-DhTreeTable.ps1        ← v2.5
 │   │   ├── Add-DhHtmlBlock.ps1
 │   │   ├── Add-DhRangeBar.ps1         ← v2.1
 │   │   ├── Add-DhFindings.ps1         ← v2.2
@@ -755,26 +924,34 @@ DashHtml/
 │       ├── Get-DhTableFieldNames.ps1  ← v2.2: table fields + bar aggregate validation
 │       ├── Get-DhExportLibraries.ps1  ← v2.2: XLSX/PDF library URLs + SRI hashes, Embed
 │       ├── Get-DhJsPrint.ps1          ← v2.2: JS print arrangement (beforeprint/afterprint)
+│       ├── Get-DhJsDrawer.ps1         ← v2.3: renderSections, the detail drawer, key-value and record-list renderers
+│       ├── Get-DhJsTreeTable.ps1      ← v2.5: dhTtLinks / dhTtPaths / dhTtNested (pure), renderTreeTable (Add-DhTreeTable)
+│       ├── Get-DhJsTree.ps1           ← v2.4: dhPathMatch, TreeFilter, renderTreeFilter (Add-DhTreeFilter)
+│       ├── Get-DhJsNetwork.ps1        ← v2.4: dhNetLayout / dhNetEdgeGeom / dhNetPath (pure), renderNetworkMap
+│       ├── Get-DhJsSearch.ps1         ← v2.4: report search (New-DhDashboard -Search)
+│       ├── ConvertTo-DhSections.ps1   ← v2.3: section specs, detail specs, status names (PowerShell side)
+│       ├── ConvertTo-DhSectionsJson.ps1 ← v2.3: their JSON
 │       └── Build-DhTableSections.ps1
 ├── Tests/
-│   ├── DashHtml.Tests.ps1             ← Pester 5; 524 tests at 2.2.0; covers every cmdlet + Examples smoke test
+│   ├── DashHtml.Tests.ps1             ← Pester 5; 581 tests at 2.3.0; covers every cmdlet + Examples smoke test
 │   ├── DashHtml.Nav.Tests.ps1         ← nav truth table, reachability, layout (47)
 │   ├── DashHtml.Design.Tests.ps1      ← companion module (27)
 │   ├── DhTestHelpers.ps1              ← Export-DhTestHtml, Get-DhTestJsFunction (v2.1.4)
 │   └── js/nav.test.js                 ← Node: drives the shipped matcher + table toggle (v2.1.4)
 ├── Examples/
 │   │  Demo-<Domain>.ps1  = a realistic report for that domain
-│   │  Demo-Feature-*.ps1 = one capability, isolated
-│   ├── Demo-ActiveDirectory.ps1              ← AD ops report, spec §4.1 layout
-│   ├── Demo-VMware.ps1                       ← vSphere ops report, spec §4.2 layout
-│   ├── Demo-Feature-FullShowcase.ps1         ← every cmdlet, realistic data
-│   ├── Demo-Feature-AllChartTypes.ps1        ← every chart type + when to use it
-│   ├── Demo-Feature-RangeBar.ps1             ← Add-DhRangeBar, both data modes
-│   ├── Demo-Feature-Findings.ps1             ← v2.2 assessment report: verdict, findings, value bars, print
-│   ├── Demo-Feature-TabsHeatmapTopology.ps1  ← Tabs / Heatmap / TopologyMap
-│   ├── Demo-Feature-NavMultiPanel.ps1        ← per-NavGroup KPI strips
-│   ├── Demo-Feature-NavTree.ps1              ← v2 -NavPath tree
-│   └── Demo-Feature-NavDeepSidebar.ps1       ← v2 deep nav sidebar
+│   │  Demo-*.ps1 = a realistic report; Feature-*.ps1 = one capability (see Examples\README.md)
+│   ├── Demo-ActiveDirectory.ps1
+│   ├── Demo-VMware.ps1
+│   ├── Demo-AzureInfrastructure.ps1
+│   ├── Demo-Microsoft365.ps1
+│   ├── Feature-Navigation.ps1 / Feature-NavigationSidebar.ps1
+│   ├── Feature-Tables.ps1 / Feature-Charts.ps1 / Feature-KpiTiles.ps1
+│   ├── Feature-Assessment.ps1 / Feature-MapsAndGrids.ps1
+│   ├── Feature-FiltersAndSearch.ps1 / Feature-PageElements.ps1
+│   └── (Tools\Show-DhNavMap.ps1 prints the menu and per-view content of an exported file)
+├── Tools/   Show-DhNavMap, Test-DhV2Upgrade, Test-DhPrint (PDF), Test-DhContrast (WCAG ratios, 12 themes), Test-DhA11y (accessibility audit);
+│            helpers Find-DhBrowser.ps1, BrowserProbe.ps1 (headless browser + loopback result), contrast-measure.js, a11y-probe.js, contrast-selectors.json
 ├── docs/
 │   ├── KPI_Dashboard_Specification_v2.docx   ← the IT-infra KPI spec that drove v1.4/1.5
 │   ├── KPI_Dashboard_Addendum_A_v2.docx      ← HTML-email digest modality (v1.6+ candidate)
@@ -868,7 +1045,10 @@ The recurring pattern for a new block-type cmdlet:
 - `pickThresholdClass(value, thresholds)` — match a value against an array of `{min,max,class}` bands (highest-Min-wins)
 - `SPARK.build(series, opts)` — inline SVG sparkline (line/area/bars)
 - `DELTA.build(item)` — trend arrow + delta text for tiles
-- `buildTile(item)` — tile renderer (dispatches to standard/bignumber/gauge)
+- `buildTile(item)` — tile renderer (dispatches to standard/bignumber/gauge/verdict/score/maturity)
+- `renderSections(sections)` / `renderSection(sec)` *(v2.3)* — the one pure renderer for kv / bars / statusList / checks / table / text / links; returns an HTML string, escapes every value
+- `dhDrawerOpen(spec, { opener, restore })` / `dhDrawerClose(skipFocus)` *(v2.3, also `window._dhOpenDrawer` / `_dhCloseDrawer`)* — the shared side panel; `spec = { title, subtitle, sections, tableId, filter }`
+- `createPanZoom({ innerDiv, svgEl, vp, toolbar, initH, getContent })` *(v2.3)* — pan, wheel/toolbar zoom, fit and resize for an SVG viewport; shared by maps
 - `buildPieSvg(entries, opts)` — pie / donut SVG
 - `fillStrip(container, items, opts)` — populate a container with tiles, with optional collapsible chrome
 - `URLState.save() / load()` — persist active panel / filters / dismissed banners to URL hash
@@ -882,6 +1062,7 @@ The recurring pattern for a new block-type cmdlet:
 - `Test-DhReportLinks` *(v2.1.4)* — export-time cross-reference lint; returns one message per dangling table id or unknown block type
 - `ConvertTo-DhJsonString` — JSON-string-encode a PowerShell value
 - `ConvertTo-DhRagThresholds` — convert a `Rag` hashtable to a `Thresholds` array + `NoData` flag
+- `ConvertTo-DhSections` / `ConvertTo-DhDetailSpec` / `ConvertTo-DhStatusName` *(v2.3)* — validate and normalise section and detail specs; `ConvertTo-DhSectionsJson` / `ConvertTo-DhDetailJson` serialise them
 
 ---
 
@@ -904,7 +1085,7 @@ When writing tests, follow the existing pattern in `Tests/DashHtml.Tests.ps1` �
 - Validation tests (`{ Add-DhX ... bad-input ... } | Should -Throw`)
 - HTML round-trip test (`Should -Match` on the emitted HTML/JSON text)
 
-Tests run quickly (~60 s for 598 tests across the three suites at 2.2.0; the Examples smoke test adds ~20 s of subprocess runs). The full suite must always pass before declaring work complete.
+Tests run quickly (~3 min for 807 tests across the three suites at 2.5.1 (plus 10 node tests: node --test "Tests/js/*.test.js"); the Examples smoke test adds ~20 s of subprocess runs). The full suite must always pass before declaring work complete.
 
 ---
 
@@ -1123,7 +1304,7 @@ Run the audit, then:
 
 ## 16 — When in doubt
 
-1. **Look at `Examples/`** — `Demo-ActiveDirectory.ps1`, `Demo-VMware.ps1`, `Demo-Feature-NavMultiPanel.ps1`, `Demo-Feature-FullShowcase.ps1`, and `Demo-Feature-TabsHeatmapTopology.ps1` show every feature with realistic data.
+1. **Look at `Examples/`** — the four `Demo-*.ps1` reports (Active Directory, VMware, Azure, Microsoft 365) show how a menu is laid out with realistic data, and the nine `Feature-*.ps1` scripts show one capability each (`Examples\README.md` lists them and the menu rules; `Tools\Show-DhNavMap.ps1` prints a report's menu).
 2. **Look at `DashHtml-Reference.html`** — full Get-Help output for every public cmdlet, with parameter signatures and defaults.
 3. **Look at `docs/v1.4-plan.md` and `docs/KPI_Dashboard_Specification.docx`** for the design rationale of the v1.4 widget set.
 4. **Look at the tests** — `Tests/DashHtml.Tests.ps1` documents every supported parameter combination, validation rule, and threshold edge case.

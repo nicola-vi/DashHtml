@@ -9,8 +9,8 @@
 
     Plus the self-contained YAML reader/writer round-trip that underpins them.
 
-    Run:  Invoke-Pester .\Tests -Output Detailed
-          .\Build.ps1   (runs automatically as part of the build)
+    Run:  Invoke-Pester ./Tests -Output Detailed
+          ./Build.ps1   (runs automatically as part of the build)
 #>
 
 # ---------------------------------------------------------------------------
@@ -19,8 +19,8 @@
 # the LOCAL source (not any installed copy) for the tests to be meaningful.
 # ---------------------------------------------------------------------------
 BeforeAll {
-    $script:corePath   = Join-Path $PSScriptRoot '..\DashHtml\DashHtml.psd1'
-    $script:designPath = Join-Path $PSScriptRoot '..\DashHtml.Design\DashHtml.Design.psd1'
+    $script:corePath   = Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1'
+    $script:designPath = Join-Path $PSScriptRoot '../DashHtml.Design/DashHtml.Design.psd1'
     Import-Module $script:corePath   -Force
     Import-Module $script:designPath -Force
 
@@ -245,7 +245,7 @@ title: CSV demo
 tables:
   - id: t1
     title: From CSV
-    dataFile: .\data\servers.csv
+    dataFile: ./data/servers.csv
 "@
         $f = Join-Path ([IO.Path]::GetTempPath()) ("csv_" + [guid]::NewGuid().ToString('N') + '.yaml')
         Set-Content -Path $f -Value $yaml -Encoding UTF8
@@ -278,7 +278,7 @@ Describe 'ConvertFrom-DhScript' {
 $r = New-DhDashboard -Title 'Static' -Theme Azure -Subtitle 'parsed'
 Add-DhTable    -Report $r -TableId 'srv' -Title 'Servers' -Data $rows
 Add-DhBarChart -Report $r -Id 'os' -Title 'By Env' -TableId 'srv' -Field 'Env'
-Export-DhDashboard -Report $r -OutputPath '.\out.html'
+Export-DhDashboard -Report $r -OutputPath './out.html'
 '@
         $f = Join-Path ([IO.Path]::GetTempPath()) ("src_" + [guid]::NewGuid().ToString('N') + '.ps1')
         Set-Content -Path $f -Value $src -Encoding UTF8
@@ -303,7 +303,7 @@ Add-DhTable -Report $r -TableId 'srv' -Title ("Server " + $count) -Data $rows
     }
 
     It 'Parses the real vSphere example without throwing' {
-        $example = Join-Path $PSScriptRoot '..\Examples\Demo-VMware.ps1'
+        $example = Join-Path $PSScriptRoot '../Examples/Demo-VMware.ps1'
         if (-not (Test-Path $example)) { Set-ItResult -Skipped -Because 'example not present'; return }
         $yaml = ConvertFrom-DhScript -Path $example
         $yaml | Should -Match 'title:'
@@ -367,5 +367,184 @@ Describe 'Round-trip of the DashHtml 2.2.0 additions' {
         } finally {
             foreach ($f in $yamlFile, $outHtml) { if (Test-Path $f) { Remove-Item $f -Force } }
         }
+    }
+}
+
+Describe 'DashHtml 2.4.0 blocks and options survive the YAML round trip' {
+
+    It 'round-trips the network map, tree filter, search, nav badges and column options' {
+        $r = New-DhDashboard -Title 'rt' -Search -NavBadge
+        Add-DhTable -Report $r -TableId 'ous' -Title 'OUs' -NavPath 'A' -ColumnFit Fixed -ColumnMaxWidth 600 `
+            -Data @([pscustomobject]@{ Path = 'a/b'; N = 1 }) `
+            -Columns @(@{ Field = 'Path'; Label = 'Path'; MinWidth = 150 }, @{ Field = 'N'; Label = 'N' })
+        Add-DhTreeFilter -Report $r -Id 'tf' -Title 'Tree' -NavPath 'A' -TableId 'ous' -PathField 'Path' -CountFromTable -Match Suffix -Nodes @(
+            @{ Id = 'a'; Label = 'A'; Path = 'a'; Flags = @('empty'); Detail = @{ Sections = @(@{ Kind = 'text'; Text = 'hello' }) } })
+        Add-DhNetworkMap -Report $r -Id 'nm' -Title 'Map' -NavPath 'B' -Layout layered -Legend `
+            -Nodes @(@{ Id = 'x'; Label = 'X'; Badge = @('PDC'); Tier = 0; Target = $true }) `
+            -Edges @(@{ From = 'x'; To = 'x'; Label = 'self'; Style = 'dashed'; Direction = 'both' })
+
+        $yamlFile = Join-Path ([IO.Path]::GetTempPath()) ('dh24_' + [guid]::NewGuid().ToString('N') + '.yaml')
+        $outHtml  = Join-Path ([IO.Path]::GetTempPath()) ('dh24_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            ConvertTo-DhYaml -Report $r -OutFile $yamlFile | Out-Null
+            $ps = ConvertFrom-DhYaml -Path $yamlFile -OutputPath 'IGNORED.html'
+            $body = ($ps -split "`n" | Where-Object { $_ -notmatch '^\s*#Requires' -and $_ -notmatch '^\s*Import-Module\s+DashHtml' }) -join "`n"
+            $body = $body -replace 'IGNORED\.html', ($outHtml -replace '\\', '\\')
+            & ([scriptblock]::Create($body)) 3>$null
+            $html = Get-Content $outHtml -Raw
+            foreach ($m in '"blockType":"treefilter"', '"match":"Suffix"', '"countFromTable":true', '"flags":["empty"]', '"detail":{',
+                           '"blockType":"networkmap"', '"layout":"layered"', '"target":true', '"badges":["PDC"]', '"direction":"both"',
+                           '"style":"dashed"', '"legend":true', '"columnFit":"fixed"', '"columnMax":600', '"minWidth":150',
+                           'data-navbadge="true"', 'id="nav-search-input"') {
+                $html.Contains($m) | Should -BeTrue -Because $m
+            }
+        } finally {
+            foreach ($f in $yamlFile, $outHtml) { if (Test-Path $f) { Remove-Item $f -Force } }
+        }
+    }
+
+    It 'writes the optional report switches only when they are on, so older YAML is unchanged' {
+        $yaml = ConvertTo-DhYaml -Report (New-DhDashboard -Title 'plain')
+        $yaml | Should -Not -Match 'search:|navBadge:|printCover:|themeMode:'
+    }
+}
+
+Describe 'DashHtml 2.5.0 directory explorer survives the YAML round trip' {
+    It 'round-trips rows, properties, flags, detail and memberships' {
+        $r = New-DhDashboard -Title 'rt'
+        Add-DhTreeTable -Report $r -Id 'dir' -Title 'Directory' -NavPath 'A' -Rows @(
+            @{ Id = 'ou'; Type = 'ou'; Label = 'HQ' }
+            @{ Id = 'g'; ParentId = 'ou'; Type = 'group'; Label = 'G'; Flags = @('privileged'); Status = 'warn'; Properties = [ordered]@{ 'DN' = 'CN=G'; 'Scope' = 'Global' }; Detail = 'Some detail.' }
+            @{ Id = 'u'; ParentId = 'ou'; Type = 'user'; Label = 'U' } ) -Memberships @(@{ GroupId = 'g'; MemberId = 'u' })
+        $yamlFile = Join-Path ([IO.Path]::GetTempPath()) ('dh25_' + [guid]::NewGuid().ToString('N') + '.yaml')
+        $outHtml  = Join-Path ([IO.Path]::GetTempPath()) ('dh25_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            ConvertTo-DhYaml -Report $r -OutFile $yamlFile | Out-Null
+            $ps = ConvertFrom-DhYaml -Path $yamlFile -OutputPath 'IGNORED.html'
+            $body = ($ps -split "`n" | Where-Object { $_ -notmatch '^\s*#Requires' -and $_ -notmatch '^\s*Import-Module\s+DashHtml' }) -join "`n"
+            $body = $body -replace 'IGNORED\.html', ($outHtml -replace '\\', '\\')
+            & ([scriptblock]::Create($body)) 3>$null
+            $html = Get-Content $outHtml -Raw
+            foreach ($m in '"blockType":"treetable"', '"links":[["g","u"]]', '"flags":["privileged"]', '"status":"warn"', '{"label":"DN","value":"CN=G"}', '{"label":"Scope","value":"Global"}', '"detail":{') {
+                $html.Contains($m) | Should -BeTrue -Because $m
+            }
+        } finally { foreach ($f in $yamlFile, $outHtml) { if (Test-Path $f) { Remove-Item $f -Force } } }
+    }
+}
+
+Describe 'DashHtml 2.5.0 column picker survives the YAML round trip' {
+    It 'keeps -RememberColumns and a Hidden column' {
+        $r = New-DhDashboard -Title 'rt' -GeneratedBy 'rt.ps1'
+        Add-DhTable -Report $r -TableId 'tb' -Title 'T' -RememberColumns -NavPath 'A' -Data @([pscustomobject]@{ a = 1; b = 2 }) -Columns @(@{ Field = 'a'; Label = 'A' }, @{ Field = 'b'; Label = 'B'; Hidden = $true })
+        $yamlFile = Join-Path ([IO.Path]::GetTempPath()) ('dh25c_' + [guid]::NewGuid().ToString('N') + '.yaml')
+        $outHtml  = Join-Path ([IO.Path]::GetTempPath()) ('dh25c_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            ConvertTo-DhYaml -Report $r -OutFile $yamlFile | Out-Null
+            $ps = ConvertFrom-DhYaml -Path $yamlFile -OutputPath 'IGNORED.html'
+            $body = ($ps -split "`n" | Where-Object { $_ -notmatch '^\s*#Requires' -and $_ -notmatch '^\s*Import-Module\s+DashHtml' }) -join "`n"
+            $body = $body -replace 'IGNORED\.html', ($outHtml -replace '\\', '\\')
+            & ([scriptblock]::Create($body)) 3>$null
+            $html = Get-Content $outHtml -Raw
+            $html | Should -Match '"remember":"[0-9a-f]{16}"'
+            $html | Should -Match '"field":"b","label":"B","hidden":true'
+        } finally { foreach ($f in $yamlFile, $outHtml) { if (Test-Path $f) { Remove-Item $f -Force } } }
+    }
+}
+Describe 'DashHtml 2.5.1 report-level menu options survive the YAML round trip' {
+    BeforeAll {
+        Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
+        Import-Module (Join-Path $PSScriptRoot '../DashHtml.Design/DashHtml.Design.psd1') -Force
+        $script:r = New-DhDashboard -Title 'RT' -NavLayout Sidebar -NavMaxDepth 4 -NavAllLabel @{ Storage = 'All storage' } `
+            -NavTree @(@{ Path = 'A'; Label = 'Aa'; Order = 2 }, @{ Path = 'A/B' }) -StrictNav -NavOverflow Wrap
+        Add-DhTable -Report $script:r -TableId 'x' -Title 'X' -Data @([pscustomobject]@{ a = 1 }) -NavPath 'A/B'
+        $y = $script:r | ConvertTo-DhYaml
+        $d = Join-Path ([IO.Path]::GetTempPath()) ('dhrt_' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory $d | Out-Null
+        $script:dir = $d
+        Set-Content (Join-Path $d 'l.yaml') $y
+        $script:out = Join-Path $d 'o.html'
+        ConvertFrom-DhYaml -Path (Join-Path $d 'l.yaml') -OutFile (Join-Path $d 'b.ps1') -OutputPath $script:out | Out-Null
+        $script:ps1 = Get-Content (Join-Path $d 'b.ps1') -Raw
+    }
+    AfterAll { Remove-Item $script:dir -Recurse -Force -ErrorAction SilentlyContinue }
+    It 'writes every option and the rebuilt script passes it back' {
+        foreach ($k in '-NavLayout ''Sidebar''', '-NavMaxDepth 4', '-NavAllLabel', '-NavTree', '-StrictNav', '-NavOverflow ''Wrap''') { $script:ps1 | Should -Match ([regex]::Escape($k)) }
+    }
+    It 'rebuilds an equal report' {
+        & (Join-Path $script:dir 'b.ps1') 2>&1 | Out-Null
+        $h = Get-Content $script:out -Raw
+        $h | Should -Match 'data-navstrict'
+        $h | Should -Match 'data-navoverflow="wrap"'
+        $h | Should -Match 'data-navtree'
+    }
+    It 'default menu options are not written (plain YAML unchanged)' {
+        $y = New-DhDashboard -Title 'P' | ConvertTo-DhYaml
+        $y | Should -Not -Match 'navAllLabel|navTree|strictNav|navOverflow|navLayout|navMaxDepth'
+    }
+    It 'keeps the order of tree table properties' {
+        $r = New-DhDashboard -Title 'O'
+        Add-DhTreeTable -Report $r -Id 'tt' -Title 'T' -Rows @(@{ Id = 'o1'; ParentId = ''; Type = 'ou'; Label = 'Root'; Properties = [ordered]@{ Zeta = '1'; Alpha = '2'; Mid = '3' } }) -Memberships @()
+        Set-Content (Join-Path $script:dir 'p.yaml') ($r | ConvertTo-DhYaml)
+        ConvertFrom-DhYaml -Path (Join-Path $script:dir 'p.yaml') -OutFile (Join-Path $script:dir 'p.ps1') | Out-Null
+        (Get-Content (Join-Path $script:dir 'p.ps1') -Raw) | Should -Match 'Zeta = ''1''; Alpha = ''2''; Mid = ''3'''
+    }
+}
+Describe 'DashHtml 2.5.2 JSON Schema for the layout YAML' {
+    BeforeAll {
+        Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
+        Import-Module (Join-Path $PSScriptRoot '../DashHtml.Design/DashHtml.Design.psd1') -Force
+        $script:schemaPath = Join-Path $PSScriptRoot '../DashHtml.Design/dashhtml.schema.json'
+        $script:schema = Get-Content -LiteralPath $script:schemaPath -Raw
+        $r = New-DhDashboard -Title 'Schema' -NavTitle 'S' -NavLayout Sidebar -NavAllLabel @{ A = 'All a' } -NavTree @(@{ Path = 'A'; Label = 'Aa' }) -StrictNav -Search
+        Add-DhSummary -Report $r -Items @(@{ Label = 'One'; Value = 1 })
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ a = 1; b = 'x' }) -NavPath 'A/B' -RememberColumns -Columns @(@{ Field = 'a'; Label = 'A'; Aggregate = 'sum' }, @{ Field = 'b'; Label = 'B'; Hidden = $true })
+        Add-DhFindings -Report $r -Id 'f' -Title 'F' -NavPath 'A/B' -Findings @(@{ Id = 'a'; Title = 'A'; Severity = 'warning'; Description = 'd' })
+        Add-DhTreeTable -Report $r -Id 'tt' -Title 'TT' -NavPath 'A/C' -Rows @(@{ Id = 'o'; ParentId = ''; Type = 'ou'; Label = 'Root'; Properties = [ordered]@{ Z = '1'; A = '2' } }) -Memberships @()
+        Add-DhHtmlBlock -Report $r -Id 'h' -Title 'H' -Content 'c' -NavPath 'A/B'
+        Add-DhAlertBanner -Report $r -Id 'b' -Severity info -Message 'm'
+        $script:yaml = $r | ConvertTo-DhYaml
+        $script:validate = { param($Json) Test-Json -Json $Json -Schema $script:schema -ErrorAction SilentlyContinue }
+        $script:toJson = { param($Yaml) (& (Get-Module DashHtml.Design | Select-Object -Last 1) { param($t) ConvertFrom-DhYamlText $t } $Yaml) | ConvertTo-Json -Depth 50 }
+    }
+    It 'is exported as Export-DhYamlSchema' {
+        (Get-Command Export-DhYamlSchema -Module DashHtml.Design).CommandType | Should -Be 'Function'
+    }
+    It 'matches the committed dashhtml.schema.json (regenerate it when a cmdlet parameter changes)' {
+        # compare the parsed content, so the JSON formatter of a different PowerShell version cannot cause a false alarm
+        $sortKeys = $null
+        $sortKeys = { param($v)
+            if ($v -is [System.Collections.IDictionary]) { $o = [ordered]@{}; foreach ($k in ($v.Keys | Sort-Object { $_ }  -CaseSensitive)) { $o[$k] = & $sortKeys $v[$k] }; return $o }
+            if ($v -is [System.Collections.IEnumerable] -and $v -isnot [string]) { return , @($v | ForEach-Object { & $sortKeys $_ }) }
+            return $v }
+        $canon = { param($j) (& $sortKeys ($j | ConvertFrom-Json -AsHashtable)) | ConvertTo-Json -Depth 60 -Compress }
+        (& $canon (Export-DhYamlSchema)) | Should -BeExactly (& $canon $script:schema)
+    }
+    It 'writes a relative -OutFile under the PowerShell location, not the process directory (2.5.3)' {
+        $dir = Join-Path ([IO.Path]::GetTempPath()) ('dhschema_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $name = 'rel-' + [guid]::NewGuid().ToString('N') + '.json'
+        Push-Location $dir
+        try {
+            Export-DhYamlSchema -OutFile $name
+            Test-Path -LiteralPath (Join-Path $dir $name) | Should -BeTrue
+            if ([Environment]::CurrentDirectory -ne $dir) { Test-Path -LiteralPath (Join-Path ([Environment]::CurrentDirectory) $name) | Should -BeFalse }
+        } finally {
+            Pop-Location
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    It 'accepts what ConvertTo-DhYaml writes for a report with tables, blocks, tree table, banner and menu options' {
+        (& $script:validate (& $script:toJson $script:yaml)) | Should -BeTrue
+    }
+    It 'rejects <Name>' -ForEach @(
+        @{ Name = 'a mistyped top-level key';  Json = '{"title":"x","navTitel":"a"}' }
+        @{ Name = 'a wrong value type';        Json = '{"title":"x","tables":[{"Id":"a","Title":"A","PageSize":"many"}]}' }
+        @{ Name = 'a value outside the enum';  Json = '{"title":"x","navOverflow":"Scroll"}' }
+        @{ Name = 'an unknown block type';     Json = '{"title":"x","blocks":[{"type":"nope"}]}' }
+        @{ Name = 'a mistyped block key';      Json = '{"title":"x","blocks":[{"type":"html","Id":"h","Contnt":"c"}]}' }
+        @{ Name = 'a layout without a title';  Json = '{"subtitle":"x"}' }) {
+        (& $script:validate $Json) | Should -BeFalse
+    }
+    It 'accepts Pascal, camel and lower-case spellings of the same key' {
+        foreach ($k in 'NavTitle', 'navTitle', 'navtitle') { (& $script:validate ('{"title":"x","' + $k + '":"a"}')) | Should -BeTrue }
     }
 }

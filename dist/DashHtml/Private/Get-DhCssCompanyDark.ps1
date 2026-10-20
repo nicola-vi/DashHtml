@@ -84,7 +84,7 @@ function Get-DhCssCompanyDark {
 
   --cell-ok-fg:      #44CC66;  --cell-ok-bg:      rgba(68,204,102,0.10);
   --cell-warn-fg:    #FF8C00;  --cell-warn-bg:    rgba(255,140,0,0.10);
-  --cell-danger-fg:  #FF3355;  --cell-danger-bg:  rgba(255,51,85,0.12);
+  --cell-danger-fg:  #FF506D;  --cell-danger-bg:  rgba(255,51,85,0.12);
   --cell-nodata-fg:  #9C9C9C;  --cell-nodata-bg:  rgba(156,156,156,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.07);
