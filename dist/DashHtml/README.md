@@ -1,0 +1,1955 @@
+# DashHtml
+
+A PowerShell 7 module for generating **interactive, self-contained HTML dashboards** from any structured data — sortable/filterable tables, KPI tiles, bar charts, collapsible sections, and clickable filter cards. The output is a single HTML file with all data, styles and script embedded. The only external requests are the optional XLSX/PDF export libraries (cdnjs); everything else works offline.
+
+---
+
+## Features
+
+- **Self-contained output** — one HTML file, no companion CSS or JS files
+- **Sortable, filterable, pageable tables** — multi-column sort (Shift+Click), text filter, configurable page size
+- **KPI summary tiles** — icons, formatted values, threshold colouring; optional sparklines, trend/delta arrows, big-number hero style, semicircle gauge style, click-to-jump actions
+- **Charts** — bar (horizontal, stacked), pie / donut, line / area with target-line annotation, bullet (actual-vs-target), inline sparklines in tables and tiles
+- **Specialised widgets** — alert banners (dismissible, page-global or per-panel), status grid (RAG matrix), event feed (chronological audit trail), heatmap (sequential / diverging 2-D colour scale), topology map (parent-child trees), inline tabbed content blocks
+- **Clickable filter cards** — single or multi-select, instant table filtering
+- **Collapsible sections** — key-value card grids or free-form HTML
+- **Master-detail table linking** — clicking a row filters a child table
+- **Two-tier (or three-tier) navigation** — flat nav, grouped primary-tabs + subnav strip, optional subgroup pills
+- **Per-NavGroup summary strips and alert banners** — each panel gets its own KPI hero row and banner set
+- **Auto-refresh** — `New-DhDashboard -AutoRefresh '30s' / '5m' / '1h'` for wall-display ops dashboards
+- **Assessment reports (2.2+)** — `Add-DhFindings` (severity, description, recommendation, affected objects, "show in table", reference links), a full-width **verdict** tile, and bar charts that **measure a value** (sum / average / min / max) instead of counting rows
+- **Detail panels and record lists (2.3+)** — click a table row, a status-grid cell or a finding to read its detail in a side panel (`Add-DhTable -DetailDrawer`); `Add-DhKeyValue` property tiles; `Add-DhRecordList` rows that expand to tiles, tables, bars and check lists
+- **Score ring and maturity ladder (2.3+)** — `Add-DhSummary Style='score'` and `Style='maturity'`, next to the verdict tile
+- **Split findings (2.3+)** — `Add-DhFindings -Layout Split` with per-finding facts, evidence rows and a "changed since last run" marker
+- **Network maps (2.4+)** — `Add-DhNetworkMap`: nodes joined by links in grouped boxes or Tier 0/1/2 lanes, deterministic layout, filters, node search, shortest-path trace to a target, SVG download
+- **OU tree filter (2.4+)** — `Add-DhTreeFilter`: click an OU, the linked table shows only that OU and below
+- **Directory explorer (2.5+)** — `Add-DhTreeTable`: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting; windowed above 2,000 rows so 50,000 objects stay quick, with CSV of the visible rows and member lists (2.6+)
+- **One check command (2.6+)** — `Test-DhReport` (DashHtml.Design) runs the link, menu, size, baseline, script-audit and schema checks on a report, a script, a layout or a built HTML file
+- **Big reports (2.6+)** — `Export-DhDashboard -CompressData` (gzip, about 7 times smaller for a 50,000-row table) and a size warning (`-SizeBudgetMB`)
+- **Search and menu badges (2.4+)** — `New-DhDashboard -Search` (pages, findings, table rows; press `/`) and `-NavBadge` (worst finding severity on each menu item)
+- **Columns that fit (2.4+)** — every table column is as wide as its widest text, so the last character is no longer cut off
+- **Print and PDF (2.2+)** — a Print button; printed output shows every section in menu order, every finding expanded, tables unpaged, an optional cover page
+- **Client-side export** — CSV (built in, works offline), XLSX and PDF. The XLSX/PDF libraries load from cdnjs on first click, or are embedded for air-gapped readers (`Export-DhDashboard -ExportLibraries Cdn|Embed|None`, 2.2+)
+- **Light/dark theme toggle** — both variants embedded, switchable at runtime; the reader's choice is remembered (2.1.4+), and `New-DhDashboard -ThemeMode Light|Dark|Auto` sets the default (2.2+)
+- **Six theme families** — Default, Azure, VMware, Grey, Company, Rag (the v1.4 family using the Office/Excel-compatible RAG palette)
+- **Column features** — progress bars, badges, link cells (2.2+), threshold colouring (unified `-Rag` parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells
+
+---
+
+## Requirements
+
+- PowerShell 7.0 or later
+
+---
+
+## Installation
+
+### From source
+
+```powershell
+# Clone the repository, then:
+.\Install.ps1                    # CurrentUser scope (no admin required)
+.\Install.ps1 -Scope AllUsers    # AllUsers scope (requires admin)
+.\Install.ps1 -Force             # Overwrite an existing installation
+```
+
+`Install.ps1` installs **both** the core `DashHtml` module and the optional
+[`DashHtml.Design`](DashHtml.Design/README.md) companion when the companion is
+present (each into its own versioned folder). The core is always installed
+first — the companion reads its cmdlet metadata at runtime.
+
+```powershell
+.\Install.ps1 -SkipDesign        # core module only
+.\Install.ps1 -DesignOnly        # companion only
+.\Install.ps1 -Uninstall         # remove all versions of both (per scope)
+.\Install.ps1 -Uninstall -DesignOnly   # remove just the companion
+```
+
+It prefers a built `dist\<Module>\` when present and falls back to the in-repo
+source; override either with `-Source` / `-DesignSource`. `-WhatIf` shows exactly
+what would be copied without touching anything.
+
+### Manual
+
+Copy each module folder to a directory in `$env:PSModulePath`, under a versioned
+subfolder:
+```
+<modules-root>\DashHtml\2.0.0\
+<modules-root>\DashHtml.Design\1.0.0\      (optional companion)
+```
+
+---
+
+## Quick start
+
+```powershell
+Import-Module DashHtml
+
+# 1. Create the dashboard object
+$report = New-DhDashboard -Title 'Server Inventory' -Theme Default
+
+# 2. Add data
+$servers = @(
+    [PSCustomObject]@{ Name='srv-001'; OS='Windows Server 2022'; CPU=42; Status='OK'   }
+    [PSCustomObject]@{ Name='srv-002'; OS='Windows Server 2019'; CPU=78; Status='Warn' }
+    [PSCustomObject]@{ Name='srv-003'; OS='Ubuntu 22.04';        CPU=15; Status='OK'   }
+)
+Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers
+
+# 3. Export
+Export-DhDashboard -Report $report -OutputPath '.\dashboard.html' -Force -OpenInBrowser
+```
+
+---
+
+## Declaration order (important)
+
+**Declare a table _before_ any object that references it.** It is the safe habit, because the cmdlets below check the table id when they run:
+
+- If **other** tables already exist but this one does not yet, the cmdlet **throws** ("Source table not found").
+- If **no** table exists yet, the check is skipped. The chart still works: the browser renders table-fed charts after every table is loaded.
+- Since 2.1.4, `Export-DhDashboard` **warns** about every reference to a table that never appears in the report, whatever the order. In the browser those would be silent no-ops.
+
+| Dependent cmdlet | Depends on |
+|------------------|------------|
+| `Add-DhFilterCard` | `-TargetTableId` |
+| `Add-DhBarChart` | `-TableId` (and `-ValueField` must be a field of that table) |
+| `Add-DhPieChart` (from a table) | `-TableId` |
+| `Set-DhTableLink` | both `-MasterTableId` and `-DetailTableId` (always throws if either is missing) |
+
+### Correct order
+
+```powershell
+# 1. Tables first
+Add-DhTable -Report $report -TableId 'items' -Title 'Items' -Data $items
+Add-DhTable -Report $report -TableId 'groups' -Title 'Groups' -Data $groups
+
+# 2. Then anything that references them
+Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterField 'Region' -Cards $cards
+Add-DhBarChart   -Report $report -Id 'status-bc' -TableId 'items' -Field 'Status'
+Set-DhTableLink  -Report $report -MasterTableId 'groups' -DetailTableId 'items' -MasterField 'GroupId' -DetailField 'GroupId'
+```
+
+### Wrong order (throws when another table already exists)
+
+```powershell
+# ❌ FilterCard declared before its target table
+Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterField 'Region' -Cards $cards
+Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
+```
+
+### Tip: visual position vs. declaration order
+
+When using `-NavGroup`, a filter card or bar chart will still render **above** its table in the UI even if the table was declared first — the layout engine groups related blocks visually. So you can keep the safe declaration order (tables first) without sacrificing the desired on-screen layout.
+
+---
+
+## Cmdlet reference
+
+| Cmdlet | Purpose |
+|--------|---------|
+| `New-DhDashboard` | Create the root dashboard object |
+| `Add-DhTable` | Add a sortable/filterable data table |
+| `Add-DhSummary` | Add KPI metric tiles |
+| `Add-DhBarChart` | Add a horizontal bar chart |
+| `Add-DhFilterCard` | Add a clickable card filter grid |
+| `Add-DhHtmlBlock` | Add a free-form HTML block |
+| `Add-DhCollapsible` | Add a collapsible card/content section |
+| `Add-DhAlertBanner` | Add a top-of-page alert banner (severity, dismiss, action) |
+| `Add-DhPieChart` | Add a standalone pie / donut chart (from table or explicit slices) |
+| `Add-DhBullet` | Add a bullet-chart block (actual vs target with performance bands) |
+| `Add-DhLineChart` | Add a line / area chart with axes, multi-series, and optional target line |
+| `Add-DhEventFeed` | Add a chronological severity-tagged event list (audit trail) |
+| `Add-DhStatusGrid` | Add a rows × columns RAG status matrix (health grid) |
+| `Add-DhHeatmap` *(v1.5)* | Add a rows × columns numeric heatmap (sequential / diverging colour scale) |
+| `Add-DhTopologyMap` *(v1.5)* | Add a parent-child topology tree (AD forest, vCenter cluster, etc.) |
+| `Add-DhTabs` *(v1.5)* | Add an inline tabbed content block (local pivot within one section) |
+| `Add-DhGlobalFilter` *(v1.9)* | Add a page-level filter (dropdown or date range) that filters every table with that field |
+| `Add-DhRangeBar` *(v2.1)* | Add min / avg / max range bars on a shared 0–100 axis |
+| `Add-DhFindings` *(v2.2)* | Add assessment findings: severity, description, recommendation, affected objects, references (v2.3: split layout, facts, evidence, change markers) |
+| `Add-DhKeyValue` *(v2.3)* | Add a grid of label/value property tiles |
+| `Add-DhRecordList` *(v2.3)* | Add rows (status, title, metrics) that expand to tiles, tables, bars and check lists |
+| `Add-DhNetworkMap` *(v2.4)* | Add a network / dependency map: nodes and links in groups or tier lanes, with filters, path tracing and SVG download |
+| `Add-DhTreeFilter` *(v2.4)* | Add an OU / folder tree that filters a table by path |
+| `Add-DhTreeTable` *(v2.5)* | Add a directory explorer: OUs, groups, users, computers, with properties, members, member of and nesting |
+| `Set-DhTableLink` | Link a master table to a detail table |
+| `Export-DhDashboard` | Write the self-contained HTML file |
+| `Get-DhTheme` | List or inspect built-in theme families |
+
+Use `Get-Help <cmdlet> -Full` for complete parameter documentation.
+
+---
+
+## Themes
+
+Six built-in families — each includes a light and a dark variant, both always embedded in the output HTML. The toggle button in the nav bar switches at runtime.
+
+| Family | Light | Dark | Header band | Font |
+|--------|-------|------|-------------|------|
+| `Default` | Light grey page + blue | Near-black + cyan | `#005F8A` / deep blue | Segoe UI (system) |
+| `Azure` | Warm grey page + Azure blue | Office dark + Azure | `#106EBE` / deep blue | Segoe UI (system) |
+| `VMware` | White page + VMware green | Navy + VMware green | `#007D63` / deep green | Inter if installed, else Segoe UI |
+| `Grey` | Warm grey page + steel | Dark neutral + muted grey | `#37474F` / slate | Segoe UI (system) |
+| `Company` | White page + Crimson | Near-black + Crimson | `#8C0031` / deep crimson | Montserrat if installed, else Segoe UI |
+| `Rag` *(v1.4+)* | Spec-exact Office/Excel RAG palette on white | Office dark-mode RAG companions on near-black | `#404040` / graphite | Segoe UI (system) |
+
+**v2.7.0 — every family now has a coloured header band in both light and dark mode.**
+Before 2.7.0 three families had a white band and, in dark mode, all six collapsed to a
+near-black band that was the same colour as the page (in `Grey` and `Azure`, exactly the
+same), so the band effectively disappeared. The band colour is each theme's own
+`--accent-secondary`; dark mode uses a deep tint of the same hue.
+
+**Fonts are never fetched.** A generated report makes no network requests at all. `Company`
+and `VMware` name Montserrat and Inter first in their font stack, so readers who have those
+fonts installed see them and everyone else gets Segoe UI. Before 2.7.0 both themes pulled
+the font from Google Fonts with an `@import`, which broke the single-file promise and
+failed silently offline.
+
+```powershell
+# List all families
+Get-DhTheme
+
+# Inspect CSS for a specific family
+$css = Get-DhTheme -Name Azure
+$css.LightCss
+$css.DarkCss
+
+# Save CSS files to disk
+Get-DhTheme -Name Company -SaveTo 'C:\Reports\css'
+```
+
+### The `Rag` theme (v1.4+)
+
+Use this family when **strict Office/Excel parity** matters for your audience — auditors, compliance reviewers, finance reports. It uses the exact RGB values from the IT-infrastructure KPI dashboard specification (§7.2):
+
+| Band | Foreground | Background |
+|---|---|---|
+| GREEN (`cell-ok`) | `#375623` | `#E2EFDA` |
+| AMBER (`cell-warn`) | `#7F4B00` | `#FFF2CC` |
+| RED (`cell-danger`) | `#9C0006` | `#FFDCE1` |
+| GREY (`cell-nodata`) | `#595959` | `#F2F2F2` |
+
+The other five families keep their brand-aligned RAG colours unchanged — switching to `Rag` is an explicit opt-in.
+
+### Unified `-Rag` parameter (v1.4+)
+
+Threshold rules were historically spelled out as an array of `Min`/`Max`/`Class` hashtables (per column on `Add-DhTable`, per item on `Add-DhSummary`). v1.4 adds a more readable **`Rag`** alternative that maps directly to the spec's GREEN / AMBER / RED / GREY bands. Both shapes are accepted; when both are supplied on the same item or column, `Rag` wins.
+
+```powershell
+# Defined once, reused on a gauge and on two table columns
+$cpuRag = @{
+    Green  = @{ Max = 70 }
+    Amber  = @{ Min = 70; Max = 90 }
+    Red    = @{ Min = 90 }
+    NoData = $true    # ← paint null / missing cells with cell-nodata
+}
+
+Add-DhSummary -Report $report -Items @(
+    @{ Style='gauge'; Label='CPU';  Value=42;    Max=100; Unit='%'; Rag=$cpuRag }
+    @{ Style='gauge'; Label='Disk'; Value=95;    Max=100; Unit='%'; Rag=$cpuRag }
+    @{ Style='gauge'; Label='Net';  Value=$null; Max=100; Unit='%'; Rag=$cpuRag }   # → cell-nodata
+)
+
+Add-DhTable -Report $report -TableId 'srv' -Title 'Servers' -Data $rows -Columns @(
+    @{ Field='Host'; Label='Host' }
+    @{ Field='Cpu';  Label='CPU %'; Align='right'; Rag=$cpuRag }
+    @{ Field='Mem';  Label='Mem %'; Align='right'
+       Rag=@{ Green=@{Max=80}; Amber=@{Min=80;Max=95}; Red=@{Min=95}; NoData=$true } }
+)
+```
+
+Allowed keys on the `Rag` hashtable:
+- `Green` — maps to `cell-ok`. Hashtable with optional `Min` and/or `Max`.
+- `Amber` — maps to `cell-warn`. Same shape.
+- `Red`   — maps to `cell-danger`. Same shape.
+- `NoData` — boolean. When `$true`, null / empty / non-numeric cell values render with `cell-nodata` instead of being left blank. Also lets a gauge accept `Value=$null` and paint itself grey.
+
+Bounds are interpreted as `Min ≤ value < Max` (either bound may be omitted). Unknown keys throw — typos surface as errors instead of silently doing nothing. The legacy `Thresholds=@(@{Min=...;Max=...;Class='cell-...'})` shape on columns and `Thresholds=` on tile items keeps working unchanged for backward compatibility.
+
+### `cell-nodata` — fourth RAG state across all themes (v1.4+)
+
+Every theme now defines `--cell-nodata-fg` / `--cell-nodata-bg` so missing / unmeasured / collection-failed values can be marked visually distinct from `0` or `OK`. Available as `cell-nodata` everywhere `cell-ok` / `cell-warn` / `cell-danger` worked previously: table cell thresholds, summary tile `Class`, html-block `-Style 'nodata'`, collapsible card `BadgeClass`, and the `badge-nodata` / `fill-nodata` / `row-hl-nodata` modifiers. Non-`Rag` themes pick a brand-appropriate neutral grey for the foreground.
+
+```powershell
+# Column threshold for a status that may be "NoData"
+@{ Field='Status'; Label='Status'
+   Thresholds=@(
+       @{ Value='OK';     Class='cell-ok'     }
+       @{ Value='Warn';   Class='cell-warn'   }
+       @{ Value='Error';  Class='cell-danger' }
+       @{ Value='NoData'; Class='cell-nodata' }   # ← v1.4
+   )
+}
+```
+
+---
+
+### Opening theme: `-ThemeMode` (2.2+)
+
+`New-DhDashboard -ThemeMode Light|Dark|Auto` sets the theme a report opens in. The default is `Light`, as before. `Auto` follows the reader's system light/dark setting, live, until they use the toggle. A choice made with the toggle always wins: it is kept in the URL, so a shared link carries it, and in the browser's local storage, since 2.1.4.
+
+---
+
+### Reading density: `-Density` (2.7.0+)
+
+`New-DhDashboard -Density Normal|Compact|Comfortable` sets the density a report opens at.
+The default is `Normal`. The density button in the nav bar still cycles all three at
+runtime, and a reader's choice is kept in the URL, so it wins over the authored value.
+
+Density now scales the whole type scale, not just table rows:
+
+| | `Compact` | `Normal` | `Comfortable` |
+|---|---|---|---|
+| body / table cells | 12.8px | 13.6px | 14.4px |
+| labels and chips | 11.5px | 12px | 12.8px |
+| smallest text | 11.2px | 11.5px | 12px |
+| table row height | 26px | 40px | 54px |
+
+`Compact` is the closest thing to the pre-2.7.0 look if you need the old
+information-per-screen back, but it never goes below 11.2px.
+
+### Readability changes in 2.7.0
+
+Three defects were measured across all twelve theme variants and fixed:
+
+- **`--text-muted` failed WCAG AA everywhere** — it ranged from 2.38:1 to 4.41:1 against
+  its own surface, against a 4.5 requirement, and it was applied to the smallest text in
+  the report. Every variant now clears 4.5:1 against both `--bg-surface` and `--bg-page`,
+  with each theme's hue preserved. The same applied to `--nav-title-fg` in 11 of 12.
+- **The type floor was 9.6px.** 30 hardcoded sizes bypassed the scale, reaching `0.60rem`.
+  Nothing outside `@media print` is below 11.5px now (`--size-2xs`), and that floor is for
+  badges and chips only. The network-map SVG labels are the documented exception: their
+  node and edge geometry is computed from hardcoded character widths.
+- **`text-transform: uppercase` was used 38 times**, with 10 different `letter-spacing`
+  values, mostly on 12px text. Caps now appear on 8 rules — column headers, the KPI field
+  label and the two status pills — and tracking is three tokens: `--track-tight`,
+  `--track-none`, `--track-label`. Block titles are sentence case.
+---
+
+## Tables
+
+### Basic table
+
+```powershell
+$data = @(
+    [PSCustomObject]@{ Name='alpha'; Region='us-east';  Count=10; Status='Active'   }
+    [PSCustomObject]@{ Name='beta';  Region='eu-west';  Count=5;  Status='Inactive' }
+    [PSCustomObject]@{ Name='gamma'; Region='ap-south'; Count=22; Status='Active'   }
+)
+
+Add-DhTable -Report $report -TableId 'items' -Title 'Item List' -Data $data
+```
+
+### Custom columns
+
+```powershell
+$cols = @(
+    @{ Field='Name';   Label='Item Name'; Width='180px'; PinFirst=$true }
+    @{ Field='Region'; Label='Region';    Width='120px' }
+    @{ Field='Count';  Label='Count';     Align='right'; Aggregate='sum' }
+    @{ Field='Status'; Label='Status';
+       Thresholds=@(
+           @{ Value='Active';   Class='cell-ok'     }
+           @{ Value='Inactive'; Class='cell-warn'   }
+           @{ Value='Error';    Class='cell-danger' }
+       )
+       RowHighlight=$true
+    }
+)
+
+Add-DhTable -Report $report -TableId 'items' -Title 'Items' -Data $data -Columns $cols -PageSize 25
+```
+
+### Column formatting
+
+```powershell
+$cols = @(
+    @{ Field='Name';     Label='Name' }
+    @{ Field='Cost';     Label='Cost';    Format='currency'; Locale='en-US'; Currency='USD'; Decimals=2 }
+    @{ Field='Size';     Label='Size';    Format='bytes'   }
+    @{ Field='Uptime';   Label='Uptime';  Format='percent'; Decimals=1 }
+    @{ Field='Duration'; Label='Runtime'; Format='duration' }
+    @{ Field='Updated';  Label='Updated'; Format='datetime'; DatePattern='yyyy-MM-dd' }
+)
+```
+
+### Long values: tooltip and resizable columns
+
+Table cells never wrap, which keeps rows scannable. **As of 2.4 each column is as wide as its widest text** (header included, with room for the sort icon), measured in the browser over every row, so the last character is no longer cut off. A column grows up to `-ColumnMaxWidth` (default 800 px); beyond that a value ends in an ellipsis, which can still hide the tail of a very long string (a nested group chain, a stack frame). Two things make the full value reachable:
+
+- **Hover a clipped cell** and its complete text appears as a tooltip. The tooltip is added only to cells that are *actually* clipped, measured after render — short cells stay tooltip-free, so hovering means something. Clipped cells also carry a dotted right edge as the visual cue.
+- **Drag the right edge of any column header** to widen it. Double-click the grip to fit the column to its widest text (2.4+; before that it reset to the declared width), press `Home` with it focused to go back to the automatic width; `←` / `→` nudge it 16px at a time. The width is per-viewer and per-session — it does not change the report for anyone else.
+
+Headers truncate the same way, and a clipped header carries its full text as a tooltip too — worth knowing because a truncated header is the only thing naming the column.
+
+Set a sensible starting width with the column's `Width` key. As of 2.1.1 a declared width is authoritative: previously a column declared wider than the stylesheet's cap was clipped at the cap anyway.
+
+**Minimum width is 40px.** Before 2.1.2 the real floor was the header's own text — the table is `table-layout: auto`, where `width` is only a suggestion, and a header that could not clip pinned the column at roughly *label + 32px padding + sort icon*. A header like `Livello di autorizzazione` floored its column at 239px whatever you did.
+
+```powershell
+Add-DhTable -Report $report -TableId 'accessi' -Title 'Access by user' -Data $rows -Columns @(
+    @{ Field='User';   Label='User';        Width='200px' }
+    @{ Field='Path';   Label='Granted via'; Width='420px' }   # long nested group chains
+)
+```
+
+Nothing needs enabling: this applies to every column in every table. Precedence is a width the reader dragged, then the column's `Width`, then the measured width. Measuring repeats after web fonts load and when the density changes.
+
+```powershell
+# -ColumnMaxWidth: widest an automatic column may grow (default 800, range 120-2000)
+# MinWidth: the floor for the automatic width of one column
+Add-DhTable -Report $report -TableId 'ous' -Title 'OUs' -Data $rows -ColumnMaxWidth 1000 `
+    -Columns @(@{ Field='DN'; Label='Distinguished name'; MinWidth=200 })
+
+Add-DhTable -Report $report -TableId 'old' -Title 'As before 2.4' -Data $rows -ColumnFit Fixed   # the 340 px cut-off
+```
+
+**Behaviour change in 2.4.** Tables that relied on the old 340 px cut-off get wider columns, and a table wider than the page scrolls sideways inside its frame. Put `-ColumnFit Fixed` on a table to keep the old look.
+
+### Column picker: hidden columns and remembered choice (2.5+)
+
+Every table has a **Columns** button that lists the columns so a reader can tick or untick them. Two additions:
+
+```powershell
+Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $rows -RememberColumns -Columns @(
+    @{ Field='Name';   Label='Server' }
+    @{ Field='Os';     Label='Operating system' }
+    @{ Field='Serial'; Label='Serial number'; Hidden=$true }     # starts unticked
+)
+```
+
+- **`Hidden = $true`** on a column: it starts unticked, stays in the data and in the detail panel, and the button says how many are hidden ("Columns (1 hidden)"). At least one column must stay visible (every column Hidden throws).
+- **`-RememberColumns`** (opt-in): the reader's ticks are kept per viewer in the browser's local storage and restored on the next visit, also after the report is regenerated (the key comes from the report title, `-GeneratedBy` and the table id). Columns are matched by field name, so a column added later keeps its default. **Default columns** in the picker puts your choice back and forgets the saved one. Nothing is stored unless the switch is on, and a blocked storage (private window) just means no memory.
+- A hidden or unticked column is left out of CSV, Excel and PDF exports, as an unticked column always was.
+
+### What changed since the last run (2.5.2+)
+
+A report that runs on a schedule can mark its rows against the previous run:
+
+```powershell
+$last = Import-Clixml .\servers-last-run.xml           # whatever you saved at the end of the previous run
+Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $now `
+    -Baseline $last -KeyField Name -BaselineLabel 'last night'
+$now | Export-Clixml .\servers-last-run.xml           # becomes the next run's baseline
+```
+
+- **New** and **Changed** rows carry a tag (text, so it also prints and reads without colour) and a coloured left edge. A changed cell is outlined and shows the old value on hover ("was: 5").
+- A line under the toolbar counts them ("vs last night: +3 new, ~2 changed, -2 removed"); the **Change chips** (All, New, Changed, Removed) filter the table and combine with the text filter, column filters and paging.
+- Rows that disappeared are not in the table, its footer or its paging. They wait in a collapsed **Removed since last night** group under it (open when printed). CSV, Excel and PDF exports gain a **Change** column; a checkbox adds the removed rows.
+- `-KeyField` is matched as case-insensitive text. A duplicate key (in either set) or a data row without the key throws; a baseline row without the key is ignored with a warning. `-BaselineFields` sets what counts as Changed (default: the table's columns, without the key, so a hidden `LastSeen` timestamp does not mark every row). Null equals an empty string. A field that is a date on one side and text on the other (a baseline read with `Import-Csv`) gives a warning: save the baseline with `Export-Clixml` to keep the types.
+- The baseline is data, so `ConvertTo-DhYaml` does not write it. Without `-Baseline` nothing changes.
+- **2.6+:** `-BaselinePath .\servers-last-run.xml` reads the file for you (`.clixml` / `.xml` through `Import-Clixml`, `.csv`, `.json`), so the import line goes away. The module only reads it: keep the `Export-Clixml` line. On the first run of a schedule the file does not exist yet: you get a warning and a table without markers, not an error. `ConvertTo-DhYaml` keeps the path.
+
+### Link cells (2.2+, templates and relative links 2.6+)
+
+`CellType='link'` turns a column into links. The URL comes from `UrlField`, which can be a property that is not a visible column; the default is the column's own value. `LinkText` sets fixed link text; the default is the cell value.
+
+```powershell
+-Columns @(
+    @{ Field='Check'; Label='Check' }
+    @{ Field='Reference'; Label='Reference'; CellType='link'; UrlField='DocUrl'; LinkText='Microsoft Learn' }
+)
+```
+
+Only `http:`, `https:`, `mailto:` and `tel:` URLs become links. Anything else, `javascript:` included (also written with tabs or odd case), renders as plain text. Links to other sites open in a new tab with `rel="noopener noreferrer"`. `UrlField` must exist in the data. The detail drawer (`-DetailDrawer`) shows the same link.
+
+**Link to a detail page or a portal (2.6+).** `UrlTemplate` builds the URL from the row, so the script does not have to add a URL property to every object. Each `{Field}` is replaced by that row's value, URL-encoded; `{{` and `}}` are literal braces; a row with an empty value shows plain text instead of a broken link. A template may be relative (a page written next to the report), and relative links open in the same tab.
+
+```powershell
+# a summary table that links to one HTML page per app, written by the same script
+foreach ($a in $apps) { Export-DhDashboard -Report (New-AppPage $a) -OutputPath ".\out\app-$($a.Id).html" -Force }
+Add-DhTable -Report $r -TableId 'apps' -Title 'Apps' -Data $apps -Columns @(
+    @{ Field='Name';  Label='App' }
+    @{ Field='Id';    Label='Details'; CellType='link'; UrlTemplate='app-{Id}.html'; LinkText='View details' }
+    @{ Field='Id';    Label='Intune';  CellType='link'; LinkText='Open in Intune'
+       UrlTemplate='https://intune.microsoft.com/#view/Microsoft_Intune_Apps/SettingsMenu/~/0/appId/{Id}' }
+)
+```
+
+- `RelativeLinks = $true`: a data value without a scheme (`AppDetails.html?id=123`, `../vm/srv01.html`, `#...`) becomes a link too. It is off by default, so a link column holding "N/A" does not turn into a link to a page called N/A.
+- `LinkTarget = 'new' | 'same'` overrides where the link opens.
+- `UrlTemplate` and `UrlField` are mutually exclusive; every `{Field}` must be a property of the data (checked when the table is added).
+
+### Table state in the address (2.6+)
+
+`New-DhDashboard -LinkState` keeps each table's sort, page, page size and Change chip in the page address, next to the menu path and the text filters (which are always kept). Copy the address and the reader sees the same view. Unknown columns in an old link are ignored and a page past the end shows the last page. Without the switch the address is unchanged.
+
+### Sparkline cells (v1.4+)
+
+Set `CellType='sparkline'` and feed the column **arrays** of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (`SPARK.build`), so the look stays consistent between summary tiles and table cells.
+
+```powershell
+$rows = @(
+    [PSCustomObject]@{ Host='srv-01'; Cpu24h=@(30,42,38,55,67,71,68,52); Mem24h=@(40,42,45,48,50,52,55,58) }
+    [PSCustomObject]@{ Host='srv-02'; Cpu24h=@(80,85,90,95,92,88,84,82); Mem24h=@(70,72,75,80,82,85,88,90) }
+    [PSCustomObject]@{ Host='srv-03'; Cpu24h=@(10,12,15,11,13,9,8,7);    Mem24h=@(20,18,22,25,20,18,15,12) }
+    [PSCustomObject]@{ Host='srv-04'; Cpu24h=$null; Mem24h=@(60,65,70,75,80,85,90,95) }   # renders an em-dash
+)
+
+Add-DhTable -Report $report -TableId 'srv' -Title 'Server fleet' -Data $rows -Columns @(
+    @{ Field='Host';   Label='Host' }
+    @{ Field='Cpu24h'; Label='CPU 24h'; Align='right'
+       CellType='sparkline'; SortBy='max';  SparklineStyle='line' }
+    @{ Field='Mem24h'; Label='Mem 24h'; Align='right'
+       CellType='sparkline'; SortBy='last'; SparklineStyle='area' }
+)
+```
+
+Sparkline-cell column keys:
+- `CellType` — `'sparkline'` activates this renderer.
+- `SortBy` — array-to-scalar reduction for sorting: `'last'` (default) / `'avg'` / `'max'` / `'min'` / `'sum'`. Clicking the column header sorts rows by the reduction.
+- `SparklineStyle` — `'line'` (default) / `'area'` / `'bars'`. Same options as the tile sparkline.
+
+Threshold colouring and per-cell `Format` are skipped for sparkline columns (the value is an array, not a scalar). Null / missing values render as a muted em-dash.
+
+---
+
+## KPI summary tiles
+
+Since **1.3.2** the tile strip is wrapped in a collapsible header bar by default (same chrome as `Add-DhCollapsible`), with a badge showing the tile count. Existing scripts get the new look automatically — no parameter changes required.
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+    # Icon is decorative — pass an emoji ('🖥', '⚠', '🔒'), a unicode glyph,
+    # or HTML if you use a font-icon library. Omit for clean iconless tiles.
+    @{ Label='Total';    Value=247 }
+    @{ Label='Active';   Value=231; Class='cell-ok'     }
+    @{ Label='Warnings'; Value=12;  Class='cell-warn'   }
+    @{ Label='Critical'; Value=4;   Class='cell-danger' }
+    @{ Label='Storage';  Value=1610612736; Format='bytes' }
+)
+```
+
+### Customising the collapsible header
+
+```powershell
+Add-DhSummary -Report $report `
+    -Title 'Key metrics' -Icon 'K' -DefaultOpen $false `
+    -Items @(
+        @{ Label='Total';    Value=247 }
+        @{ Label='Active';   Value=231; Class='cell-ok'     }
+        @{ Label='Warnings'; Value=12;  Class='cell-warn'   }
+        @{ Label='Critical'; Value=4;   Class='cell-danger' }
+    )
+```
+
+Collapsible-related parameters:
+- `-Collapsible` — wrap in a collapsible container (default `$true`). Pass `-Collapsible:$false` to render a flat tile strip with no header (the pre-1.3.2 behaviour).
+- `-Title` — header text (default `'Summary'`)
+- `-Icon` — optional emoji / unicode glyph shown before the title
+- `-DefaultOpen` — start expanded (default `$true`)
+
+### Collapsible chrome on every block cmdlet (1.5.1+)
+
+Since **1.5.1**, every block cmdlet supports the same `-Collapsible` / `-DefaultOpen` pair (defaults `$true`, matching `Add-DhSummary`). When enabled, the cmdlet's `-Title` (and optional `-Icon`) becomes the clickable collapsible header bar. The block content itself is unchanged — just folded behind a chevron.
+
+Covered cmdlets:
+- `Add-DhBarChart`, `Add-DhBullet`, `Add-DhEventFeed`, `Add-DhFilterCard`, `Add-DhHeatmap`, `Add-DhHtmlBlock`, `Add-DhLineChart`, `Add-DhPieChart`, `Add-DhStatusGrid`, `Add-DhTabs`, `Add-DhTopologyMap`
+- `Add-DhTable` — wraps the toolbar, table, and pagination under the section header. New `-Icon` parameter accompanies the existing `-Title`.
+- `Add-DhAlertBanner` — folds the message body behind a severity-derived header (`'Alert'` / `'Notice'` / `'Warning'` / `'Critical'`, override with `-Title`). Action + dismiss buttons stay outside the collapse so they remain reachable when folded.
+
+Pass `-Collapsible:$false` per call to restore the flat pre-1.5.1 rendering for any individual element.
+
+```powershell
+# Folded charts and tables; tile strip and intro block stay open
+Add-DhBarChart -Report $report -Id 'sev'    -Title 'By severity'  -TableId 'incidents' -Field 'Severity' -DefaultOpen $false
+Add-DhTable    -Report $report -TableId 'incidents' -Title 'Incidents (last 24h)' -Icon '!' -Data $rows -DefaultOpen $false
+
+# Keep a banner uncollapsable so the message is always visible
+Add-DhAlertBanner -Report $report -Id 'maint' -Severity 'info' `
+    -Message 'Maintenance window tonight 22:00 UTC' -Collapsible:$false
+```
+
+### Flat tile strip (pre-1.3.2 behaviour)
+
+```powershell
+Add-DhSummary -Report $report -Collapsible:$false -Items @(
+    @{ Label='Total';   Value=247 }
+    @{ Label='Active';  Value=231; Class='cell-ok' }
+)
+```
+
+### Per-NavGroup summary strips (v1.4.1+)
+
+Pass `-NavGroup` (and optionally `-NavSubGroup`) to scope a summary to a single nav panel. Each panel in a two-tier nav can have its own KPI hero row, and these coexist with the unscoped global summary at the top of the page.
+
+```powershell
+# Global summary — no NavGroup, visible on every panel
+Add-DhSummary -Report $report -Title 'Overall health' -Items @(
+    @{ Style='bignumber'; Label='SLA (30d)'; Value='99.96%'; Class='cell-ok' }
+    @{ Label='Open incidents'; Value=4; Previous=7; TrendIsGood=$true }
+)
+
+# Identity-panel summary — visible only when the 'Identity' tab is active
+Add-DhSummary -Report $report -NavGroup 'Identity' -Title 'Identity KPIs' -Items @(
+    @{ Label='Active users';  Value=231 }
+    @{ Label='Failed logons'; Value=842; Previous=920; TrendIsGood=$true }
+)
+
+# Infrastructure-panel summary — different metrics for a different panel
+Add-DhSummary -Report $report -NavGroup 'Infrastructure' -Title 'Cluster KPIs' -Items @(
+    @{ Style='gauge'; Label='Cluster CPU'; Value=68; Max=100; Unit='%'
+       Rag=@{ Green=@{Max=70}; Amber=@{Min=70;Max=90}; Red=@{Min=90} } }
+    @{ Label='Active alarms'; Value=3; Previous=1; TrendIsGood=$false }
+)
+
+# Add the rest of each panel's content with -NavGroup matching the strip
+Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
+Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
+```
+
+Full runnable example: [`Examples/Feature-KpiTiles.ps1`](Examples/Feature-KpiTiles.ps1) (strips) and [`Examples/Feature-Navigation.ps1`](Examples/Feature-Navigation.ps1).
+
+NavGroup-specific keys:
+- `-Id` — explicit block Id; auto-derived by slugifying `NavGroup` (+ optional `NavSubGroup`) when omitted, e.g. `My Group` → `summary-my-group`. Duplicate Ids throw.
+
+### Tile styles (v1.4+)
+
+By default each item renders as the compact tile that has shipped since 1.3.x. Pass `Style='bignumber'`, `Style='gauge'` or (2.2+) `Style='verdict'` to switch to one of the other variants for hero metrics, threshold visualisations or an overall assessment.
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+
+    # Hero metric — full-width tile, very large value typography
+    @{ Style='bignumber'; Label='Current SLA'; Value='99.97%'
+       Caption='Target 99.9% — met' }
+
+    # Semicircle gauge with RAG bands driven by Thresholds
+    @{ Style='gauge'; Label='Cluster CPU'; Value=42; Max=100; Unit='%'
+       Thresholds=@(
+           @{ Min=0;  Class='cell-ok'     }
+           @{ Min=70; Class='cell-warn'   }
+           @{ Min=90; Class='cell-danger' }
+       )
+    }
+    @{ Style='gauge'; Label='Disk used'; Value=92; Max=100; Unit='%'
+       Thresholds=@(
+           @{ Min=0;  Class='cell-ok'     }
+           @{ Min=70; Class='cell-warn'   }
+           @{ Min=90; Class='cell-danger' }
+       )
+    }
+
+    # Default compact tile — unchanged
+    @{ Label='Active sessions'; Value=287; Icon='S' }
+)
+```
+
+**Style values:**
+- `'tile'` (default) — the compact strip tile.
+- `'bignumber'` — full-width tile, 2.4–3.6rem value typography, optional `Caption` line.
+- `'gauge'` — 140×80 semicircle SVG, background arc + filled arc coloured by the matching threshold. Defaults `Min=0`, `Max=100`. `Unit` is appended after the centre readout. `Value` must be numeric.
+- `'verdict'` *(2.2+)* — full-width overall assessment: a text `Value` ("Action required"), an optional `Caption`, and one chip per non-zero severity in `Counts=@{ critical=2; warning=5; info=1 }` (aliases `high` / `medium` / `low` accepted). Without a `Class` the colour follows the worst count: critical → `cell-danger`, warning → `cell-warn`, otherwise `cell-ok`. With `New-DhDashboard -PrintCover` the first verdict tile is repeated on the printed cover page.
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+    @{ Style='verdict'; Label='Overall'; Value='Action required'
+       Caption='Fix the critical findings first.'; Counts=@{ critical=2; warning=5; info=1 } }
+)
+```
+
+- `'score'` *(2.3+)* — full-width ring with a verdict label: `Value` (numeric, `Max` defaults to 100), `Caption` (the label, e.g. "Elevated risk"), `Facts` (one line of small facts), `Previous` for the delta (`LowerIsBetter` shows a drop as an improvement), `NotAssessed` (checks that could not be assessed, shown beside the delta so a score that rose because checks went dark is visible). Colour from `-Rag` or `Class`. A missing `Value` needs `Rag=@{ NoData=$true }`, like a gauge.
+- `'maturity'` *(2.3+)* — full-width ladder: `Levels` (2 to 10, names or `@{ Name; Description }`), `Current` (0 = none reached, otherwise the level reached), `Value` (the headline text) and optional `Criteria=@(@{ Level=2; Text='Enable the Recycle Bin'; Met=$false })` listing what the next level still needs. Your script decides the level; DashHtml draws it.
+
+``powershell
+Add-DhSummary -Report $report -Items @(
+    @{ Style='score'; Label='Security posture'; Value=69; Caption='Elevated risk'; Facts=@('211 checks','31 failed')
+       Previous=66; NotAssessed=20; Rag=@{ Red=@{ Max=50 }; Amber=@{ Min=50; Max=80 }; Green=@{ Min=80 } } }
+    @{ Style='maturity'; Label='Maturity'; Value='Initial'; Current=1; Levels=@('Initial','Managed','Defined','Measured','Optimised')
+       Criteria=@(@{ Level=2; Text='Enable the AD Recycle Bin'; Met=$false }) }
+)
+``
+
+**Threshold matching:** mirrors `Add-DhTable` column thresholds. A band matches when `Min ≤ value < Max` (either bound may be omitted). When multiple bands match, the one with the highest `Min` wins — so the spec-friendly "Min-only" pattern in the example above does the intuitive thing.
+
+All styles still honour `Class`, `Format`/`Locale`/`Decimals`/`Currency`, and (where it makes visual sense) the v1.4 delta and sparkline keys.
+
+### Trend and delta indicators on tiles (v1.4+)
+
+Each tile can show how its current `Value` compares to a previous baseline. Supply `Previous`, and an arrow + delta line appears between the value and the label:
+
+- `▲ +12 (+5.5%)` (green) — `Active users 231` vs previous `219`
+- `▼ -8 (-3.2%)` (red)   — regression
+- `▶ ±0`        (grey)  — no change
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+    # Auto-derived delta: up = good by default
+    @{ Label='Active users';  Value=231;      Previous=219 }
+    @{ Label='Revenue';       Value=99450.75; Previous=92330.25; Format='currency'; Locale='en-US'; Currency='USD'; Decimals=2 }
+
+    # Inverted semantics — fewer errors is GOOD news, paint green when down
+    @{ Label='Errors (24h)';  Value=4;  Previous=12; TrendIsGood=$true; Class='cell-warn' }
+    @{ Label='Latency p95';   Value=82; Previous=88; TrendIsGood=$true; DeltaFormat='absolute' }
+
+    # Explicit trend with no baseline number
+    @{ Label='Pipeline';      Value=12; Trend='up' }
+)
+```
+
+Per-item keys (all optional):
+- `Previous` — baseline value. When supplied, the arrow direction and delta numbers are computed automatically.
+- `Trend` — `'auto'` (default — derived from Previous), `'up'`, `'down'`, or `'flat'`. Pass an explicit value to override the auto direction, or to show a direction without a numeric baseline.
+- `TrendIsGood` — flip the colour semantics for "lower is better" metrics. By default `up` is green (good) and `down` is red (bad). Pass `$true` to paint **this direction** as good regardless (e.g. errors trending down), or `$false` to mark it as bad.
+- `DeltaFormat` — `'both'` (default, `+12 (+5.5%)`), `'percent'` (just `+5.5%`), or `'absolute'` (just `+12`).
+
+When `Previous` is `0` only the absolute delta is shown (percent is undefined). The arrow alone is rendered when only `Trend` is supplied without `Previous`.
+
+### Inline sparklines on tiles (v1.4+)
+
+Each tile can carry an inline mini-chart below the label. Pure SVG, ~120 × 24 px, no library required. Choose between three styles:
+
+- `'line'` (default) — polyline through the points
+- `'area'` — line plus filled area to the baseline
+- `'bars'` — small vertical bar at each point
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+    @{ Label='CPU avg (24h)'; Value=42; Format='percent'
+       Sparkline      = @(30,42,38,55,67,71,68,52)
+       SparklineStyle = 'line'
+       SparklineMin   = 0       # optional fixed axis
+       SparklineMax   = 100
+    }
+    @{ Label='Requests/s'; Value=1240; Format='number'; Class='cell-ok'
+       Sparkline      = @(800,950,1100,1240,1200,1180)
+       SparklineStyle = 'area'
+    }
+    @{ Label='Errors (7d)'; Value=4; Class='cell-warn'
+       Sparkline      = @(12,8,3,2,5,1,4)
+       SparklineStyle = 'bars'
+    }
+    @{ Label='SLA'; Value=99.97; Format='percent'; Decimals=2 }   # no sparkline
+)
+```
+
+Per-item keys (all optional):
+- `Sparkline` — numeric array. Non-numeric values are dropped with a warning.
+- `SparklineStyle` — `'line'` (default) / `'area'` / `'bars'`
+- `SparklineMin` / `SparklineMax` — fix the Y-axis. Defaults to the series min/max so flat-looking series still render dramatically.
+
+Sparklines work in both the flat and collapsible variants of the summary strip, and use the accent colour `--chart-1` from the active theme.
+
+### Click-to-jump tile Actions (v1.4.2+)
+
+Any tile (any style — `tile` / `bignumber` / `gauge`) can carry an `Action` hashtable that makes the **whole tile clickable**. Same shape as `Add-DhAlertBanner -Action`: provide either `TableId` (jump to a registered table, with optional `Filter` pre-applied) or `Url` (open in a new tab). Keyboard accessible (Enter / Space).
+
+```powershell
+Add-DhSummary -Report $report -Items @(
+    # Click jumps to the 'incidents' table, pre-filtered on 'critical'
+    @{ Label='Open incidents'; Value=4; Class='cell-warn'
+       Action=@{ Label='View incidents'; TableId='incidents'; Filter='critical' } }
+
+    # Click opens an external URL
+    @{ Style='bignumber'; Label='Service status'; Value='Degraded'
+       Action=@{ Label='Open status page'; Url='https://status.example.com' } }
+)
+```
+
+The `Label` is used as the native `title=""` hover tooltip. Provide exactly one of `TableId` or `Url`.
+
+---
+
+## Auto-refresh (v1.4.2+)
+
+For wall-display ops dashboards, set `-AutoRefresh` on `New-DhDashboard` to emit a `<meta http-equiv="refresh">` tag in `<head>`. Accepts a friendly duration string (`'30s'`, `'5m'`, `'1h'`) or plain seconds (`'300'`). Omit / pass `''` to disable.
+
+```powershell
+$report = New-DhDashboard -Title 'NOC Wall' -Theme Default -AutoRefresh '5m'
+```
+
+The browser reloads the file at the configured interval. Pair this with a scheduled task that regenerates the HTML at a slightly shorter cadence so the displayed report stays current.
+
+---
+
+## Alert banners
+
+Top-of-page strips for current conditions — open incidents, recent failures, maintenance notices, compliance breaches. Banners stack vertically *above* the KPI summary tiles in the order they were declared. Each banner carries a severity (`info` / `ok` / `warning` / `critical`) that drives the colour via the standard RAG palette.
+
+```powershell
+# Simplest banner — just a message
+Add-DhAlertBanner -Report $report -Id 'maintenance' `
+    -Severity 'info' -Message 'Maintenance window tonight 22:00–02:00 UTC'
+
+# Critical alert with action button — clicking jumps to a filtered table
+Add-DhAlertBanner -Report $report -Id 'open-incidents' `
+    -Severity 'critical' -Icon '!' `
+    -Message '3 critical incidents open in the last 24h' `
+    -Dismissible `
+    -Action @{ Label='View incidents'; TableId='incidents'; Filter='critical' }
+
+# External link
+Add-DhAlertBanner -Report $report -Id 'release-notes' `
+    -Severity 'ok' -Message 'Patch level KB5044277 applied to 98% of hosts' `
+    -Action @{ Label='Open KB'; Url='https://support.microsoft.com/kb/5044277' }
+```
+
+**Key behaviours:**
+- `-Dismissible` adds a close (×) button. The dismissal is remembered in the URL hash so a page reload keeps the banner hidden; opening the report in a new browser session restores it.
+- `-Action` adds a button that either navigates to a registered table (with optional `Filter` text pre-applied) or opens an external `Url`. Provide one of `TableId` or `Url`, not both.
+- `-NavGroup` / `-NavSubGroup` *(v1.4.2+)* bind the banner to a single nav panel, so it appears only when that panel is active. Without these params, the banner stays page-global (visible on every panel) — the legacy behaviour.
+- The `-Message` may contain inline HTML — useful for embedding a short link inside the prose.
+- Severity maps to the existing `cell-ok` / `cell-warn` / `cell-danger` palette, so the colours follow the active theme.
+- Distinct from `Add-DhCollapsible` or `Add-DhHtmlBlock`: an alert banner sits **above** the summary and is meant for transient, high-visibility conditions.
+
+---
+
+## Bar charts
+
+```powershell
+# Basic distribution chart
+Add-DhBarChart -Report $report -Id 'status-chart' `
+    -Title 'Items by Status' `
+    -TableId 'items' -Field 'Status' -TopN 10 `
+    -ShowCount $true -ShowPercent $true
+
+# Click a bar to filter the source table
+Add-DhBarChart -Report $report -Id 'region-chart' `
+    -Title 'Items by Region' `
+    -TableId 'items' -Field 'Region' -ClickFilters
+
+# v2.2 — bars that measure a value: average lag per DC, in minutes
+Add-DhBarChart -Report $report -Id 'lag' -Title 'Replication lag by DC' `
+    -TableId 'repl' -Field 'DC' -ValueField 'LagMinutes' -Aggregate avg -Unit 'min' -Decimals 1
+
+# v1.4 — stacked: bars represent Region, segments coloured by Status
+Add-DhBarChart -Report $report -Id 'by-region-stacked' `
+    -Title 'Items by Region (stacked by Status)' `
+    -TableId 'items' -Field 'Region' -SeriesField 'Status' -Stacked
+```
+
+**Value aggregation (2.2+):** by default each bar is the number of rows in its group. `-ValueField` with `-Aggregate sum|avg|min|max` makes each bar the sum, average, minimum or maximum of a numeric column instead. Use it whenever the title promises a quantity ("lag in minutes", "GB used"); a counting chart under such a title shows the wrong number.
+
+- `-ValueField` on its own means `sum`. Any aggregate other than `count` needs a `-ValueField`.
+- `-ValueField` must be a field of the table. It is case-sensitive, and a property that is not a visible column also works.
+- Non-numeric and empty values are ignored. A group with no numeric value at all is left out of `avg` / `min` / `max`.
+- `-Unit 'ms'` is appended to the value. `-Decimals n` fixes the decimal places; by default `avg` shows up to 2 decimals and the others up to 3.
+- `-ShowPercent` is a share of the row count for `count` and of the grand total for `sum`. It is not shown for `avg` / `min` / `max`, because "percent of total" has no meaning there.
+- Stacked charts allow `count` or `sum`. With `sum` the segments add up values.
+- Aggregation runs over the table's **filtered** rows, so the chart follows every filter.
+
+The same options work for a bar chart inside a table's chart strip:
+
+```powershell
+Add-DhTable -Report $report -TableId 'vols' -Title 'Volumes' -Data $vols -Charts @(
+    @{ Field='Site'; Type='bar'; ValueField='UsedGB'; Aggregate='sum'; Unit='GB'; TopN=5 }
+    @{ Field='Tier' }                                  # no Type: donut, as before
+)
+```
+
+**Stacked mode (v1.4+):** pass `-SeriesField` to break each primary bar into colour-coded segments. The legend below the chart maps each series value to its colour. The `-Stacked` switch is optional — supplying `-SeriesField` alone implies it. Click-to-filter (`-ClickFilters`) is single-series only; stacked bars have no single value to filter by. Series colours are pulled from the active theme's chart palette and assigned in alphabetical order, so the legend stays stable across renders.
+
+**`-ClickFilters` (working from 2.1.3):** a bar click applies the bar's label as the source table's **text filter** — exactly as if you had typed it into the search box. The table filters, the `×` clear button appears, the chart re-aggregates against the filtered rows (so it collapses to the clicked bar), linked charts refresh, and the state is written to the URL hash so the view survives a reload and can be shared. Click `×` for the full distribution again. Because it is a text filter rather than an exact-value match, a label that is a substring of another value matches both.
+
+Bars are keyboard-operable: Tab to one, then Enter or Space.
+
+> **This never worked before 2.1.3** — every click threw `ReferenceError: engines is not defined`, and a label containing a `"` could inject HTML attributes. If you have dashboards using `-ClickFilters`, regenerate them: the runtime is baked into each HTML file, so updating the module alone changes nothing already on disk.
+
+---
+
+## Pie / Donut charts
+
+Standalone pie or donut chart as a top-level block. Supports two data modes:
+
+- **Mode A — derive from a registered table.** Counts distinct values of a field across all rows; sorts highest-to-lowest; caps at `TopN` segments.
+- **Mode B — explicit slices.** Provide `Label`/`Value` (and optional `Color`) hashtables directly. Use this for non-tabular data (cost breakdowns, weighted distributions).
+
+The `donut` style (default) leaves a hole in the centre with the total; `pie` renders a solid disc.
+
+> **Spec guidance:** the IT-infrastructure KPI dashboard spec recommends avoiding pies with more than 5 segments — switch to `Add-DhBarChart` for higher cardinality.
+
+```powershell
+# Mode A — derive from a table column
+Add-DhPieChart -Report $report -Id 'status-pie' `
+    -Title 'Items by status' `
+    -TableId 'items' -Field 'Status' -ClickFilters
+
+# Mode B — explicit slices, donut style
+Add-DhPieChart -Report $report -Id 'cost-pie' `
+    -Title 'Monthly cost by region' -Style 'donut' `
+    -Slices @(
+        @{ Label='us-east';  Value=12500 }
+        @{ Label='eu-west';  Value=8200  }
+        @{ Label='ap-south'; Value=3400  }
+    )
+
+# Pie style, custom colours, no legend
+Add-DhPieChart -Report $report -Id 'license-pie' `
+    -Title 'License usage' -Style 'pie' -ShowLegend $false `
+    -Slices @(
+        @{ Label='Used';      Value=820; Color='#1B6B35' }
+        @{ Label='Available'; Value=180; Color='#8B5200' }
+    )
+```
+
+**Key parameters:**
+- `-Style` — `'donut'` (default) or `'pie'`
+- `-TableId` / `-Field` — Mode A only; the source table must already be added
+- `-TopN` — Mode A only; cap at N segments (default 10)
+- `-ClickFilters` — Mode A only; clicking a slice applies the slice label as a text filter on the source table, the same way a bar-chart click does. Before 2.1.3 a slice click filtered the table but left the `×` clear button hidden and linked charts stale.
+- `-Slices` — Mode B only; mutually exclusive with `-TableId`
+- `-ShowTotal` — show the total in the donut hole (default `$true`; ignored for `pie` style)
+- `-ShowLegend` — show the label / count / percentage rows (default `$true`)
+
+---
+
+## Line / Area charts (v1.4+)
+
+Time-series-style chart as a top-level block. Multiple series share one X-axis of category labels (typically timestamps). Optional `-Filled` switches the lines into filled areas. Optional `-TargetLine` draws a dashed horizontal annotation at a Y value, which the spec (§7.4) calls out as the canonical pairing for any time-series visualisation: *"Always pair a time-series chart with a threshold annotation line."*
+
+```powershell
+$hours = @('00:00','04:00','08:00','12:00','16:00','20:00','24:00')
+
+# Single series with a warning-threshold annotation
+Add-DhLineChart -Report $report -Id 'cpu-trend' -Title 'Cluster CPU (24h)' `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='Avg'; Values=@(42,38,55,67,71,68,52); Class='cell-ok' }
+    ) `
+    -TargetLine 70 -TargetLabel 'Warning threshold' `
+    -YAxisMin 0 -YAxisMax 100 -YAxisUnit '%'
+
+# Multi-series filled area chart
+Add-DhLineChart -Report $report -Id 'net-bw' -Title 'Network throughput (Mbps)' `
+    -Filled `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='Ingress'; Values=@(800,950,1100,1240,1200,1180,900); Class='cell-ok'   }
+        @{ Label='Egress';  Values=@(600,700,820,910,880,850,720);     Class='cell-warn' }
+    )
+
+# Gap handling — $null entries break the line at that index
+Add-DhLineChart -Report $report -Id 'replication-lag' -Title 'Replication Lag' `
+    -XAxis $hours `
+    -Series @(
+        @{ Label='DC01→DC02'; Values=@(2,3,$null,$null,5,4,3); Color='#0088BB' }
+        @{ Label='DC01→DC03'; Values=@(1,2,2,3,2,2,1);         Color='#E08800' }
+    ) `
+    -TargetLine 60 -TargetLabel 'SLA 60s' -YAxisUnit 's'
+```
+
+**Parameters:**
+- `-XAxis` — array of category labels (typically timestamps). Must have ≥ 2 entries.
+- `-Series` — array of `@{Label;Values[];Class;Color}`. Each series's `Values` length must match `XAxis`. `Class` maps to the RAG palette (`cell-ok` / `cell-warn` / …); `Color` is an explicit override. `$null` entries in `Values` are allowed and rendered as line breaks.
+- `-Filled` — switch; renders each series as a filled area instead of a polyline.
+- `-TargetLine` / `-TargetLabel` — optional numeric reference Y and its label. Dashed line drawn in the warning colour.
+- `-YAxisMin` / `-YAxisMax` / `-YAxisUnit` — explicit Y-axis bounds (auto-fitted with 5% padding when omitted) and an optional unit suffix on tick labels (`'%'`, `'ms'`, `'GB'` etc.).
+- `-ShowLegend` / `-ShowGrid` — defaults `$true`. Disable for compact embeds.
+- `-Height` — SVG height in px (80–1000, default 240).
+
+The plot stretches to fit its container horizontally; height is fixed by `-Height`.
+
+---
+
+## Status Grid (v1.4+)
+
+Rows × columns RAG matrix — the IT-infrastructure KPI dashboard specification's "Status Matrix / Health Grid" (§2). Use it for at-a-glance health overviews where many entities share a small set of states: services × regions, DCs × replication links, hosts × probes. A status grid is a colour-first matrix; if your data needs sortable columns or rich cell content, use `Add-DhTable` instead.
+
+```powershell
+Add-DhStatusGrid -Report $report -Id 'service-health' -Title 'Service Health' `
+    -RowLabel 'Service' -ColumnLabel 'Region' `
+    -Rows    @('Auth','Billing','Search','Mail','Payments') `
+    -Columns @('us-east','us-west','eu-west','eu-central','ap-south') `
+    -CellSize 'normal' `
+    -Cells @(
+        @{ Row='Auth';    Column='us-east';   Status='ok';     Tooltip='99.98% / 24h' }
+        @{ Row='Auth';    Column='eu-west';   Status='warn';   Tooltip='latency spike'
+           LinkTableId='incidents'; LinkFilter='auth-eu' }
+        @{ Row='Billing'; Column='us-east';   Status='danger'; Tooltip='down 12m' }
+        @{ Row='Billing'; Column='ap-south';  Status='nodata' }
+        # ... declare only the (Row, Column) pairs that exist
+    )
+```
+
+**Per-cell keys:**
+- `Row` — required string, must appear in `-Rows`. Typo throws (no silent miss).
+- `Column` — required string, must appear in `-Columns`.
+- `Status` — required. One of `'ok'` / `'warn'` / `'danger'` / `'nodata'` / `'info'`. Drives the cell colour via the existing RAG palette.
+- `Tooltip` — optional string. Renders as the native `title=""` hover tooltip; no popover library.
+- `LinkTableId` — optional. Clicking the cell jumps to this registered table (reuses the same panel-navigation hook as `Add-DhAlertBanner -Action`).
+- `LinkFilter` — optional. When `LinkTableId` is set, the table receives this text filter on jump. Filter without `LinkTableId` throws.
+
+**Cmdlet parameters:**
+- `-Rows` / `-Columns` — required string arrays defining the axes.
+- `-RowLabel` / `-ColumnLabel` — optional axis captions shown in the top-left corner of the grid.
+- `-CellSize` — `'small'` (32 px) / `'normal'` (48 px, default) / `'large'` (64 px). Below a 600 px viewport, the grid collapses to a stacked list regardless of this setting.
+- `-MaxCells` — hard ceiling on `Rows × Columns` (default `2000`). A soft warning fires above 200 cells.
+
+Cells you don't declare render as a faint dashed neutral state. A legend strip below the grid auto-generates from the statuses actually present.
+
+---
+
+## Heatmap (v1.5+)
+
+Rows × columns matrix with a **numeric** colour scale — distinct from `Add-DhStatusGrid`, which is categorical. Use it for time-of-day load matrices, weekly seasonal patterns, latency histograms, percentile distributions — anywhere the cell value is a number that benefits from gradient encoding rather than discrete RAG buckets.
+
+```powershell
+$days  = @('Mon','Tue','Wed','Thu','Fri','Sat','Sun')
+$hours = @('00','03','06','09','12','15','18','21')
+
+$cells = foreach ($d in $days) {
+    foreach ($h in $hours) {
+        @{ Row=$d; Column=$h; Value=(Get-Random -Min 10 -Max 95); Tooltip="$d $h:00" }
+    }
+}
+
+# Sequential scale — chart-1 → chart-2 from min to max
+Add-DhHeatmap -Report $report -Id 'load-heatmap' -Title 'Cluster Load — Last Week' `
+    -RowLabel 'Day' -ColumnLabel 'Hour (UTC)' `
+    -Rows $days -Columns $hours -Cells $cells `
+    -ColorScale 'sequential' -Unit '%' -ShowValues
+
+# Diverging scale — centred on a midpoint (good for "delta from target")
+Add-DhHeatmap -Report $report -Id 'deviation' -Title 'CPU vs SLA target' `
+    -Rows $days -Columns $hours -Cells $cells -Min -50 -Max 50 `
+    -ColorScale 'diverging' -CellSize 'small'
+```
+
+**Per-cell keys:**
+- `Row` — required, must appear in `-Rows`.
+- `Column` — required, must appear in `-Columns`.
+- `Value` — required numeric. The cell's colour is interpolated between the active theme's `--chart-1` and `--chart-2` (sequential) or `--chart-1` → `--border-subtle` → `--chart-3` (diverging), based on where `Value` sits in `[Min, Max]`.
+- `Tooltip` — optional native `title=""` hover.
+
+**Cmdlet parameters:**
+- `-ColorScale` — `'sequential'` (default) or `'diverging'`.
+- `-Min` / `-Max` — explicit value range. Auto-fitted from the cells when omitted.
+- `-Unit` — suffix appended to the cell value when `-ShowValues` is set.
+- `-ShowValues` — switch; render the numeric value inside each cell.
+- `-CellSize` — `'small'` / `'normal'` (default) / `'large'`.
+- `-MaxCells` — hard ceiling on `Rows × Columns` (default `5000`). Soft warning above 1000.
+
+When to use which 2-D widget:
+- **`Add-DhStatusGrid`** — categorical state (`ok`/`warn`/`danger`/`nodata`). One of a small set of discrete values per cell.
+- **`Add-DhHeatmap`** — continuous numeric value per cell. Gradient encoding makes patterns pop.
+
+---
+
+## Topology Map (v1.5+)
+
+Parent-child tree visualisation for hierarchies — AD Forest → Domain → DC, vCenter → Cluster → Host, network device chains, application dependency trees. The renderer is intentionally simple: a recursive subtree-width layout — no force-directed graphs, no Reingold-Tilford. Handles realistic IT hierarchies well (≲ 50 nodes); above that the spec recommends a different visualisation.
+
+```powershell
+Add-DhTopologyMap -Report $report -Id 'ad-forest' -Title 'AD Forest' `
+    -Direction 'vertical' `
+    -Nodes @(
+        @{ Id='forest';  Label='contoso.com';     Parent=$null;    Status='ok' }
+        @{ Id='dom-hq';  Label='hq.contoso.com';  Parent='forest'; Status='ok'   }
+        @{ Id='dom-eu';  Label='eu.contoso.com';  Parent='forest'; Status='warn' }
+        @{ Id='dc-hq01'; Label='DC-HQ01';         Parent='dom-hq'; Status='ok' }
+        @{ Id='dc-hq02'; Label='DC-HQ02';         Parent='dom-hq'; Status='ok' }
+        @{ Id='dc-eu01'; Label='DC-EU01';         Parent='dom-eu'; Status='warn'
+           Tooltip='Replication lag 4m'
+           LinkTableId='incidents'; LinkFilter='dc-eu01' }
+        @{ Id='dc-eu02'; Label='DC-EU02';         Parent='dom-eu'; Status='danger' }
+    )
+```
+
+**Per-node keys:**
+- `Id` — required, unique within this topology.
+- `Label` — required string shown inside the node box.
+- `Parent` — id of the parent node, or `$null` / `''` for a root. Multiple roots are allowed (the layout renders side-by-side as a forest).
+- `Status` — optional `'ok'` / `'warn'` / `'danger'` / `'nodata'` / `'info'` / `''`. Drives the box tint via the existing RAG palette.
+- `Icon` — optional emoji / glyph rendered before the label.
+- `Badge` — optional short tag (e.g. `'AD'`, `'Dom'`) rendered after the label.
+- `Tooltip` — optional. Surfaces in a styled hover overlay (since **1.5.2**) — works on SVG node groups, themed to match the rest of the dashboard. If `Tooltip` is omitted, the renderer falls back to the node's full `Label` so truncated FQDN labels still surface on hover.
+- `LinkTableId` — optional. Clicking the node jumps to this registered table (reuses the same drill-down hook as `Add-DhStatusGrid` cells and `Add-DhAlertBanner -Action`).
+- `LinkFilter` — optional pre-applied text filter when `LinkTableId` is set. Filter without `LinkTableId` throws.
+
+**Cmdlet parameters:**
+- `-Direction` — `'vertical'` (default, parent above children) or `'horizontal'` (parent left of children). Horizontal scales better for wide-fan trees (any level with 5+ children).
+- `-NodeWidth` / `-NodeHeight` — per-node pixel dimensions (defaults `140 × 44`).
+- `-AutoFitWidth` *(1.5.2+)* — switch. When set, the JS renderer probes the live `.topo-node-body` font and uses a hidden `<canvas>` to measure every node's label + icon + badge combination. `NodeWidth` is then grown to the widest needed value, clamped at `-AutoFitMaxWidth`. Pair with `-Direction 'horizontal'` for the best reading experience on wide-fan trees with long FQDN labels.
+- `-AutoFitMaxWidth` *(1.5.2+)* — ceiling (default `360 px`) on the auto-fit growth, so a single outlier label can't push the layout to absurd widths.
+- `-MaxNodes` — hard ceiling (default `200`). Trees larger than this usually warrant a different visualisation.
+
+```powershell
+# Wide-fan farm topology — auto-fit + horizontal + intermediate category nodes
+Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
+    -Direction 'horizontal' -NodeWidth 220 -AutoFitWidth `
+    -Nodes @(
+        @{ Id='farm';       Label='FARM-01';            Parent=$null;       Status='ok'; Icon='F'; Badge='Farm'  }
+        @{ Id='site';       Label='RAS-SITE-01';    Parent='farm';      Status='ok'; Icon='S'; Badge='Site'  }
+        # Intermediate categories keep the tree visually balanced when a site has 10+ leaves
+        @{ Id='cat-brk';    Label='Brokers';           Parent='site';      Status='ok'; Icon='B'; Badge='2'     }
+        @{ Id='cat-gw';     Label='Gateways';          Parent='site';      Status='ok'; Icon='G'; Badge='2'     }
+        @{ Id='cat-pool';   Label='RDS Host Pools';    Parent='site';      Status='ok'; Icon='P'; Badge='5'     }
+        # Leaves
+        @{ Id='brk-1';      Label='RAS-BRK01.contoso.local'; Parent='cat-brk';  Status='ok';   Icon='B'; Badge='Primary'
+           Tooltip='RAS-BRK01.contoso.local — role Primary, agent OK'; LinkTableId='brokers' }
+        # … etc.
+    )
+```
+
+Cycle detection rejects loops (`A → B → A`); references to unknown parents throw at declaration time.
+
+### Interactive pan / zoom / collapse (1.7.0+)
+
+By default (`-Interactive` = `$true`) the tree renders in a fixed-height viewport you can explore:
+
+- **Drag** the background to pan; **mouse-wheel** to zoom around the cursor; the corner toolbar has **zoom-in / zoom-out / reset-to-fit** buttons.
+- Every **parent node shows a `+/−` toggle** — click (or focus + Enter/Space) to collapse or expand its subtree. Collapsing a branch reflows the remaining tree.
+- The view **auto-fits** to the container on load and re-fits on resize until you pan or zoom, after which it leaves your view alone (the reset button hands control back).
+
+Pass `-Interactive:$false` for the static scale-to-fit rendering (no toolbar, no collapse) — useful for print or when embedding a small fixed tree.
+
+---
+
+## Tabs (v1.5+)
+
+Inline tabbed content block — a **local** pivot within one section of the dashboard flow. Distinct from `-NavGroup` which partitions the **whole page**. Use tabs when several views of the same scope (Overview / Detail / Raw payload) belong together but only one should be visible at a time.
+
+```powershell
+Add-DhTabs -Report $report -Id 'fleet-views' -Title 'Fleet — Views' -Tabs @(
+    @{ Title='Overview';    Icon='O'; Content='<p>The fleet runs 10 servers …</p>'; Active=$true }
+    @{ Title='Per-host';    Icon='H'; Content='<table>…</table>' }
+    @{ Title='Raw payload'; Icon='R'; Content='<pre>{ … }</pre>' }
+)
+```
+
+**Per-tab keys:**
+- `Title` — required string shown on the tab button.
+- `Content` — required raw HTML (same policy as `Add-DhHtmlBlock` — emitted verbatim).
+- `Icon` — optional emoji / glyph rendered before the title.
+- `Active` — optional `$true` to mark this tab initially visible. If no tab is marked active, the first one is auto-activated.
+
+Implements the full W3C tab pattern: `role="tablist" / "tab" / "tabpanel"`, `aria-selected`, `aria-controls`, left/right arrow-key navigation, and a `focus-visible` outline.
+
+---
+
+## Event feed (v1.4+)
+
+Chronological severity-tagged audit trail. Per the IT-infrastructure KPI dashboard specification (§4.1 and §4.2), this is the canonical **Row 5** of an ops dashboard — the evidence trail that pairs with the at-a-glance KPI tiles above. Distinct from `Add-DhAlertBanner` (which surfaces a single *current* condition at the top of the page).
+
+```powershell
+Add-DhEventFeed -Report $report -Id 'recent-events' `
+    -Title 'Recent events (24h)' -MaxItems 50 `
+    -Events @(
+        @{ Timestamp='2026-05-22 14:32'; Severity='critical'; Source='DC01'
+           Message='Replication failure to DC03' }
+        @{ Timestamp='2026-05-22 14:18'; Severity='warning';  Source='DC02'
+           Message='LDAP bind time > 80 ms (avg)' }
+        @{ Timestamp='2026-05-22 13:55'; Severity='info';     Source='vSphere'
+           Message='vMotion: VM-027 → ESXi-04' }
+        @{ Timestamp='2026-05-22 12:42'; Severity='ok';       Source='Backup'
+           Message='Nightly backup completed in 42 minutes' }
+    )
+
+# Optional grouping — critical floats to the top
+Add-DhEventFeed -Report $report -Id 'incidents-by-sev' `
+    -Title 'Open incidents' -GroupBy 'Severity' -Events $incidents
+```
+
+**Per-event keys:**
+- `Timestamp` — required string. Free-form — sorted lexicographically. ISO-8601 timestamps sort correctly out of the box.
+- `Severity` — required. One of `'info'` / `'ok'` / `'warning'` / `'critical'`. Drives the row colour via the existing RAG palette.
+- `Message` — required string. Long messages wrap onto a second line.
+- `Source` — optional string. Rendered in `[brackets]` between the timestamp and the message.
+- `Icon` — optional emoji / glyph. Overrides the default severity icon (`·` / `✓` / `!` / `✕`).
+
+**Cmdlet parameters:**
+- `-MaxItems` — cap on visible rows (default 50, range 1..1000). Older events are dropped after sort+slice.
+- `-GroupBy` — `'None'` (default) / `'Severity'` / `'Source'`. With grouping, each group is preceded by a header showing the group key and entry count. `'Severity'` groups appear in priority order (critical → warning → ok → info).
+- `-SortDescending` — newest-first by default (`$true`). Pass `$false` for chronological top-down reading.
+
+---
+
+## Bullet charts (v1.4+)
+
+The canonical "actual vs target with performance bands" visualisation, per the IT-infrastructure KPI dashboard specification (§2 Widget Types). Each row stacks vertically and shows: a full-width track, RAG-coloured performance bands, a solid value bar from `Min` to `Value`, and an optional vertical target marker on top.
+
+```powershell
+# Share one RAG definition across multiple rows
+$latencyRag = @{
+    Green = @{ Max = 50 }
+    Amber = @{ Min = 50; Max = 80 }
+    Red   = @{ Min = 80 }
+}
+
+Add-DhBullet -Report $report -Id 'auth-latency' -Title 'LDAP Bind Time' -Items @(
+    @{ Label='DC01'; Value=42; Target=50; Max=120; Unit='ms'; Rag=$latencyRag }
+    @{ Label='DC02'; Value=68; Target=50; Max=120; Unit='ms'; Rag=$latencyRag }
+    @{ Label='DC03'; Value=92; Target=50; Max=120; Unit='ms'; Rag=$latencyRag }
+)
+```
+
+For "bigger is better" metrics (headroom, uptime SLA), flip the RAG semantics:
+
+```powershell
+Add-DhBullet -Report $report -Id 'cpu-headroom' -Title 'CPU Headroom per Host' -Items @(
+    @{ Label='esxi-01'; Value=42; Target=30; Min=0; Max=100; Unit='%'
+       Rag=@{ Green=@{Min=30}; Amber=@{Min=15;Max=30}; Red=@{Max=15} } }
+    @{ Label='esxi-02'; Value=12; Target=30; Min=0; Max=100; Unit='%'
+       Rag=@{ Green=@{Min=30}; Amber=@{Min=15;Max=30}; Red=@{Max=15} } }
+)
+```
+
+Per-item keys:
+- `Label` — left-side row label (required)
+- `Value` — actual numeric value (required)
+- `Target` — optional numeric. When set, a vertical tick mark appears on the track.
+- `Min` / `Max` — track range. Defaults `0..100`; `Max` must be `> Min`.
+- `Unit` — optional suffix in the readout (`'ms'`, `'%'`, …)
+- `Class` — optional value-bar colour override (`'cell-ok'` / `'cell-warn'` / `'cell-danger'` / `'cell-nodata'`). Wins over the auto threshold match.
+- `Rag` — preferred way to declare the bands (see [Unified `-Rag` parameter](#unified--rag-parameter-v14)).
+- `Bands` / `Thresholds` — legacy array shape `@(@{Min;Max;Class})`; `Bands` is an alias for `Thresholds`. `Rag` wins when both are supplied.
+
+---
+
+## Range bars (2.1+)
+
+`Add-DhRangeBar` shows the **spread** of a metric per entity, not a single value. Each row is a floating bar from `Min` to `Max` with a tick at `Avg`, and every row is normalised against its own `High` — so a cluster allocated 315 units and one allocated 30 sit on the same comparable 0–100 axis.
+
+Bar colour follows **position on that axis** (`--accent-ok` → `--accent-warn` → `--accent-danger`), not category identity. Two bars of the same colour mean "same load level", never "same thing".
+
+```powershell
+Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
+    -Unit 'req/s' -ShowDataTable `
+    -Items @(
+        @{ Name='cluster01-users';   Low=0; High=315; Min=60; Avg=97; Max=120 }
+        @{ Name='cluster02-bigdata'; Low=0; High=104; Min=1;  Avg=2;  Max=10  }
+    )
+```
+
+Or derive the rows from a table already in the report. Aggregation runs in the browser against the table's **filtered** rows, so filtering the table live-recomputes every bar:
+
+```powershell
+Add-DhTable -Report $report -TableId 'clusters' -Title 'Cluster hosts' -Data $hosts
+
+Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
+    -TableId 'clusters' -CategoryField 'Cluster' `
+    -ValueField 'LoadReqSec' -HighField 'CapacityReqSec' -Unit 'req/s'
+```
+
+**Where `High` comes from**, in precedence order — it decides what the chart is actually saying:
+
+| Form | The axis reads as | Use when |
+|---|---|---|
+| `-HighField 'Capacity'` | "% of that row's own capacity" | each table row carries its category's ceiling |
+| `-High 250` | "% of a fixed ceiling" | one SLA / limit applies to everything |
+| neither | "% of the largest value seen anywhere" | exploratory |
+
+`-High` together with `-HighField` is an error, not a silent preference. The 0–100 caption is derived from whichever you pick, so the chart never ships without saying what the axis means.
+
+Per-item keys (all six required): `Name`, `Low`, `High`, `Min`, `Avg`, `Max`. Values are real, un-normalised units — the percentages are an internal plotting mechanism and are shown only in the tooltip.
+
+Worth knowing:
+
+- **The avg tick is not clamped** into `[Min, Max]`. An average computed over a longer window than the observed min/max legitimately falls outside the bar; hiding that would misrepresent the data.
+- **`High <= Low` is not an error.** Normalisation is undefined, so the row renders striped and muted and you get a `Write-Warning`. Fix the source data.
+- **Values beyond the row's own scale** clip at the axis edge, but the real numbers survive in the label and the tooltip.
+- `-ShowDataTable` adds a toggleable raw-values table — the printable, screen-reader-friendly escape hatch.
+- `-MaxRows` (default 60) throws on a runaway `-CategoryField` rather than emitting hundreds of unreadable rows.
+
+### Choosing between the three per-entity bar widgets
+
+| You want to show | Use | Bar starts at |
+|---|---|---|
+| one value vs one target, with RAG bands | `Add-DhBullet` | the axis origin |
+| a min–max spread plus its average | `Add-DhRangeBar` | `Min` (it floats) |
+| a count per category | `Add-DhBarChart` | the axis origin |
+
+`Add-DhRangeBar` is the only one whose bar floats, and the only one whose colour encodes position rather than category or state.
+
+Full runnable example: [`Examples/Feature-Charts.ps1`](Examples/Feature-Charts.ps1): every chart type side by side, with guidance on which to pick.
+
+---
+
+## Findings (2.2+)
+
+`Add-DhFindings` is the block an audit or assessment report is built around. Each finding is one row: a severity badge, the title, an area and the affected count. Expanding the row shows:
+
+- what is wrong and what to do about it;
+- which objects are affected, with "+N more" past `-MaxAffectedShown`;
+- a **Show in table** button that jumps to the evidence table, filtered;
+- reference links, for example Microsoft Learn.
+
+```powershell
+Add-DhFindings -Report $report -Id 'sec' -Title 'Security findings' -NavPath 'Findings' `
+    -GroupBy Area -ExpandSeverity critical -Findings @(
+      @{ Severity='critical'; Title='AS-REP roastable accounts'; Area='Accounts'
+         Description='Accounts with DoesNotRequirePreAuth expose crackable hashes.'
+         Recommendation='Clear DONT_REQ_PREAUTH on every listed account.'
+         Affected=@('svc_old','test1'); AffectedTableId='accounts'; AffectedFilter='AS-REP'
+         References=@(@{ Label='MS Learn'; Url='https://learn.microsoft.com/' }) }
+      @{ Severity='medium'; Title='Stale computer objects'; Area='Hygiene'; AffectedCount=148 }
+    )
+```
+
+- **Severity** is `critical`, `warning`, `info` or `ok`, the same scale as alert banners. `high`, `medium` and `low` are accepted as aliases for pasting output from other tools.
+- **Sorting** is critical → ok, then by affected count, largest first. `-SortBy None` keeps your order.
+- **Counters** above the list filter by severity: click one, or several. A text box filters over every field.
+- **Options:** `-GroupBy Area|Severity` adds group headers. `-ExpandSeverity critical` opens those findings at load. `-HideOk` drops the passed checks.
+- **References** must be http(s), mailto, tel or an in-page `#anchor`. Anything else throws.
+- **Text is always HTML-encoded.** There is no `-AllowHtml`, because finding text usually comes from collected data.
+- **When printed**, every finding is shown expanded.
+
+`Examples/Feature-Assessment.ps1` builds the assessment pieces: verdict, score, findings (list and split), tiles and record lists; `Examples/Demo-ActiveDirectory.ps1` uses them in a full report.
+
+### Split layout, evidence and change markers (2.3+)
+
+`-Layout Split` shows the findings as a list on the left and the selected finding on the right, which suits many findings that each carry proof (a settings audit). Both layouts print fully expanded; on a phone the detail shows under the list.
+
+```powershell
+Add-DhFindings -Report $report -Id 'hardening' -Title 'Protocols and hardening' -Layout Split -GroupBy Area -Findings @(
+    @{ Severity='warning'; Area='Authentication'; Title='NTLM level'; Change='new'
+       Recommendation='Raise the level to 5 after confirming no NTLMv1 clients remain.'
+       Facts    = @(@{ Label='Recommended'; Value='5 - NTLMv2 only' }, @{ Label='Domain controllers'; Value='4 of 4 not as recommended'; Status='warn' })
+       Evidence = @(@{ Object='DC01'; Value='Level 4'; Status='warn' }, @{ Object='DC02'; Value='Level 4'; Status='warn' })
+       Detail   = @{ Title='How to check'; Sections=@(@{ Kind='text'; Text='Audit NTLM use for two weeks first.' }) } }
+)
+```
+
+- **Facts** are label/value tiles. **Evidence** is one row per object (Object required; Value, Status, Note optional, a column appears only when some row uses it), capped by `-MaxEvidenceShown` (default 50, then "+N more"; `AffectedTableId` still jumps to the full table).
+- **Change** is 
+ew, worse, etter or esolved: a badge and a filter chip. Your script compares with the previous run; DashHtml only shows the result.
+- **Detail** opens in the side panel (see below). It takes text, one section, an array of sections or `@{ Title; Subtitle; Sections }`.
+- **`-AllClearText 'No stale objects found.'`** shows a check mark and the sentence when the block has no findings (also on `Add-DhTable` for an empty `-Data`), so a passed check is visible.
+
+---
+
+## Detail panel, property tiles and record lists (2.3+)
+
+One side panel serves everything that has "the detail of one thing". Escape or a click outside closes it, focus returns to where you were, switching view closes it, and it never prints.
+
+```powershell
+# a table row opens its properties (names, or @{ Field; Label }; hidden properties allowed)
+Add-DhTable -Report $r -TableId 'dcs' -Title 'Domain controllers' -Data $dcs -DetailDrawer -DetailTitleField 'Name' `
+    -DetailFields @('Name','Site',@{ Field='RamGB'; Label='RAM (GB)' },'Roles')
+
+# a status-grid cell opens a breakdown; -SelfDiagonal hatches "a DC with itself"
+Add-DhStatusGrid -Report $r -Id 'repl' -Title 'Replication' -Rows $names -Columns $names -SelfDiagonal -Cells @(
+    @{ Row='DC01'; Column='DC02'; Status='danger'; Glyph='x'; LinkTableId='dcs'
+       Detail=@{ Title='DC01 to DC02'; Sections=@(
+           @{ Kind='kv'; Items=@(@{ Label='Last success'; Value='3 days ago'; Status='danger' }) }
+           @{ Kind='statusList'; Title='Naming contexts'; Items=@(@{ Label='Configuration'; Status='danger'; Text='Failing' }) }) } } )
+
+Add-DhKeyValue -Report $r -Id 'scope' -Title 'Scope' -Columns 4 -Items @(@{ Label='Forest'; Value='corp.example' }, @{ Label='Pending reboot'; Value='None'; Status='ok' })
+
+Add-DhRecordList -Report $r -Id 'hw' -Title 'Hardware' -Items @(
+    @{ Title='dc01'; Subtitle='FIT00'; Status='ok'; Metrics=@(@{ Label='RAM'; Value='8 GB' }, @{ Label='CPU'; Value='2%' })
+       Sections=@(@{ Kind='kv'; Title='System'; Items=@(@{ Label='Model'; Value='VMware20,1' }) }
+                  @{ Kind='table'; Title='Volumes'; Columns=@('Drive','Free'); Rows=@(,@('C:','73 GB')) }) } )
+```
+
+**Sections** are the shared building block: `kv` (tiles), `bars`, `statusList`, `checks`, `table` (capped by `MaxRows`, default 50), `text` and `links` (http, https, mailto, tel or # only). A status is `ok`, `warn`, `danger`, `info` or `nodata` (`cell-danger` style names and `critical` / `failed` are accepted too). All text is HTML-encoded.
+
+Also new in 2.3: table cell types `chips` (an array as tags) and `path` (an array as `A → B → Tier 0`), and `Add-DhBarChart -Rag` / `-KeyClass @{ Critical='cell-danger' }` to colour bars by value or category.
+
+`Examples/Feature-Assessment.ps1` and `Examples/Feature-Tables.ps1` show all of it.
+
+---
+
+## Network map (2.4+)
+
+For what is not a tree: domain controllers and their replication links, sites and site links, trusts, or accounts and the tier they can reach. A node can have any number of links, several links can join the same two nodes, and a link can have a direction, a label, a status colour and a dashed style.
+
+```powershell
+Add-DhNetworkMap -Report $r -Id 'repl' -Title 'Replication' -Legend `
+    -Groups @(@{ Id='hq'; Label='HQ site' }, @{ Id='eu'; Label='EU site' }) `
+    -Nodes @(
+        @{ Id='dc01'; Label='DC01'; Group='hq'; Badge=@('PDC','GC'); Status='ok'
+           Detail=@{ Sections=@(@{ Kind='kv'; Items=@(@{ Label='OS'; Value='Windows Server 2022' }) }) } }
+        @{ Id='dc02'; Label='DC02'; Group='eu'; Status='danger'; LinkTableId='dcs'; LinkFilter='DC02' }
+    ) `
+    -Edges @(
+        @{ From='dc01'; To='dc02'; Label='15 min'; Direction='both'; Status='danger'; Style='dashed'; Tooltip='Access denied' }
+    )
+
+# lanes by Tier (0 on top), with "Trace path" to the nodes marked Target
+Add-DhNetworkMap -Report $r -Id 'tiers' -Title 'Reaching Tier 0' -Layout layered -Nodes $nodes -Edges $edges
+```
+
+- **Layout is deterministic**: the same data always draws the same picture (no force simulation). `grouped` puts nodes in boxes (boxes can nest via `Parent`); `layered` puts nodes in lanes by `Tier`. A node without a `Tier` takes its depth from the links (`From` above `To`), and one pass orders each lane by where its neighbours sit.
+- **Reading it**: pan and zoom, filter chips by status and by badge, a node search box (Enter centres the first match), **Labels** to hide link labels (hidden by default above 400 links), **SVG** to download the map with its styles. Hovering a node or link shows its `Tooltip`.
+- **Clicking a node** highlights its links and neighbours and opens its `Detail` in the side panel (or jumps to `LinkTableId` / `LinkFilter`). Clicking a link with a `LinkTableId` jumps to that table. Click the background, or press Escape, to clear.
+- **Trace path** (shown when a node has `Target=$true`): select a node and the shortest path to the nearest target is highlighted and spelled out. `forward` links are followed in their direction only; `both` and `none` links either way. Ties go to the link declared first.
+- Status is `ok | warn | danger | info | nodata` (`warning` and `critical` are accepted). Limits: `-MaxNodes` 300, `-MaxEdges` 1500 (both throw above). The map includes a text list of its links for screen readers.
+
+`Examples/Feature-MapsAndGrids.ps1` shows both layouts; `Examples/Demo-AzureInfrastructure.ps1` and `Examples/Demo-ActiveDirectory.ps1` use them in full reports.
+
+## OU tree filter (2.4+)
+
+A tree that filters a table. Choose a node and the table shows the rows at that path and below; choose it again, or use the table's clear button, to remove the filter. The tree is a filter, not a second copy of the data, so the objects stay in the table.
+
+```powershell
+Add-DhTable -Report $r -TableId 'ous' -Title 'OUs' -Data $ous        # the table comes first
+
+Add-DhTreeFilter -Report $r -Id 'ou-tree' -Title 'Browse by OU' -TableId 'ous' -PathField 'CanonicalName' -CountFromTable -Nodes @(
+    @{ Id='root'; Label='corp.example'; Path='corp.example' }
+    @{ Id='hq';   Parent='root'; Label='Headquarters'; Path='corp.example/Headquarters'; Status='ok' }
+    @{ Id='svc';  Parent='hq';   Label='Service accounts'; Path='corp.example/Headquarters/Service accounts'
+       Status='warn'; Flags=@('review'); Detail='Passwords never expire here.' }
+)
+```
+
+- `-Match Prefix` (default) matches root-first paths such as `corp.example/Headquarters/Servers` (separator `/`); `-Match Suffix` matches distinguished names such as `OU=Servers,OU=HQ,DC=corp,DC=example` (separator `,`). Matching ignores case and respects the separator, so `HQ` never matches `HQ2`.
+- Counts: give each node a `Count`, or add `-CountFromTable` and the browser counts the table's rows at or below each node (counts ignore the table's other filters).
+- A node can carry `Status`, `Flags` (short chips such as `empty`) and a `Detail` (any section spec, opened with the "i" button). The find box filters the tree; arrow keys, Home / End, Enter and Space work as in any tree.
+- It combines with the table's text filter, card filters and global filters, shows in the table's "filtered by" badge, and is saved in the URL. `-MaxNodes` (default 5000) warns above, and the cmdlet throws above 20,000 nodes.
+
+## Directory explorer (2.5+)
+
+`Add-DhTreeTable` browses objects in their containers and answers "who is in this group, and through what?". The left pane is a tree (find box, type filter, status, flags, counts); the right pane shows the selected object in tabs: **Properties**, **Members** (groups), **Member of**, and **Nesting** (the groups nested below, and every path up to the top-level groups, i.e. effective membership). Click a member or a group in any tab to jump to it.
+
+```powershell
+Add-DhTreeTable -Report $r -Id 'dir' -Title 'Directory' -NavPath 'Identity/Directory' -Rows @(
+    @{ Id='ou-hq';  Type='ou';    Label='Headquarters' }
+    @{ Id='g-da';   ParentId='ou-hq'; Type='group'; Label='Domain Admins'; Status='warn'; Flags=@('privileged')
+       Properties=[ordered]@{ 'Scope'='Global'; 'Description'='Domain administrators' } }
+    @{ Id='u-rossi';ParentId='ou-hq'; Type='user'; Label='adm.rossi'; Properties=[ordered]@{ 'Password age'='41 days' } }
+) -Memberships @(
+    @{ GroupId='g-da'; MemberId='u-rossi' }
+)
+```
+
+- **Two flat lists, no recursion.** `-Rows` are the objects (`Id`, `ParentId` for the OU it sits in, `Type` = ou, group, user, computer, container or other, `Label`, optional `Status`, `Flags`, `Properties` as a label = value hashtable, `Detail` sections). `-Memberships` are `@{ GroupId; MemberId }` pairs, so a collector can emit them straight from `Get-ADGroupMember` or LDAP.
+- **Group nesting is not container nesting.** `ParentId` chains must not loop (that throws). Memberships may loop, because real directories do: a circular nesting is detected, marked "circular nesting", and not followed.
+- It is a browser, not a grid for thousands: rows draw only when their parent is open; the cmdlet warns above `-MaxRows` (5,000) and throws above 20,000. For a large estate use `Add-DhTreeFilter` with a table.
+- `Examples/Demo-ActiveDirectory.ps1` has one (view Identity / Directory).
+- **2.6+:** above 2,000 rows the tree is windowed: only the rows in view are in the page (fixed 28 px rows; set `--tt-row-h` in a custom theme to change it), so expanding, scrolling and finding stay quick with 50,000 objects. Long labels end in an ellipsis in that mode. Print draws the open rows, up to 2,000. `-MaxRows` warns above 20,000 rows by default and the cmdlet throws above 100,000.
+- **CSV (2.6+):** the toolbar's CSV button saves the rows shown in the tree (after find, type chips and expansion): Id, ParentId, Type, Label, Path, Status, Flags and one column per property. The Members and Member of tabs save their list. Same rules as the table CSV (UTF-8 with BOM, formula guard).
+
+## Big reports: compression and size budget (2.6+)
+
+```powershell
+Export-DhDashboard -Report $r -OutputPath .\ad.html -CompressData        # data gzip + base64
+Export-DhDashboard -Report $r -OutputPath .\ad.html -SizeBudgetMB 30     # warn above 30 MB (default 15; 0 = never)
+```
+
+- **`-CompressData`** stores the table and block data compressed; the page unpacks it when it opens (Edge and Chrome 80+, Firefox 113+, Safari 16.4+; an older browser shows a message instead). A 50,000-row table went from 9.2 MB to 1.3 MB. Print, search and exports work the same. It is off by default because the data is then no longer readable or searchable in the HTML source.
+- **`-SizeBudgetMB`** warns when the written file is bigger than the budget and names the three biggest tables and blocks.
+
+## Search and menu badges (2.4+)
+
+```powershell
+$r = New-DhDashboard -Title 'Assessment' -Search -NavBadge
+```
+
+- **`-Search`** adds a box to the menu bar (press `/` to focus it). It finds menu pages, block and table titles, findings, and table rows, with a hit count per table. Arrow keys move, Enter opens, Escape closes. A table hit opens the page and filters that table; a finding hit opens and highlights the finding. Table rows are scanned in time slices, so typing never freezes the page; a very large report shows `+` after a count when the one-second budget ran out.
+- **`-NavBadge`** puts a pill on each menu item with the worst severity among its non-OK findings (`Add-DhFindings`, at that page and below) and the count of that severity; the tooltip gives the breakdown. Findings in blocks with no menu path are not counted.
+
+Both are off by default.
+
+---
+
+## Printing and PDF (2.2+)
+
+Every report has a **🖨 Print** button, and Ctrl+P works the same way. Choose "Save as PDF" in the print dialog for a PDF. While printing, the page is rearranged, then put back afterwards:
+
+- light theme, whatever the reader was using;
+- **every** nav view, in menu order, each under a heading with its path;
+- every collapsible section, tab panel and finding expanded;
+- tables unpaged, up to `Export-DhDashboard -PrintMaxRows` rows (default 200), with "Showing N of M rows" when rows were left out;
+- the nav bar, toolbars, filters and dismiss buttons hidden; table headers repeat on every page; page numbers in the footer;
+- with `New-DhDashboard -PrintCover`, a cover page first: title, subtitle, logo, info fields and the verdict tile.
+
+Pipelines that render PDFs with a headless browser (`msedge --headless --print-to-pdf=...`) get the same layout: headless Edge runs the same print handlers.
+
+---
+
+## Offline export: `-ExportLibraries` (2.2+)
+
+CSV export is built in. XLSX and PDF need three JavaScript libraries (SheetJS, jsPDF, jsPDF-AutoTable). `Export-DhDashboard -ExportLibraries` decides how they reach the reader:
+
+| Value | Behaviour |
+|---|---|
+| `Cdn` (default) | Loaded from cdnjs the **first time** a reader clicks XLSX or PDF, checked against a pinned SRI hash. The page itself never waits on the network. Offline, the two buttons turn grey with "Needs internet: use CSV". |
+| `Embed` | The libraries are inlined into the report, about 1.3 MB, so XLSX and PDF work with no network at all. Use it for air-gapped readers. The files ship in `DashHtml/Vendor/` and are checked against the same hashes every time they are embedded. |
+| `None` | No XLSX or PDF buttons; CSV only. |
+
+Before 2.2.0 the libraries were blocking script tags in the page head: on a network without internet access the report stayed blank until the CDN request timed out.
+
+---
+
+## Global filters (1.9.0+)
+
+`Add-DhGlobalFilter` puts a control in a bar above the whole report. Changing it re-filters **every table that has the named field at once** — and any chart built from those tables re-aggregates. Tables that don't have the field are left untouched. Multiple global filters combine with **AND**, and the selection is saved in the URL so a shared link or reload keeps it applied.
+
+```powershell
+$rows = Get-Inventory   # objects with Environment, Tier, LastSeen, …
+Add-DhTable -Report $report -TableId 'hosts'  -Title 'Hosts'  -Data $rows
+Add-DhTable -Report $report -TableId 'alerts' -Title 'Alerts' -Data $alertRows  # also has 'Environment'
+
+# One dropdown filters BOTH tables (both have an 'Environment' column)
+Add-DhGlobalFilter -Report $report -Field 'Environment' -Label 'Environment'
+
+# Ordered facet with explicit values
+Add-DhGlobalFilter -Report $report -Field 'Tier' -Values 'Gold','Silver','Bronze'
+
+# A from/to date range over a timestamp column
+Add-DhGlobalFilter -Report $report -Field 'LastSeen' -Label 'Last seen' -Type daterange
+```
+
+- **`-Type facet`** (default) — dropdown of distinct values (auto-derived from the data, or pass `-Values`).
+- **`-Type daterange`** — from/to date inputs; keeps rows whose field parses as a date in the inclusive range.
+- `-Label` sets the visible label (defaults to `-Field`); `-Placeholder` sets the "all" option text.
+
+Distinct from `Add-DhFilterCard` (which filters **one** target table via clickable cards) — a global filter fans out to **all** tables sharing the field.
+
+---
+
+## 12-column grid layout (1.10.0+)
+
+By default blocks and tables stack vertically (one per row). Pass **`-GridSpan <1-12>`** on any block or table to place several side by side: the report body becomes a 12-column grid the moment any element sets a span.
+
+```powershell
+# A wide trend chart beside a narrow donut, then a full-width table below
+Add-DhLineChart -Report $report -Id 'trend' -Title 'CPU (24h)' -GridSpan 8 -XAxis $hrs -Series $s
+Add-DhPieChart  -Report $report -Id 'state' -Title 'By state'  -GridSpan 4 -Slices $slices
+Add-DhTable     -Report $report -TableId 'hosts' -Title 'Hosts' -Data $rows   # no span → full width
+
+# A row of three equal thirds
+Add-DhStatusGrid -Report $report -Id 'g1' -GridSpan 4 ...
+Add-DhStatusGrid -Report $report -Id 'g2' -GridSpan 4 ...
+Add-DhStatusGrid -Report $report -Id 'g3' -GridSpan 4 ...
+```
+
+- `-GridSpan 6` + `-GridSpan 6` → two half-width elements side by side.
+- `-GridSpan 4` ×3 → a row of thirds; `-GridSpan 3` ×4 → quarters.
+- Elements **without** a span default to full width, so you can freely mix.
+- Alert banners, the global filter bar, and the KPI summary strip are always full width.
+- The grid **collapses to a single column below 900 px** for narrow screens.
+
+It's fully opt-in and non-breaking: a dashboard that never sets `-GridSpan` renders exactly as before (sequential flow).
+
+---
+
+## Filter cards
+
+```powershell
+$regionCards = $data | Group-Object Region | ForEach-Object {
+    @{ Label=$_.Name; Value=$_.Name; Count=$_.Count }
+}
+
+Add-DhFilterCard -Report $report -Id 'region-filter' `
+    -Title 'Filter by Region' `
+    -TargetTableId 'items' -FilterField 'Region' `
+    -Cards $regionCards
+
+# Multi-select (multiple cards active at once)
+Add-DhFilterCard -Report $report -Id 'status-filter' `
+    -Title 'Filter by Status' `
+    -TargetTableId 'items' -FilterField 'Status' `
+    -MultiFilter $true `
+    -Cards @(
+        @{ Label='Active';   Value='Active';   Count=231 }
+        @{ Label='Inactive'; Value='Inactive'; Count=12  }
+        @{ Label='Error';    Value='Error';    Count=4   }
+    )
+```
+
+---
+
+## Linking tables
+
+```powershell
+# Master → Detail: click a parent row to filter the child table
+Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups' -Data $groups
+Add-DhTable -Report $report -TableId 'members' -Title 'Members' -Data $members
+Set-DhTableLink -Report $report -MasterTableId 'groups' -DetailTableId 'members' `
+                -MasterField 'GroupId' -DetailField 'GroupId'
+
+# Three-level chain: A → B → C
+Set-DhTableLink -Report $report -MasterTableId 'categories' -DetailTableId 'groups' `
+                -MasterField 'Category' -DetailField 'Category'
+Set-DhTableLink -Report $report -MasterTableId 'groups' -DetailTableId 'items' `
+                -MasterField 'GroupId' -DetailField 'GroupId'
+```
+
+---
+
+## Navigation (2.0.0)
+
+Every item declares **where it lives** (a path) and **how far up it stays visible** (a scope). One rule, any depth.
+
+```powershell
+Add-DhTable    -Report $r -TableId 'vols' -NavPath 'Storage/Capacity/vols' -NavLabel 'All volumes'
+Add-DhBarChart -Report $r -Id 'mix' -NavPath 'Storage' -NavScope Subtree   # whole branch
+Add-DhAlertBanner -Report $r -Id 'a1' -NavScope Global                     # everywhere
+```
+
+| Parameter | Meaning |
+|---|---|
+| `-NavPath` | where the item lives, e.g. `'A/B/C'`. `'//'` escapes a literal `/` in a segment |
+| `-NavScope` | `Exact` (default) · `Subtree` (this node and everything below) · `Global` (everywhere) |
+| `-NavLabel` | display text, decoupled from the path key — rename without breaking deep links |
+| `-NavOrder` | explicit sibling ordering; ties fall back to declaration order |
+
+Combining `-NavPath` with `-NavGroup`/`-NavSubGroup` on one call is a hard error.
+
+### Layout
+
+```powershell
+New-DhDashboard -Title 'Net' -NavLayout Auto -NavMaxDepth 4
+```
+
+`Auto` (default) renders horizontal strips up to 3 levels and switches to a left tree rail with a breadcrumb at 4+, where stacked sticky strips would consume about a fifth of the viewport. Force either with `-NavLayout Strips|Sidebar`. Selecting a node descends to the first child that has content of its own, so one click never teleports you several levels down.
+
+### All view, menu skeleton, lint and overflow (2.5+)
+
+```powershell
+$r = New-DhDashboard -Title 'Estate' -StrictNav `
+    -NavAllLabel @{ 'Storage' = 'All storage' } `
+    -NavTree @(
+        @{ Path = 'Overview' }
+        @{ Path = 'Storage'; Label = 'Storage and backup' }
+        @{ Path = 'Storage/Capacity' }
+        @{ Path = 'Later'; Label = 'Later (nothing here yet)' } )
+```
+
+- **`-NavAllLabel`** adds an "All" view to a group (a string adds it to every group; a hashtable names them). It shows the group's own content and everything below it, has its own link, sorts first among its siblings and is never the opening view. The path of an All view ends in `*`, which is reserved.
+- **`-NavTree`** declares the menu once: labels, sibling order, and nodes that exist before anything is placed on them. An item's own `-NavLabel` / `-NavOrder` wins over the skeleton; the skeleton wins over declaration order.
+- **Empty view.** A view with nothing of its own (an empty `-NavTree` node, a link to a renamed node) says "No content in this view" and offers a way back, instead of a blank page.
+- **`-StrictNav`** warns at export (never an error) about likely mistakes: paths deeper than 3 levels, sibling names that differ only in case or by one letter, clashing labels, a path missing from `-NavTree`, a `-NavTree` node with nothing on it, a Subtree item with nothing below it, a `-NavAllLabel` naming no group.
+- **Overflow.** When a strip would wrap to a second row, the chips that do not fit go into a **More (n)** menu at the end of the row (2.5.3; 2.5.0 to 2.5.2 waited for a third row) and the selected chip always stays visible. `-NavOverflow Wrap` keeps the old wrapping.
+- **Keyboard.** One tab stop per strip; Left, Right, Home, End move along it; the More menu opens with Down or Enter and closes with Escape; the sidebar rail takes Up, Down, Left (to the parent) and Right (open or step in). Focus stays on the same item when the menu is rebuilt.
+
+`Examples/Feature-Navigation.ps1` shows the All view and the skeleton.
+
+### Upgrading from 1.x
+
+`-NavGroup` / `-NavSubGroup` **keep working** and map onto the new model — no edit required. See **[MIGRATION-v2.md](MIGRATION-v2.md)**, and run:
+
+```powershell
+Update-DhScript -Path .\YourScripts        # report only
+```
+
+> **One behaviour change worth checking.** In 1.x a *block* given both `-NavGroup` and `-NavSubGroup` was unreachable and never rendered. It works now, so content that has been silently missing will reappear.
+
+---
+
+## Two-tier navigation
+
+Use `-NavGroup` on **any** cmdlet (`Add-DhTable`, `Add-DhFilterCard`, `Add-DhBarChart`, `Add-DhHtmlBlock`, `Add-DhCollapsible`) to create a grouped navigation with a primary tab bar and a sub-nav strip:
+
+```powershell
+$report = New-DhDashboard -Title 'Operations Dashboard'
+
+# Filter card and bar chart placed at the top of the Identity group
+Add-DhFilterCard -Report $report -Id 'status-fc' -NavGroup 'Identity' `
+    -Title 'Filter by Status' -TargetTableId 'users' -FilterField 'Status' `
+    -Cards @( @{Label='Active'; Value='Active'}, @{Label='Disabled'; Value='Disabled'} )
+
+Add-DhTable -Report $report -TableId 'users'   -Title 'Users'   -Data $users   -NavGroup 'Identity'
+Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups'  -Data $groups  -NavGroup 'Identity'
+Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers -NavGroup 'Infrastructure'
+Add-DhTable -Report $report -TableId 'disks'   -Title 'Disks'   -Data $disks   -NavGroup 'Infrastructure'
+
+Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
+```
+
+Result: primary nav shows **Identity** and **Infrastructure** group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching `-NavGroup` appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.
+
+### Three-tier navigation (optional)
+
+Add an optional `-NavSubGroup` on top of `-NavGroup` to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. When a group with subgroups is opened, the **first pill is automatically active**, so items tagged with `-NavSubGroup` behave as a true subgroup binding — visible only when their pill is the active one. Clicking another pill switches the subgroup; clicking the active pill clears the filter and shows all items in the group. Items in a group that have **no** `-NavSubGroup` remain visible regardless of pill state, acting as group-wide content.
+
+```powershell
+Add-DhTable -Report $report -TableId 'users-prod' -Title 'Users (Prod)' -Data $prodUsers `
+    -NavGroup 'Identity' -NavSubGroup 'Production'
+Add-DhTable -Report $report -TableId 'users-dev'  -Title 'Users (Dev)'  -Data $devUsers  `
+    -NavGroup 'Identity' -NavSubGroup 'Development'
+Add-DhTable -Report $report -TableId 'users-all'  -Title 'All Users'    -Data $allUsers  `
+    -NavGroup 'Identity'   # no NavSubGroup → always visible in Identity
+```
+
+The parameter is available on every block cmdlet (`Add-DhTable`, `Add-DhHtmlBlock`, `Add-DhCollapsible`, `Add-DhFilterCard`, `Add-DhBarChart`) and is fully backward compatible — existing scripts work unchanged.
+
+---
+
+## Collapsible sections
+
+```powershell
+Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -DefaultOpen $true `
+    -Cards @(
+        @{
+            Title      = 'Production'
+            Badge      = 'Active'
+            BadgeClass = 'cell-ok'
+            Fields     = @(
+                @{ Label='Account ID'; Value='acc-001' }
+                @{ Label='Region';     Value='us-east-1' }
+            )
+        }
+    )
+```
+
+Use `-CardWidth` to change the card grid sizing: `small` (150–220 px), `normal` (default, 200–320 px), `large` (280–480 px), `xlarge` (360–640 px), or `auto` (240 px min, no max — cards grow to fill the row).
+
+```powershell
+Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -CardWidth 'large' -Cards $cards
+```
+
+---
+
+## HTML blocks
+
+```powershell
+Add-DhHtmlBlock -Report $report -Id 'intro' -Title 'Overview' -Style 'info' -Content @"
+<p>This dashboard is generated automatically. Data is refreshed daily.</p>
+<ul>
+  <li><strong>Section A</strong> — identity and access</li>
+  <li><strong>Section B</strong> — infrastructure inventory</li>
+</ul>
+"@
+```
+
+---
+
+## Logo and header fields
+
+The logo (`-LogoPath`) is displayed in the **report header** only — it does not appear in the nav bar.
+`-NavTitle` is optional; when omitted the nav bar shows only navigation links.
+
+```powershell
+$report = New-DhDashboard -Title 'Infrastructure Dashboard' `
+    -Subtitle 'Environment: Production' `
+    -LogoPath 'C:\img\logo.png' `
+    -Theme Company `
+    -NavTitle 'Infra' `
+    -InfoFields @(
+        @{ Label='Environment'; Value='Production' }
+        @{ Label='Region';      Value='us-east-1'  }
+        @{ Label='Generated';   Value=(Get-Date -Format 'yyyy-MM-dd') }
+    )
+```
+
+---
+
+## Declarative layouts (YAML) — `DashHtml.Design`
+
+An **optional** companion module, [DashHtml.Design](DashHtml.Design/README.md),
+lets you manage a dashboard's *layout* in a declarative YAML/JSON file and
+round-trip between YAML and PowerShell. It is a pure design tool — it makes **no
+changes to this module**.
+
+```powershell
+Import-Module DashHtml.Design
+
+# YAML layout  ->  runnable build script  ->  HTML
+ConvertFrom-DhYaml   -Path layout.yaml -OutFile build.ps1 -OutputPath dash.html
+
+# built report  ->  YAML layout (lossless snapshot)
+$report | ConvertTo-DhYaml -OutFile layout.yaml
+
+# existing .ps1  ->  YAML (best-effort static parse)
+ConvertFrom-DhScript -Path build-dashboard.ps1
+
+# JSON Schema of the layout file (editor completion, typo detection)
+Export-DhYamlSchema -OutFile dashhtml.schema.json
+```
+
+**Editor and CI checks (2.5.2).** The schema is generated from the live cmdlet parameters, so it cannot drift. Put
+`# yaml-language-server: $schema=dashhtml.schema.json` on the first line of a layout file and VS Code (YAML extension)
+completes keys and flags a mistyped one. The reader ignores unknown keys silently, so the schema is the only place a
+typo such as `navTitel` is caught. Keys may be written PascalCase, camelCase or lowercase. In a script:
+`Test-Json -Json (<layout as JSON>) -Schema (Get-Content dashhtml.schema.json -Raw)`.
+
+**One check command (2.6).** `Test-DhReport` runs every check that applies to what you give it and never changes a file:
+
+```powershell
+$report | Test-DhReport                       # links, menu lint, size estimate, baseline sanity
+Test-DhReport -Path .\build-ad.ps1            # the upgrade audit (parsed, not run)
+Test-DhReport -Path .\layout.yaml             # the schema; names the failing table and key
+Test-DhReport -Path .\out\*.html -Strict      # built with an older DashHtml? lists the missed fixes; exit code 1 for CI
+Test-DhReport -Path .\out\ad.html -Deep       # also the accessibility and contrast audits (a checkout's Tools, Edge/Chrome)
+```
+
+`-PassThru` returns the findings (Check, Severity, Target, Message). A baseline whose rows are nearly all New usually
+means a wrong `-KeyField`; it is reported as a warning.
+
+See the [module README](DashHtml.Design/README.md) and the
+[example](Examples/design/) for the layout schema and full details.
+
+---
+
+## Building and testing
+
+`Build.ps1` produces **two independently publishable modules** — the core
+`DashHtml` and the optional `DashHtml.Design` companion. Each gets its own
+manifest validation, `dist\<Module>\` staging folder, versioned `.zip`, and
+`.nupkg`. They are **versioned separately**.
+
+```powershell
+# Run tests (one suite, covers both modules)
+Invoke-Pester .\Tests -Output Detailed
+
+# Build both (validate + lint + test + stage dist/ + zip)
+.\Build.ps1
+
+# Bump the CORE patch version
+.\Build.ps1 -BumpVersion
+
+# Bump the COMPANION patch version (independent of the core)
+.\Build.ps1 -BumpDesignVersion
+
+# Pack a .nupkg per module for publishing
+.\Build.ps1 -NuGet
+
+# Core module only; skip the companion entirely
+.\Build.ps1 -SkipDesign
+
+# Fast local iteration
+.\Build.ps1 -SkipTests -SkipLint
+```
+
+Artifacts land in `dist\`:
+
+```
+dist\DashHtml\                   dist\DashHtml.Design\
+dist\DashHtml-v2.0.0.zip        dist\DashHtml.Design-v1.0.0.zip
+dist\DashHtml.2.0.0.nupkg       dist\DashHtml.Design.1.0.0.nupkg
+```
+
+Each staged module ships its own `README.md` (the companion has a module-local
+one, so its PSGallery page describes the companion, not the core) plus `LICENSE`.
+
+---
+
+## Security model
+
+DashHtml emits a **self-contained static HTML file** intended to be opened locally (file:// or an intranet share) by an analyst or operator. There is no server, no auth, no state mutation, no cross-origin context. The realistic threat model is **untrusted data flowing through your PowerShell script into the dashboard**: an attacker plants a malicious string in an external system (an AD attribute, a ticket title, a log line, a hostname), your script reads it without sanitising, and the rendered HTML executes script when the analyst opens the report.
+
+### Hard rules
+
+These four parameters are **raw HTML by design** — they are emitted via `innerHTML` so the caller can embed lists, links, formatted markup, etc.
+
+| Cmdlet | Field | Sink |
+|---|---|---|
+| `Add-DhHtmlBlock` | `-Content` | `innerHTML` |
+| `Add-DhTabs` | per-tab `Content` | `innerHTML` |
+| `Add-DhCollapsible` | `-Content` | `innerHTML` |
+| `Add-DhAlertBanner` | `-Message` | `innerHTML` |
+
+**Since 1.6.0, each of these takes an `-AllowHtml` switch.** Pass **`-AllowHtml:$false`** whenever the content includes externally-sourced data — the cmdlet HTML-encodes it for you, so it renders as literal text and cannot execute:
+
+```powershell
+# Untrusted value interpolated into a message — let the cmdlet encode it
+Add-DhAlertBanner -Report $r -Id 'a' -Severity warning `
+    -Message "Ticket: $($ticket.Title)" -AllowHtml:$false
+
+# Markup you authored yourself — keep it raw
+Add-DhHtmlBlock -Report $r -Id 'intro' -Style info -AllowHtml:$true `
+    -Content '<ul><li>Section A</li><li>Section B</li></ul>'
+```
+
+`-AllowHtml` defaults to `$true` (raw) in the 1.x line, **but that default flips to `$false` (encode) in 2.0.0.** If you pass HTML without an explicit `-AllowHtml`, you'll get a one-time deprecation warning per call — resolve it by adding `-AllowHtml:$true` (trusted markup) or `-AllowHtml:$false` (untrusted data). If you'd rather encode manually, `[System.Web.HttpUtility]::HtmlEncode()` (or `[System.Net.WebUtility]::HtmlEncode()`) still works.
+
+Everything else (table cells, summary tile labels, topology node labels, status grid cells, KPI captions, etc.) goes through HTML-encoding automatically; passing user-supplied text is safe.
+
+### What the module enforces for you (since 1.5.3)
+
+- **Colour values** on `Add-DhPieChart` slices and `Add-DhLineChart` series are validated against an allowlist (`#hex`, `rgb()/rgba()`, `hsl()/hsla()`, `var(--token)`, CSS named colours). Anything else throws at declaration time. Closes the CSS-injection vector where a `;background:url(http://evil/...)` payload would otherwise reach the inline `style=""` attribute.
+- **Action URLs** on `Add-DhAlertBanner -Action` and `Add-DhSummary` tile `Action` must use `http:`, `https:`, `mailto:`, `tel:`, or a leading `#`. `javascript:` and `data:` URLs are rejected before they reach `window.open()`.
+- **CDN scripts** (`xlsx`, `jspdf`, `jspdf-autotable`) are loaded with SRI `integrity="sha384-…"` attributes pinned to the bundled versions. A compromised CDN cannot inject arbitrary script.
+- **JSON embedding** escapes `</script>` (existing) plus U+2028 / U+2029 line separators (new in 1.5.3).
+
+### What you should still do
+
+- **Treat your dashboard generator like an injection-vulnerable application.** Even if you trust the data sources today, pass `-AllowHtml:$false` (or pre-encode) every external string before it reaches one of the four raw-HTML sinks above.
+- **Open dashboards from trusted locations only.** Anyone who can write to the HTML file can put anything in it.
+- **Don't open a dashboard from an email attachment** without verifying the sender — same hygiene as any other downloaded `.html` file.
+
+---
+
+## Project structure
+
+```
+DashHtml/
+  DashHtml.psd1          Module manifest
+  DashHtml.psm1          Module loader
+  Public/
+    New-DhDashboard.ps1
+    Add-DhTable.ps1
+    Add-DhSummary.ps1
+    Add-DhBarChart.ps1
+    Add-DhPieChart.ps1
+    Add-DhLineChart.ps1
+    Add-DhBullet.ps1
+    Add-DhFilterCard.ps1
+    Add-DhHtmlBlock.ps1
+    Add-DhCollapsible.ps1
+    Add-DhAlertBanner.ps1
+    Add-DhStatusGrid.ps1
+    Add-DhEventFeed.ps1
+    Add-DhHeatmap.ps1          # v1.5
+    Add-DhTopologyMap.ps1      # v1.5
+    Add-DhTabs.ps1             # v1.5
+    Add-DhKeyValue.ps1         # v2.3
+    Add-DhRecordList.ps1       # v2.3
+    Add-DhNetworkMap.ps1       # v2.4
+    Add-DhTreeFilter.ps1       # v2.4
+    Add-DhTreeTable.ps1        # v2.5
+    Set-DhTableLink.ps1
+    Export-DhDashboard.ps1
+    Get-DhTheme.ps1
+  Private/
+    Get-DhJsContent.ps1
+    Get-DhCssBase.ps1
+    Get-DhThemeCss.ps1
+    Get-DhCssDefaultLight.ps1
+    Get-DhCssDefaultDark.ps1
+    Get-DhCssAzureLight.ps1
+    Get-DhCssAzureDark.ps1
+    Get-DhCssVMwareLight.ps1
+    Get-DhCssVMwareDark.ps1
+    Get-DhCssGreyLight.ps1
+    Get-DhCssGreyDark.ps1
+    Get-DhCssCompanyLight.ps1
+    Get-DhCssCompanyDark.ps1
+    Get-DhCssRagLight.ps1            # v1.4
+    Get-DhCssRagDark.ps1             # v1.4
+    Build-DhTableSections.ps1
+    ConvertTo-DhJsonString.ps1
+    ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
+Tests/
+  DashHtml.Tests.ps1               # see Build.ps1 for the current counts (Pester across the three suites plus the node tests) at 2.5.2
+Examples/                            # Demo-* = a realistic report, Feature-* = one capability
+  README.md                          # what each example shows and the menu rules
+  Demo-ActiveDirectory.ps1
+  Demo-VMware.ps1
+  Demo-AzureInfrastructure.ps1
+  Demo-Microsoft365.ps1
+  Feature-Navigation.ps1
+  Feature-NavigationSidebar.ps1
+  Feature-Tables.ps1
+  Feature-Charts.ps1
+  Feature-KpiTiles.ps1
+  Feature-Assessment.ps1
+  Feature-MapsAndGrids.ps1
+  Feature-FiltersAndSearch.ps1
+  Feature-PageElements.ps1
+Build.ps1
+Build-DhReference.ps1              # Generates DashHtml-Reference.html
+Install.ps1
+CHANGELOG.md
+README.md
+readme-dev.md                      # AI-assistant reference
+```
+
+---
+
+## Acknowledgements and licences
+
+The optional XLSX/PDF export libraries (SheetJS, jsPDF, jsPDF-AutoTable) are
+bundled in `DashHtml/Vendor/` with their licences. Some widgets were designed
+after looking at other Active Directory report generators; no code was copied.
+See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the full list.
+
+## License
+
+MIT
+
+
+
+
+
+
+
+
+
+
+
+
+
