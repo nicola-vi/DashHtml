@@ -7,7 +7,7 @@ function Get-DhCssDefaultDark {
 :root {
   /* DefaultDark — Industrial dark, electric-cyan accents */
   --bg-page:          #0b0f14;
-  --bg-header:        #0d1219;
+  --bg-header:        #152C32;
   --bg-surface:       #111720;
   --bg-table:         #0f141b;
   --bg-row-alt:       #131922;
@@ -35,7 +35,7 @@ function Get-DhCssDefaultDark {
 
   --text-primary:   #e2eaf4;
   --text-secondary: #8899aa;
-  --text-muted:     #4a5a6a;
+  --text-muted:     #8C9DAE;
   --text-accent:    #00c8ff;
   --text-invert:    #0b0f14;
 
@@ -47,6 +47,8 @@ function Get-DhCssDefaultDark {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'SF Pro Display', system-ui, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -57,6 +59,10 @@ function Get-DhCssDefaultDark {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -87,7 +93,7 @@ function Get-DhCssDefaultDark {
 
   --nav-bg:            #0d1219;
   --nav-border:        #1e2b3a;
-  --nav-title-fg:      #4a6070;
+  --nav-title-fg:      #7994A7;
   --nav-link-fg:       #8899aa;
   --nav-link-hover-bg: rgba(0,200,255,0.08);
   --nav-link-hover-fg: #00c8ff;

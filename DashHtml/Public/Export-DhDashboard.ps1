@@ -56,6 +56,17 @@ function Export-DhDashboard {
         up to this many (default 200), with a note when rows were left out.
         The interactive view is unaffected.
 
+    .PARAMETER CompressData
+        v2.6.0. Store the table and block data gzip-compressed (base64) instead of as plain JSON; the
+        page unpacks it when it opens (DecompressionStream: Edge / Chrome 80+, Firefox 113+, Safari
+        16.4+; an older browser shows a message instead of the data). Typically 5 to 10 times smaller
+        for large tables. Off by default, because the data is then no longer readable or searchable in
+        the HTML source. Print, search and exports work the same.
+
+    .PARAMETER SizeBudgetMB
+        v2.6.0. Warn (never fail) when the written file is bigger than this many megabytes (default 15),
+        naming the three biggest tables and blocks. 0 turns the check off.
+
     .EXAMPLE
         Export-DhDashboard -Report $report -OutputPath 'C:\Reports\dashboard.html' -Force
         Export-DhDashboard -Report $report -OutputPath '.\report.html' -Force -OpenInBrowser
@@ -69,7 +80,10 @@ function Export-DhDashboard {
         [ValidateSet('Cdn','Embed','None')]
         [string] $ExportLibraries = 'Cdn',
         [ValidateRange(1, 100000)]
-        [int]    $PrintMaxRows = 200
+        [int]    $PrintMaxRows = 200,
+        [switch] $CompressData,               # v2.6.0 - table and block data stored gzip + base64, unpacked in the browser
+        [ValidateRange(0, 100000)]
+        [int]    $SizeBudgetMB = 15            # v2.6.0 - warn when the file is bigger than this (0 = never)
     )
 
     # Resolve module version dynamically so the HTML footer stays accurate after bumps
@@ -92,6 +106,8 @@ function Export-DhDashboard {
     $themeFamily    = if ($Report.Contains('ThemeFamily'))    { $Report.ThemeFamily    } else { 'Default'      }
     # v2.2.0 - opening theme when the reader has not chosen one (light | dark | auto)
     $themeMode      = if ($Report.Contains('ThemeMode') -and $Report.ThemeMode -in 'light','dark','auto') { $Report.ThemeMode } else { 'light' }
+    # v2.7.0 - reading density the report opens at; the density button still cycles it.
+    $density        = if ($Report.Contains('Density')   -and $Report.Density   -in 'normal','compact','comfortable') { $Report.Density } else { 'normal' }
     Write-Verbose "Export-DhDashboard: [CSS ] Themes embedded: $theme (light) + $alternateTheme (dark)"
 
     # ---- Build table JSON ---------------------------------------------------------
@@ -128,6 +144,10 @@ function Export-DhDashboard {
             $sps = if ($col.Contains('SparklineStyle') -and $col.SparklineStyle) { ",`"sparklineStyle`":$(ConvertTo-DhJsonString $col.SparklineStyle)" } else { '' }
             # v2.2.0 — link cell extras (only on CellType='link' columns)
             $sps += if ($col.Contains('UrlField') -and $col.UrlField) { ",`"urlField`":$(ConvertTo-DhJsonString $col.UrlField),`"linkText`":$(ConvertTo-DhJsonString $col.LinkText)" } else { '' }
+            # v2.6.0 - URL template, target and relative links; emitted only when used, so an existing link column's JSON is unchanged
+            $sps += if ($col.Contains('UrlTemplate') -and $col.UrlTemplate) { ",`"urlTemplate`":$(ConvertTo-DhJsonString $col.UrlTemplate),`"linkText`":$(ConvertTo-DhJsonString $col.LinkText)" } else { '' }
+            $sps += if ($col.Contains('LinkTarget') -and $col.LinkTarget) { ",`"linkTarget`":$(ConvertTo-DhJsonString $col.LinkTarget)" } else { '' }
+            $sps += if ($col.Contains('RelativeLinks') -and $col.RelativeLinks -eq $true) { ',"relativeLinks":true' } else { '' }
 
             # Thresholds — supports both numeric (Min/Max) and string (Value) rules
             $thJson = ''
@@ -159,7 +179,8 @@ function Export-DhDashboard {
         # Rows -> JSON
         $dataJson = ($t.Data | ForEach-Object {
             $row   = $_
-            $props = ($row.Keys | ForEach-Object {
+            # 2.5.4 - PSBase: $row.Keys would return the value of a column named Keys
+            $props = ($row.PSBase.Keys | ForEach-Object {
                 $k = $_
                 $v = $row[$k]
                 $vs = if ($null -eq $v) {
@@ -253,7 +274,7 @@ function Export-DhDashboard {
             $chg = (@($bl.Changes.Keys) | ForEach-Object {
                 $c = $bl.Changes[$_]
                 $f = '[' + ((@($c.Fields) | ForEach-Object { ConvertTo-DhJsonString $_ }) -join ',') + ']'
-                $w = '{' + ((@($c.Was.Keys) | ForEach-Object { "$(ConvertTo-DhJsonString $_):$(& $val $c.Was[$_])" }) -join ',') + '}'
+                $w = '{' + ((@($c.Was.PSBase.Keys) | ForEach-Object { "$(ConvertTo-DhJsonString $_):$(& $val $c.Was[$_])" }) -join ',') + '}'
                 "`"$_`":{`"s`":$(if ($c.State -eq 'new') { '"n"' } else { '"c"' }),`"f`":$f,`"w`":$w}"
             }) -join ','
             $declared = @($t.Columns | ForEach-Object { $_.Field })
@@ -268,6 +289,8 @@ function Export-DhDashboard {
         if ($t.Contains('AllClearText') -and $t.AllClearText -and @($t.Data).Count -eq 0) {
             $detailJson += ",`"allClear`":$(ConvertTo-DhJsonString $t.AllClearText)"
         }
+        # v2.6.0 - New-DhDashboard -LinkState: sort, page, page size and Change chip go into the address
+        if ($Report.Contains('LinkState') -and $Report.LinkState) { $detailJson += ',"linkState":true' }
         [string]::Format(
             '{{"id":{0},"title":{1},"description":{2},"pageSize":{3},"multiSelect":{4},"filterable":{5},"pageable":{6},"exportFileName":{7},"columns":[{8}],"data":[{9}],"outLinks":[{10}],"charts":[{11}]{12}}}',
             (ConvertTo-DhJsonString $t.Id),
@@ -309,9 +332,10 @@ function Export-DhDashboard {
     }
 
     # ---- Build blocks JSON ---------------------------------------------------------
+    $blockList = @()
     $blocksConfigJson = '[]'
     if ($Report.Contains('Blocks') -and $Report.Blocks.Count -gt 0) {
-        $blockItems = ($Report.Blocks | ForEach-Object {
+        $blockList = @($Report.Blocks | ForEach-Object {
             $b = $_
             $bt = ConvertTo-DhJsonString $b.BlockType
             # v1.5.1 — central Collapsible / DefaultOpen flags shared by every block emit
@@ -368,8 +392,8 @@ function Export-DhDashboard {
                         }) -join ','
                         $colorJson += ",`"thresholds`":[$thItems]"
                     }
-                    if ($b.Contains('KeyClass') -and $b.KeyClass.Count -gt 0) {
-                        $kcItems = (@($b.KeyClass.Keys) | ForEach-Object { "$(ConvertTo-DhJsonString ([string]$_)):$(ConvertTo-DhJsonString $b.KeyClass[$_])" }) -join ','
+                    if ($b.Contains('KeyClass') -and $b.KeyClass.PSBase.Count -gt 0) {
+                        $kcItems = (@($b.KeyClass.PSBase.Keys) | ForEach-Object { "$(ConvertTo-DhJsonString ([string]$_)):$(ConvertTo-DhJsonString $b.KeyClass[$_])" }) -join ','
                         $colorJson += ",`"keyClass`":{$kcItems}"
                     }
                     "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"field`":$(ConvertTo-DhJsonString $b.Field),`"topN`":$($b.TopN),`"showCount`":$scStr,`"showPercent`":$spStr,`"clickFilters`":$cfStr$stacked$aggJson$colorJson,`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
@@ -594,7 +618,7 @@ function Export-DhDashboard {
                     $ttRows = (@($b.Rows) | ForEach-Object {
                         $tr = $_; $tx = ''
                         if (@($tr.Flags).Count)      { $tx += ',"flags":[' + ((@($tr.Flags) | ForEach-Object { ConvertTo-DhJsonString $_ }) -join ',') + ']' }
-                        if ($tr.Properties.Count) { $tx += ',"props":[' + ((@($tr.Properties.Keys) | ForEach-Object { "{`"label`":$(ConvertTo-DhJsonString $_),`"value`":$(ConvertTo-DhJsonString $tr.Properties[$_])}" }) -join ',') + ']' }
+                        if ($tr.Properties.PSBase.Count) { $tx += ',"props":[' + ((@($tr.Properties.PSBase.Keys) | ForEach-Object { "{`"label`":$(ConvertTo-DhJsonString $_),`"value`":$(ConvertTo-DhJsonString $tr.Properties[$_])}" }) -join ',') + ']' }
                         if ($tr.Detail)              { $tx += ',"detail":' + (ConvertTo-DhDetailJson $tr.Detail) }
                         "{`"id`":$(ConvertTo-DhJsonString $tr.Id),`"parent`":$(ConvertTo-DhJsonString $tr.ParentId),`"type`":$(ConvertTo-DhJsonString $tr.Type),`"label`":$(ConvertTo-DhJsonString $tr.Label),`"status`":$(ConvertTo-DhJsonString $tr.Status)$tx}"
                     }) -join ','
@@ -643,7 +667,8 @@ function Export-DhDashboard {
                 # has already warned about it.
                 default { }
             }
-        }) -join ','
+        })
+        $blockItems = $blockList -join ','
         $blocksConfigJson = "[$blockItems]"
     }
 
@@ -699,8 +724,29 @@ function Export-DhDashboard {
         $globalFilterJson = "[$gfItems]"
     }
 
+    # v2.6.0 - sizes for the budget warning (uncompressed JSON per table and block)
+    $dataSizes = [System.Collections.Generic.List[object]]::new()
+    foreach ($part in @(@($jsConfigBlocks) + @($blockList))) {
+        if ($part -is [string] -and $part -match '"id":("(?:[^"\\]|\\.)*")') {
+            $dataSizes.Add([pscustomobject]@{ Id = ($Matches[1] | ConvertFrom-Json); Bytes = [Text.Encoding]::UTF8.GetByteCount($part) })
+        }
+    }
+    # v2.6.0 - -CompressData: tables and blocks travel gzip + base64 and are unpacked before boot
+    $zDataJson = 'null'
+    if ($CompressData) {
+        $zParts = [System.Collections.Generic.List[string]]::new()
+        if ($tablesConfigJson -ne '[]') { $zParts.Add("`"t`":`"$(ConvertTo-DhGzipBase64 $tablesConfigJson)`"") }
+        if ($blocksConfigJson -ne '[]') { $zParts.Add("`"b`":`"$(ConvertTo-DhGzipBase64 $blocksConfigJson)`"") }
+        if ($zParts.Count) {
+            $zDataJson = '{' + ($zParts -join ',') + '}'
+            if ($tablesConfigJson -ne '[]') { $tablesConfigJson = '[]' }
+            if ($blocksConfigJson -ne '[]') { $blocksConfigJson = '[]' }
+        }
+    }
+
     $jsTpl = Get-DhJsContent
-    $js = [regex]::Replace($jsTpl, '/\*%%TABLES_CONFIG%%\*/\[\]',  { param($m) $tablesConfigJson  })
+    $js = [regex]::Replace($jsTpl, '/\*%%ZDATA%%\*/null', { param($m) $zDataJson })
+    $js = [regex]::Replace($js,    '/\*%%TABLES_CONFIG%%\*/\[\]',  { param($m) $tablesConfigJson  })
     $js = [regex]::Replace($js,    '/\*%%SUMMARY_CONFIG%%\*/\[\]', { param($m) $summaryConfigJson })
     $js = [regex]::Replace($js,    '/\*%%BLOCKS_CONFIG%%\*/\[\]',  { param($m) $blocksConfigJson  })
     $js = [regex]::Replace($js,    '/\*%%ALERTS_CONFIG%%\*/\[\]',  { param($m) $alertsConfigJson  })
@@ -866,7 +912,7 @@ function Export-DhDashboard {
     # ---- Assemble HTML ----------------------------------------------------------
     $html = @"
 <!DOCTYPE html>
-<html lang="en" data-theme-mode="$themeMode">
+<html lang="en" data-theme-mode="$themeMode" data-density="$density">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -931,6 +977,17 @@ $js
 $embeddedLibs</body>
 </html>
 "@
+
+    # ---- Size budget (v2.6.0): lint style, warns and never throws ------------------
+    if ($SizeBudgetMB -gt 0) {
+        $htmlBytes = [Text.Encoding]::UTF8.GetByteCount($html)
+        if ($htmlBytes -gt [long]$SizeBudgetMB * 1MB) {
+            $top = @($dataSizes | Sort-Object Bytes -Descending | Select-Object -First 3 |
+                     ForEach-Object { "'$($_.Id)' ($([math]::Round($_.Bytes / 1MB, 1)) MB)" }) -join ', '
+            $hint = if ($CompressData) { 'Split the report, or show fewer rows or columns.' } else { 'Try -CompressData, split the report, or show fewer rows or columns.' }
+            Write-Warning "Export-DhDashboard: the report is $([math]::Round($htmlBytes / 1MB, 1)) MB, over the $SizeBudgetMB MB budget (-SizeBudgetMB). Biggest: $top. $hint"
+        }
+    }
 
     # ---- Write HTML -------------------------------------------------------------
     if ($PSCmdlet.ShouldProcess($OutputPath, 'Write HTML dashboard')) {

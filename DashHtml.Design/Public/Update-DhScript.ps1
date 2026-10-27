@@ -101,7 +101,7 @@ function Update-DhScript {
             continue
         }
 
-        $srcLines = Get-Content -LiteralPath $f.FullName
+        $srcLines = @(Get-Content -LiteralPath $f.FullName)   # 2.6.0 - @(): a one-line file is a string, and [0] would be its first character
         $edits    = [System.Collections.Generic.List[object]]::new()
 
         foreach ($c in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)) {

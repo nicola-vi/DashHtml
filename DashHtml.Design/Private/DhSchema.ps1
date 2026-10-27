@@ -61,7 +61,8 @@ function ConvertTo-DhPsLiteral {
         return "'" + ($Value -replace "'", "''") + "'"
     }
     if ($Value -is [System.Collections.IDictionary]) {
-        $parts = foreach ($k in $Value.Keys) { "$k = $(ConvertTo-DhPsLiteral $Value[$k] $Indent)" }
+        # 2.5.4 - PSBase: a data row with a Keys field would make $Value.Keys return that field's value
+        $parts = foreach ($k in $Value.PSBase.Keys) { "$k = $(ConvertTo-DhPsLiteral $Value[$k] $Indent)" }
         # an ordered source stays ordered, so property lists (tree table Properties) keep their order
         $open = if ($Value -is [System.Collections.Specialized.OrderedDictionary]) { '[ordered]@{ ' } else { '@{ ' }
         return $open + ($parts -join '; ') + ' }'

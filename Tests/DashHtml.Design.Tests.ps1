@@ -370,6 +370,31 @@ Describe 'Round-trip of the DashHtml 2.2.0 additions' {
     }
 }
 
+Describe 'DashHtml 2.5.4 data fields named Keys, Values or Count survive the YAML round trip' {
+    It 'writes, reads and re-renders every field of the row' {
+        $r = New-DhDashboard -Title 'RT 254'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ A = 'a1'; Keys = 'First event field'; Values = 'v'; Count = 'c' })
+        $yaml = ConvertTo-DhYaml -Report $r -IncludeData
+        $yaml | Should -Match 'Keys: First event field'
+        $yaml | Should -Match 'Count: c'
+        $yamlFile = Join-Path ([IO.Path]::GetTempPath()) ('rt254_' + [guid]::NewGuid().ToString('N') + '.yaml')
+        $outHtml  = Join-Path ([IO.Path]::GetTempPath()) ('rt254_' + [guid]::NewGuid().ToString('N') + '.html')
+        try {
+            Set-Content -Path $yamlFile -Value $yaml -Encoding UTF8
+            $ps = ConvertFrom-DhYaml -Path $yamlFile -OutputPath 'IGNORED.html'
+            $body = ($ps -split "`n" | Where-Object { $_ -notmatch '^\s*#Requires' -and $_ -notmatch '^\s*Import-Module\s+DashHtml' }) -join "`n"
+            $body = $body -replace 'IGNORED\.html', ($outHtml -replace '\\', '\\')
+            & ([scriptblock]::Create($body))
+            $html = Get-Content $outHtml -Raw
+            $html | Should -Match '"Keys":"First event field"'
+            $html | Should -Match '"Values":"v"'
+            $html | Should -Match '"Count":"c"'
+        } finally {
+            foreach ($f in $yamlFile, $outHtml) { if (Test-Path $f) { Remove-Item $f -Force } }
+        }
+    }
+}
+
 Describe 'DashHtml 2.4.0 blocks and options survive the YAML round trip' {
 
     It 'round-trips the network map, tree filter, search, nav badges and column options' {
@@ -546,5 +571,86 @@ Describe 'DashHtml 2.5.2 JSON Schema for the layout YAML' {
     }
     It 'accepts Pascal, camel and lower-case spellings of the same key' {
         foreach ($k in 'NavTitle', 'navTitle', 'navtitle') { (& $script:validate ('{"title":"x","' + $k + '":"a"}')) | Should -BeTrue }
+    }
+}
+Describe 'DashHtml 2.6.0 Test-DhReport' {
+    BeforeAll {
+        $script:tdr = Join-Path ([IO.Path]::GetTempPath()) ('dhtdr_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tdr | Out-Null
+        $script:find = { param($Findings, [string] $Check) @($Findings | Where-Object Check -eq $Check) }
+    }
+    AfterAll { Remove-Item -LiteralPath $script:tdr -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It 'returns nothing for a clean report' {
+        @(New-SampleReport | Test-DhReport -PassThru).Count | Should -Be 0
+    }
+    It 'reports a dangling table reference, a menu typo and a baseline keyed on the wrong field' {
+        $rows = 1..20 | ForEach-Object { [pscustomobject]@{ Name = "s$_"; Cpu = $_ } }
+        $old  = 1..20 | ForEach-Object { [pscustomobject]@{ Name = "S-$_"; Cpu = $_ } }
+        $r = New-DhDashboard -Title 'x'
+        Add-DhTable -Report $r -TableId 'a' -Title 'A' -Data $rows -Baseline $old -KeyField 'Name' -NavPath 'Storage/A' -WarningAction SilentlyContinue
+        Add-DhTable -Report $r -TableId 'b' -Title 'B' -Data $rows -NavPath 'Storag/B'
+        Add-DhBarChart -Report $r -Id 'bc' -Title 'bc' -TableId 'a' -Field 'Cpu'
+        $r.Blocks[-1].TableId = 'nope'
+        $f = $r | Test-DhReport -PassThru
+        (& $script:find $f 'Links').Message | Should -Match "TableId 'nope'"
+        (& $script:find $f 'Menu').Message | Should -Match "'Storage' and 'Storag'"
+        (& $script:find $f 'Baseline').Message | Should -Match "20 of 20 rows are New"
+        @($f | Where-Object Severity -ne 'warning').Count | Should -Be 0
+    }
+    It 'estimates the data size and names the biggest table' {
+        $r = New-DhDashboard -Title 'x'
+        Add-DhTable -Report $r -TableId 'wide' -Title 'W' -Data (1..300 | ForEach-Object { [pscustomobject]@{ Name = "n$_"; Text = ('x' * 5000) } })
+        $f = $r | Test-DhReport -PassThru -SizeBudgetMB 1
+        (& $script:find $f 'Size').Message | Should -Match "'wide' \(300 rows"
+    }
+    It 'audits a script without running it' {
+        $p = Join-Path $script:tdr 'build.ps1'
+        "throw 'must not run'`n`$r = New-DhDashboard -Title x`nAdd-DhHtmlBlock -Report `$r -Id h -Content '<b>x</b>'" | Set-Content $p
+        $f = Test-DhReport -Path $p -PassThru
+        $f.Check | Should -Be 'Script'
+        $f.Severity | Should -Be 'ACTION'
+        $f.Target | Should -Be 'build.ps1:3'
+    }
+    It 'names the failing table and key of a layout, and a missing title' {
+        $p = Join-Path $script:tdr 'l.yaml'
+        "title: t`ntables:`n  - id: ok`n    title: fine`n  - id: bad`n    title: bad`n    pageSize: lots`nbogusKey: 1" | Set-Content $p
+        $m = @(Test-DhReport -Path $p -PassThru).Message
+        $m | Should -Contain "tables[1] (id 'bad'): unknown key or wrong value: 'pageSize' (`"lots`")."
+        $m | Should -Contain 'bogusKey: not a known key (check the spelling).'
+        $p2 = Join-Path $script:tdr 'n.yaml'
+        "tables:`n  - id: x`n    title: y" | Set-Content $p2
+        @(Test-DhReport -Path $p2 -PassThru).Message | Should -Be 'title: missing (every layout needs a title).'
+    }
+    It 'accepts what ConvertTo-DhYaml writes (with the 2.6.0 keys)' {
+        $r = New-DhDashboard -Title 'rt' -LinkState
+        Add-DhTable -Report $r -TableId 'a' -Title 'A' -Data @([pscustomobject]@{ N = 1; U = 'x' }) -Columns @(@{ Field = 'N'; Label = 'N' }, @{ Field = 'U'; Label = 'U'; CellType = 'link'; UrlTemplate = 'p.html?n={N}'; LinkTarget = 'same' })
+        $p = Join-Path $script:tdr 'rt.yaml'
+        $r | ConvertTo-DhYaml -OutFile $p
+        (Get-Content $p -Raw) | Should -Match 'linkState: true'
+        @(Test-DhReport -Path $p -PassThru).Count | Should -Be 0
+    }
+    It 'lists the fixes an HTML built with an older runtime misses' {
+        $r = New-DhDashboard -Title 'x'
+        $p = Join-Path $script:tdr 'r.html'
+        Export-DhDashboard -Report $r -OutputPath $p -Force
+        @(Test-DhReport -Path $p -PassThru).Count | Should -Be 0
+        (Get-Content $p -Raw) -replace 'DashHtml</strong> v[\d.]+', 'DashHtml</strong> v2.5.1' | Set-Content $p
+        $f = Test-DhReport -Path $p -PassThru
+        $f.Check | Should -Be 'Runtime'
+        $f.Message | Should -Match 'Built with DashHtml 2\.5\.1'
+        $f.Message | Should -Match '2\.5\.2 \(keyboard access'
+        $f.Message | Should -Not -Match '2\.5\.1 \('
+    }
+    It 'sets LASTEXITCODE with -Strict' {
+        $p = Join-Path $script:tdr 'strict.ps1'
+        "Add-DhHtmlBlock -Report `$r -Id h -Content '<i>x</i>'" | Set-Content $p
+        Test-DhReport -Path $p -Strict -PassThru | Out-Null
+        $LASTEXITCODE | Should -Be 1
+        Test-DhReport -Path (Join-Path $script:tdr 'rt.yaml') -Strict -PassThru | Out-Null
+        $LASTEXITCODE | Should -Be 0
+    }
+    It 'reports a missing file instead of throwing' {
+        (Test-DhReport -Path (Join-Path $script:tdr 'nope.html') -PassThru).Severity | Should -Be 'error'
     }
 }

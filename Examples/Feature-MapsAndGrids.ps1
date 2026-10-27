@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
 
 $rng = [System.Random]::new(9)
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 $report = New-DhDashboard -Title 'Grids and maps' -Subtitle 'Status grids, heatmaps, trees and networks' -Theme $Theme -NavTitle 'Maps' -NavMaxDepth 2 -GeneratedBy 'Feature-MapsAndGrids.ps1'
 
 # A table the map nodes can open (a node with LinkTableId jumps to its row)

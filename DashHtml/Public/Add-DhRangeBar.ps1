@@ -252,14 +252,14 @@ function Add-DhRangeBar {
         # Field names must exist, or the chart silently renders empty.
         $known = @{}
         foreach ($c in @($tbl.Columns)) { if ($c.Field) { $known[[string]$c.Field] = $true } }
-        foreach ($r in @($tbl.Data))    { foreach ($k in $r.Keys) { $known[[string]$k] = $true } }
+        foreach ($r in @($tbl.Data))    { foreach ($k in $r.PSBase.Keys) { $known[[string]$k] = $true } }
         foreach ($pair in @(
                 @{ N = 'CategoryField'; V = $CategoryField },
                 @{ N = 'ValueField';    V = $ValueField },
                 @{ N = 'HighField';     V = $HighField },
                 @{ N = 'LowField';      V = $LowField })) {
             if (-not [string]::IsNullOrWhiteSpace($pair.V) -and -not $known.ContainsKey($pair.V)) {
-                throw "Add-DhRangeBar: -$($pair.N) '$($pair.V)' is not a column of table '$TableId'. Known fields: $(($known.Keys | Sort-Object) -join ', ')"
+                throw "Add-DhRangeBar: -$($pair.N) '$($pair.V)' is not a column of table '$TableId'. Known fields: $(($known.PSBase.Keys | Sort-Object) -join ', ')"
             }
         }
 

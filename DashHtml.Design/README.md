@@ -126,6 +126,20 @@ script and pipe the report object to `ConvertTo-DhYaml` instead.
 | `-Path` | the `.ps1` script to analyse |
 | `-OutFile` | write YAML to a file; omitted → returns the YAML string |
 
+### `Test-DhReport` — one command for every check (2.6.0)
+
+```powershell
+$report | Test-DhReport                       # links, menu lint, size estimate, baseline sanity
+Test-DhReport -Path .\build.ps1               # the Update-DhScript audit (parsed, never run)
+Test-DhReport -Path .\layout.yaml             # the schema, naming the failing table / block and key
+Test-DhReport -Path .\out\*.html -Strict      # built with an older DashHtml? lists the missed fixes; $LASTEXITCODE 1
+Test-DhReport -Path .\out\ad.html -Deep       # also Tools\Test-DhA11y and Test-DhContrast (checkout + Edge/Chrome)
+```
+
+It never throws on a finding and never changes a file. `-PassThru` returns objects with `Check`, `Severity`
+(`error`, `ACTION`, `warning`, `advisory`, `info`), `Target` and `Message`; without it a short summary is printed.
+`-Strict` sets `$LASTEXITCODE` to 1 when there is an error, an ACTION or a warning. `-SizeBudgetMB` (default 15) is the
+size above which a report is reported.
 ## The layout schema
 
 A layout document is a mapping with these top-level keys (all optional except

@@ -12,6 +12,8 @@ function Get-DhJsCore {
   var BLOCKS_CONFIG  = /*%%BLOCKS_CONFIG%%*/[];
   var ALERTS_CONFIG  = /*%%ALERTS_CONFIG%%*/[];
   var GLOBALFILTER_CONFIG = /*%%GLOBALFILTER_CONFIG%%*/[];
+  /* v2.6.0 - Export-DhDashboard -CompressData: { t: gzip+base64 of TABLES_CONFIG, b: of BLOCKS_CONFIG }, or null */
+  var DH_ZDATA       = /*%%ZDATA%%*/null;
   /* v2.2.0 — { mode: 'cdn'|'embed'|'none', libs: { key: { url, sri } } } */
   var EXPORT_LIBS    = /*%%EXPORT_LIBS%%*/{"mode":"none","libs":{}};
   /* v2.2.0 — { maxRows, cover } for the print view */
@@ -183,6 +185,11 @@ function Get-DhJsCore {
           if (pf && pf.treeId) pfs[id] = [pf.treeId, pf.nodeId];
         });
         if (Object.keys(pfs).length) state.pathFilters = pfs;
+        /* v2.6.0 - New-DhDashboard -LinkState: sort / page / page size / Change chip per table */
+        if (typeof dhTableStateAll === 'function') {
+          var ts = dhTableStateAll(engines);
+          if (ts) state.t = ts;
+        }
         /* card filters */
         if (Object.keys(cardFilters).length) state.cardFilters = cardFilters;
         /* density */
@@ -320,7 +327,13 @@ function Get-DhJsCore {
      THEME TOGGLE
      Two modes:
        1. Dual-embed: both <style> tags present (data-theme attrs) — swap disabled
-       2. Single CSS fallback: toggle CSS variable overrides via body class
+       2. Single CSS fallback: toggle a body class and keep the button in sync.
+          v2.7.0 — the core CSS no longer defines .theme-forced-light / -dark.
+          Export-DhDashboard always embeds both sheets, so mode 2 is unreachable
+          from this module, and the old rules carried no --accent-*, --chart-*,
+          --header-fg or font tokens: had they ever engaged they would have
+          stripped every brand colour. A page hand-built with a single sheet must
+          now supply those two classes itself.
      ========================================================================= */
   /* v2.1.4 — the theme choice persists. Before 2.1.4 the toggle called
      URLState.save() but _write had no theme key, so a reload always came back
@@ -357,7 +370,8 @@ function Get-DhJsCore {
       var next = useAlt ? (p.dataset.theme || 'Light') : (a.dataset.theme || 'Dark');
       if (btn) { btn.textContent = themeLabel(next); btn.title = 'Switch to ' + next; }
     } else if (document.body) {
-      /* Single-CSS fallback (no alternate <style>): body-class overrides. */
+      /* Single-CSS fallback (no alternate <style>). v2.7.0: these two classes
+         are not styled by the core CSS any more - see the note above. */
       document.body.classList.toggle('theme-forced-dark',  themeMode === 'dark');
       document.body.classList.toggle('theme-forced-light', themeMode === 'light');
       if (btn) {
@@ -1127,6 +1141,45 @@ function Get-DhJsCore {
     toggle.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); flip(); }
     });
+  }
+
+  /* v2.6.0 - link cells. dhLinkUrl decides whether a value may become a link: the scheme is read
+     from a copy without control characters and spaces (browsers ignore them, so "java\tscript:" is a
+     scheme), and only http, https, mailto and tel pass. A value with no scheme (a relative path, a
+     query or a #fragment) passes only when relative links are allowed. '' means "show as text". */
+  function dhLinkUrl(raw, allowRelative) {
+    if (raw === null || raw === undefined) return '';
+    var s = String(raw).trim();
+    if (!s) return '';
+    var probe = s.replace(/[\u0000- \u007f]/g, '');
+    var m = /^([a-z][a-z0-9+.\-]*):/i.exec(probe);
+    if (m) {
+      var sc = m[1].toLowerCase();
+      return (sc === 'http' || sc === 'https' || sc === 'mailto' || sc === 'tel') ? s : '';
+    }
+    return allowRelative ? s : '';
+  }
+  /* "https://x/{Id}?n={Name}" + row: each {Field} becomes the row's value, URL-encoded; {{ and }}
+     are literal braces. A missing or empty value gives '' (the cell is shown as text, not a broken link). */
+  function dhLinkFill(tpl, row) {
+    var missing = false;
+    var out = String(tpl).replace(/\{\{|\}\}|\{([^{}]+)\}/g, function (m, f) {
+      if (m === '{{') return '{';
+      if (m === '}}') return '}';
+      var v = row ? row[f] : undefined;
+      if (v === null || v === undefined || String(v) === '') { missing = true; return ''; }
+      return encodeURIComponent(String(v));
+    });
+    return missing ? '' : out;
+  }
+  /* Where a link opens: 'new' / 'same' as declared; by default an address on another site (a scheme,
+     or //host) opens a new tab and a relative one the same tab. mailto: and tel: never get a target. */
+  function dhLinkNewTab(url, target) {
+    var probe = String(url).replace(/[\u0000- \u007f]/g, '');
+    if (/^(mailto|tel):/i.test(probe)) return false;
+    if (target === 'new') return true;
+    if (target === 'same') return false;
+    return /^[a-z][a-z0-9+.\-]*:/i.test(probe) || /^[\/\\]{2}/.test(probe);
   }
 
   function fillStrip(container, items, opts) {

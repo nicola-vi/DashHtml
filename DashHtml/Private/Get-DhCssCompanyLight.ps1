@@ -4,14 +4,13 @@ function Get-DhCssCompanyLight {
                Called by Get-DhThemeCss which appends the shared structural CSS.
     #>
     return @'
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 :root {
   /* CompanyLight — Company brand: Crimson Glory #BE0036, Montserrat, white */
   --company-crimson:   #BE0036;
   --company-jet:       #333333;
 
   --bg-page:          #FFFFFF;
-  --bg-header:        #FFFFFF;
+  --bg-header:        #8C0031;
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #FAFBFC;
@@ -39,7 +38,7 @@ function Get-DhCssCompanyLight {
 
   --text-primary:   #333333;
   --text-secondary: #555555;
-  --text-muted:     #999999;
+  --text-muted:     #626262;
   --text-accent:    #BE0036;
   --text-invert:    #FFFFFF;
 
@@ -51,6 +50,8 @@ function Get-DhCssCompanyLight {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -61,6 +62,10 @@ function Get-DhCssCompanyLight {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -91,7 +96,7 @@ function Get-DhCssCompanyLight {
 
   --nav-bg:            #FFFFFF;
   --nav-border:        #EBEBEB;
-  --nav-title-fg:      #999999;
+  --nav-title-fg:      #676767;
   --nav-link-fg:       #555555;
   --nav-link-hover-bg: rgba(190,0,54,0.06);
   --nav-link-hover-fg: #BE0036;
@@ -104,8 +109,8 @@ function Get-DhCssCompanyLight {
   --chart-5: #0077BB;  --chart-6: #8844CC;  --chart-7: #007A6A;  --chart-8: #8C0031;
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
-  --header-fg: #333333;
-  --header-fg-muted: #999999;
+  --header-fg: #FFFFFF;
+  --header-fg-muted: rgba(255,255,255,0.94);
 }
 '@
 }

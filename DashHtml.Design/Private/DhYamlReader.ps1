@@ -209,7 +209,7 @@ function ConvertFrom-DhYamlSeq {
                 while ($ix.Value -lt $lines.Count -and $lines[$ix.Value].Indent -eq $childIndent -and
                        -not ($lines[$ix.Value].Text.StartsWith('- ') -or $lines[$ix.Value].Text -eq '-')) {
                     $sub = ConvertFrom-DhYamlMap $lines $ix $childIndent
-                    foreach ($k in $sub.Keys) { $map[$k] = $sub[$k] }
+                    foreach ($k in $sub.PSBase.Keys) { $map[$k] = $sub[$k] }
                 }
                 [void]$seq.Add($map)
             }

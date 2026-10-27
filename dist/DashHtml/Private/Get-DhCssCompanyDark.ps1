@@ -4,14 +4,13 @@ function Get-DhCssCompanyDark {
                Called by Get-DhThemeCss which appends the shared structural CSS.
     #>
     return @'
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 :root {
   /* CompanyDark — Company brand: Crimson Glory #BE0036, Montserrat, near-black */
   --company-crimson:   #BE0036;
   --company-jet:       #333333;
 
   --bg-page:          #0E0709;
-  --bg-header:        #130B0E;
+  --bg-header:        #3D1A24;
   --bg-surface:       #1A0E12;
   --bg-table:         #160C10;
   --bg-row-alt:       #1E1015;
@@ -39,8 +38,8 @@ function Get-DhCssCompanyDark {
 
   --text-primary:   #F0E4E8;
   --text-secondary: #BB8899;
-  --text-muted:     #7A5060;
-  --text-accent:    #E81B44;
+  --text-muted:     #AE8494;
+  --text-accent:    #ED4869;
   --text-invert:    #0E0709;
 
   --border-subtle:  #2A1018;
@@ -50,6 +49,8 @@ function Get-DhCssCompanyDark {
   --font-ui:      'Montserrat', 'Segoe UI', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
 
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
@@ -61,6 +62,10 @@ function Get-DhCssCompanyDark {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -91,12 +96,12 @@ function Get-DhCssCompanyDark {
 
   --nav-bg:            #130B0E;
   --nav-border:        #2A1018;
-  --nav-title-fg:      #7A5060;
+  --nav-title-fg:      #AA7E8F;
   --nav-link-fg:       #BB8899;
   --nav-link-hover-bg: rgba(190,0,54,0.10);
   --nav-link-hover-fg: #E81B44;
   --nav-active-bg:     rgba(190,0,54,0.15);
-  --nav-active-fg:     #E81B44;
+  --nav-active-fg:     #EA2C52;
   --nav-active-border: rgba(190,0,54,0.40);
 
   --chart-container-bg: #160C10;

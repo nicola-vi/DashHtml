@@ -9,7 +9,7 @@ function Get-DhCssGreyDark {
      Easy on the eyes for long sessions, no strong colour cast */
 
   --bg-page:          #1A1A1A;
-  --bg-header:        #1A1A1A;
+  --bg-header:        #283236;
   --bg-surface:       #242424;
   --bg-table:         #1E1E1E;
   --bg-row-alt:       #2A2A2A;
@@ -37,7 +37,7 @@ function Get-DhCssGreyDark {
 
   --text-primary:   #E0E0E0;
   --text-secondary: #9E9E9E;
-  --text-muted:     #616161;
+  --text-muted:     #ABABAB;
   --text-accent:    #90A4AE;
   --text-invert:    #1A1A1A;
 
@@ -49,6 +49,8 @@ function Get-DhCssGreyDark {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'SF Pro Display', system-ui, -apple-system, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -59,6 +61,10 @@ function Get-DhCssGreyDark {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -89,7 +95,7 @@ function Get-DhCssGreyDark {
 
   --nav-bg:            #1A1A1A;
   --nav-border:        #303030;
-  --nav-title-fg:      #5A5A5A;
+  --nav-title-fg:      #959595;
   --nav-link-fg:       #9E9E9E;
   --nav-link-hover-bg: rgba(120,144,156,0.09);
   --nav-link-hover-fg: #B0BEC5;

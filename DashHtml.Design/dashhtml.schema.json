@@ -27,6 +27,34 @@
         "null"
       ]
     },
+    "Density": {
+      "enum": [
+        "Normal",
+        "normal",
+        "NORMAL",
+        "Compact",
+        "compact",
+        "COMPACT",
+        "Comfortable",
+        "comfortable",
+        "COMFORTABLE",
+        null
+      ]
+    },
+    "density": {
+      "enum": [
+        "Normal",
+        "normal",
+        "NORMAL",
+        "Compact",
+        "compact",
+        "COMPACT",
+        "Comfortable",
+        "comfortable",
+        "COMFORTABLE",
+        null
+      ]
+    },
     "GeneratedBy": {
       "type": [
         "string",
@@ -69,6 +97,24 @@
     "infofields": {
       "type": [
         "array",
+        "null"
+      ]
+    },
+    "LinkState": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "linkState": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "linkstate": {
+      "type": [
+        "boolean",
         "null"
       ]
     },
@@ -673,6 +719,24 @@
             ]
           },
           "baselinelabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "BaselinePath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baselinePath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baselinepath": {
             "type": [
               "string",
               "null"

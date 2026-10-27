@@ -4,7 +4,6 @@ function Get-DhCssVMwareDark {
                Called by Get-DhThemeCss which appends the shared structural CSS.
     #>
     return @'
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 :root {
   /* VMwareDark — Broadcom VMware brand (dark)
      Green: #00C49A (brightened for dark bg)  Navy: #1D2437 base */
@@ -15,7 +14,7 @@ function Get-DhCssVMwareDark {
   --vmware-grey:      #53565A;
 
   --bg-page:          #1D2437;
-  --bg-header:        #151C2C;
+  --bg-header:        #1B3E37;
   --bg-surface:       #243047;
   --bg-table:         #1E2940;
   --bg-row-alt:       #26344C;
@@ -43,7 +42,7 @@ function Get-DhCssVMwareDark {
 
   --text-primary:   #E8EDF4;
   --text-secondary: #9BAAB8;
-  --text-muted:     #5A6A7A;
+  --text-muted:     #B1BBC6;
   --text-accent:    #00C49A;
   --text-invert:    #1D2437;
 
@@ -55,6 +54,8 @@ function Get-DhCssVMwareDark {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -65,6 +66,10 @@ function Get-DhCssVMwareDark {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -88,14 +93,14 @@ function Get-DhCssVMwareDark {
 
   --cell-ok-fg:      #0AC69E;  --cell-ok-bg:      rgba(0,196,154,0.10);
   --cell-warn-fg:    #F39C12;  --cell-warn-bg:    rgba(243,156,18,0.10);
-  --cell-danger-fg:  #EF897E;  --cell-danger-bg:  rgba(231,76,60,0.10);
-  --cell-nodata-fg:  #A5ADB9;  --cell-nodata-bg:  rgba(139,150,165,0.10);
+  --cell-danger-fg:  #F09187;  --cell-danger-bg:  rgba(231,76,60,0.10);
+  --cell-nodata-fg:  #A9B1BC;  --cell-nodata-bg:  rgba(139,150,165,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.08);
 
   --nav-bg:            #151C2C;
   --nav-border:        #2A3750;
-  --nav-title-fg:      #5A6A7A;
+  --nav-title-fg:      #8D9CAA;
   --nav-link-fg:       #9BAAB8;
   --nav-link-hover-bg: rgba(0,196,154,0.08);
   --nav-link-hover-fg: #00C49A;

@@ -25,7 +25,37 @@ function Get-DhJsBoot {
     }
   })();
 
+  /* v2.6.0 - Export-DhDashboard -CompressData: the table and block JSON is gzip + base64 in DH_ZDATA and
+     is unpacked (DecompressionStream, async) before anything reads it. Without compression the boot runs
+     synchronously, exactly as before. A browser without DecompressionStream gets a message and an empty
+     report rather than a broken one. */
+  function dhUnzip(b64) {
+    var bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  }
+  function dhUnzipConfig(z, done) {
+    function fail() {
+      var main = document.querySelector('main') || document.body;
+      var msg = document.createElement('div');
+      msg.className = 'dh-unzip-fail'; msg.setAttribute('role', 'alert');
+      msg.textContent = 'This report stores its data compressed, and this browser cannot unpack it. Open it in a current Edge, Chrome, Firefox or Safari.';
+      main.insertBefore(msg, main.firstChild);
+      done();
+    }
+    if (typeof DecompressionStream === 'undefined' || typeof Response === 'undefined' || typeof Blob === 'undefined' || !new Blob([]).stream) { fail(); return; }
+    Promise.all([z.t ? dhUnzip(z.t) : null, z.b ? dhUnzip(z.b) : null]).then(function (r) {
+      if (r[0] !== null) TABLES_CONFIG = JSON.parse(r[0]);
+      if (r[1] !== null) BLOCKS_CONFIG = JSON.parse(r[1]);
+      done();
+    }, fail);
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    if (DH_ZDATA) dhUnzipConfig(DH_ZDATA, dhBoot); else dhBoot();
+  });
+
+  function dhBoot() {
     renderSummary();
     renderBlocks();
 
@@ -112,6 +142,12 @@ function Get-DhJsBoot {
     if (_saved.density) {
       /* v2.1.4 — DENSITY.set moves the toggle's position too */
       DENSITY.set(_saved.density);
+    } else {
+      /* v2.7.0 — no reader choice in the URL: open at the density the report
+         was authored with (New-DhDashboard -Density). 'normal' is the default
+         and needs no class, so only a non-normal value is applied. */
+      var _d = document.documentElement.getAttribute('data-density');
+      if (_d && _d !== 'normal') DENSITY.set(_d);
     }
     if (_saved.cardFilters) {
       /* Re-apply saved card filters — mark active cards and update engines */
@@ -136,7 +172,9 @@ function Get-DhJsBoot {
     }
 
     updateNavBadges();
-  });
+    /* v2.6.0 - -LinkState: the page number last, once every other restored filter is in place */
+    dhTableStateFinish(engines);
+  }
 
 })();
 '@

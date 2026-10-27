@@ -33,10 +33,10 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 
 | Group | Cmdlet | Use when… |
 |---|---|---|
-| **Foundation** | `New-DhDashboard` | Always first. Sets title, theme, info-fields header. **`-AutoRefresh '30s'/'5m'/'1h'`** (v1.4.2) emits a `<meta http-equiv="refresh">` for wall displays. **`-ThemeMode Light|Dark|Auto`** (2.2) sets the opening theme; **`-PrintCover`** (2.2) adds a printed cover page. |
-| | `Export-DhDashboard` | Always last. Writes the HTML file. **`-ExportLibraries Cdn|Embed|None`** (2.2): XLSX/PDF libraries loaded on first click (default), inlined for air-gapped readers, or no XLSX/PDF buttons. **`-PrintMaxRows`** (2.2, default 200) caps rows per table in print. Warns about dangling table references (2.1.4). |
+| **Foundation** | `New-DhDashboard` | Always first. Sets title, theme, info-fields header. **`-AutoRefresh '30s'/'5m'/'1h'`** (v1.4.2) emits a `<meta http-equiv="refresh">` for wall displays. **`-ThemeMode Light|Dark|Auto`** (2.2) sets the opening theme; **`-PrintCover`** (2.2) adds a printed cover page. **`-LinkState`** (2.6) keeps each table's sort, page, page size and Change chip in the address (7.33). |
+| | `Export-DhDashboard` | Always last. Writes the HTML file. **`-ExportLibraries Cdn|Embed|None`** (2.2): XLSX/PDF libraries loaded on first click (default), inlined for air-gapped readers, or no XLSX/PDF buttons. **`-CompressData`** (2.6) gzip + base64 data and **`-SizeBudgetMB`** (2.6, default 15) size warning, see 7.33. **`-PrintMaxRows`** (2.2, default 200) caps rows per table in print. Warns about dangling table references (2.1.4). |
 | | `Get-DhTheme` | List available themes / fetch raw CSS. Rarely needed in user scripts. |
-| **Tables** | `Add-DhTable` | Tabular data. Sortable, filterable, pageable, exportable. Cell types: `text` / `progressbar` / `badge` / `sparkline` / `link` (2.2: `UrlField`, `LinkText`; http(s)/mailto only). `-Charts` types: `donut` (default) / `pie` / `bar` (2.2, with `ValueField`/`Aggregate`/`TopN`). Cells never wrap: a clipped value gets a hover tooltip with the full text, and any column can be resized by dragging its header edge (2.1.1+). Headers clip and get a tooltip too; minimum column width is 40px (2.1.2+). |
+| **Tables** | `Add-DhTable` | Tabular data. Sortable, filterable, pageable, exportable. Cell types: `text` / `progressbar` / `badge` / `sparkline` / `link` (2.2: `UrlField`, `LinkText`; 2.6: `UrlTemplate`, `RelativeLinks`, `LinkTarget`; http(s)/mailto/tel only, see 7.34). `-Charts` types: `donut` (default) / `pie` / `bar` (2.2, with `ValueField`/`Aggregate`/`TopN`). Cells never wrap: a clipped value gets a hover tooltip with the full text, and any column can be resized by dragging its header edge (2.1.1+). Headers clip and get a tooltip too; minimum column width is 40px (2.1.2+). |
 | | `Set-DhTableLink` | Master-detail wiring: clicking a row in table A filters table B. |
 | **KPI strip** | `Add-DhSummary` | Top-of-page KPI tiles (and per-NavGroup strips in v1.4.1+). Tile styles: `tile` (default compact) / `bignumber` (hero) / `gauge` (semicircle SVG) / `verdict` (2.2: full-width overall assessment with severity chips from `Counts`). v1.4.2: per-tile `Action` makes any tile clickable. |
 | **Charts** | `Add-DhBarChart` | Horizontal bars. Pass `-Stacked -SeriesField 'X'` for stacked variant (v1.4+). **2.2:** `-ValueField F -Aggregate sum|avg|min|max -Unit -Decimals` makes the bars measure a value instead of counting rows. |
@@ -739,16 +739,40 @@ $r = New-DhDashboard -Title 'Estate' -StrictNav `
 
 ### 7.30 — Quality tools: print, contrast, accessibility, schema (v2.5.2)
 
-- **Tools\Test-DhPrint.ps1** prints reports to PDF with headless Edge/Chrome (page count, size). Review the pages as images with a pdf.js page if no rasteriser is installed.
-- **Tools\Test-DhContrast.ps1** builds three examples in all 6 families (or takes -Path), injects contrast-measure.js into a COPY of each page and measures WCAG ratios for the selectors in contrast-selectors.json in light and dark (3.0 for large text; ccept lists documented exceptions, currently heatmap mid-tones at 3.8). Text over a gradient or image counts as skipped, never as a pass. A fix goes into the theme tokens (--cell-*-fg, --text-secondary), not into one selector.
-- **Tools\Test-DhA11y.ps1** runs 11y-probe.js the same way: duplicate ids, controls without a name, sortable headers without ria-sort/keyboard access, tabs and expandables without state, dialogs, tables without a name, selection that is not announced, lang/main/alt, focus-visible and reduced-motion rules. Errors fail; warnings fail with -Strict. Add a rule in the probe and a bad-HTML case in the Pester test.
-- Both use **BrowserProbe.ps1**: current Edge prints nothing for --dump-dom, so the injected script etchs its JSON to a loopback HttpListener (/*%%PORT%%*/0 is replaced). Find-DhBrowser.ps1 returns Edge/Chrome/Chromium on Windows, macOS and Linux; the Pester tests skip when none exists.
-- **Collapsible headers** are divs: dhBindCollapsible(toggle, body, chevron) in Get-DhJsCore.ps1 gives them role=button, a tab stop, ria-expanded/ria-controls and Enter/Space. Use it for any new collapsible; never add a bare click handler to a div.
-- **Menu pruning:** dhNavPrune(root, hasOwn) in Get-DhJsNav.ps1 drops nodes with no own content and no kept child (a Global item that carries a path); a node declared in -NavTree stays.
-- **Export-DhYamlSchema** (DashHtml.Design) writes DashHtml.Design\dashhtml.schema.json from Get-Command metadata; property maps must be ordinal ([ordered] is case-insensitive and would merge Id and id). A Pester test fails when the committed file differs from a fresh export: regenerate it after changing a cmdlet parameter.
-- **Node tests:** Tests\js\dh-extract.js (load, loadWith for top-level vars like FMT, loadMethods for TableEngine.prototype.X) loads functions from the fragments; run 
-ode --test "Tests/js/*.test.js". A missing function throws, so a rename fails the test.
+- **`Tools\Test-DhPrint.ps1`** prints reports to PDF with headless Edge/Chrome (page count, size). Review the pages as images with a pdf.js page if no rasteriser is installed.
+- **`Tools\Test-DhContrast.ps1`** builds three examples in all 6 families (or takes `-Path`), injects `contrast-measure.js` into a COPY of each page and measures WCAG ratios for the selectors in `contrast-selectors.json` in light and dark (3.0 for large text; `accept` lists documented exceptions, currently heatmap mid-tones at 3.8). Text over a gradient or image counts as skipped, never as a pass. A fix goes into the theme tokens (`--cell-*-fg`, `--text-secondary`), not into one selector.
+- **`Tools\Test-DhA11y.ps1`** runs `a11y-probe.js` the same way: duplicate ids, controls without a name, sortable headers without `aria-sort`/keyboard access, tabs and expandables without state, dialogs, tables without a name, selection that is not announced, lang/main/alt, focus-visible and reduced-motion rules. Errors fail; warnings fail with `-Strict`. Add a rule in the probe and a bad-HTML case in the Pester test.
+- Both use **`BrowserProbe.ps1`**: current Edge prints nothing for `--dump-dom`, so the injected script `fetch`es its JSON to a loopback HttpListener (`/*%%PORT%%*/0` is replaced). `Find-DhBrowser.ps1` returns Edge/Chrome/Chromium on Windows, macOS and Linux; the Pester tests skip when none exists. The probe also works when the desktop window is minimised (a hidden page fires no scroll events, so check scrolling behaviour there, not in a hidden preview pane).
+- **Collapsible headers** are divs: `dhBindCollapsible(toggle, body, chevron)` in `Get-DhJsCore.ps1` gives them `role=button`, a tab stop, `aria-expanded`/`aria-controls` and Enter/Space. Use it for any new collapsible; never add a bare click handler to a div.
+- **Menu pruning:** `dhNavPrune(root, hasOwn)` in `Get-DhJsNav.ps1` drops nodes with no own content and no kept child (a Global item that carries a path); a node declared in `-NavTree` stays.
+- **`Export-DhYamlSchema`** (DashHtml.Design) writes `DashHtml.Design\dashhtml.schema.json` from `Get-Command` metadata; property maps must be ordinal (`[ordered]` is case-insensitive and would merge `Id` and `id`). A Pester test fails when the committed file differs from a fresh export: regenerate it after changing a cmdlet parameter.
+- **Node tests:** `Tests\js\dh-extract.js` (`load`, `loadWith` for top-level vars like `FMT`, `loadMethods` for `TableEngine.prototype.X`) loads functions from the fragments; run `node --test "Tests/js/*.test.js"`. A missing function throws, so a rename fails the test.
 
+### 7.32 — `Test-DhReport` (v2.6.0)
+
+- DashHtml.Design cmdlet #6, `Public/Test-DhReport.ps1`; the helpers in the same file (`New-DhFinding`, `Test-DhReportObject`, `Test-DhReportScript`, `Test-DhReportLayout`, `Test-DhReportHtml`) are not exported (the psm1 exports by file name).
+- The core's private lints are called in module scope: `& (Get-Module DashHtml) { Test-DhReportLinks ... }`, `Test-DhNavLint`. Known block types come from `$script:DhTypeToCmdlet` (DhSchema), so a new block type needs no change here.
+- Layout check: `Test-Json` against `Export-DhYamlSchema`. Its messages are poor (the root `anyOf` for title/Title adds a false "Title missing"), so the check (1) drops that noise, (2) re-validates each section item alone with the document's title, and (3) for a failing mapping removes one key at a time to name the culprit. Keep that order when adding checks.
+- HTML check: the footer stamp `Generated by <strong>DashHtml</strong> vX.Y.Z` against the loaded module; `$script:DhRuntimeFixes` (newest first) lists what each release fixed. **Add a line there for every release that changes the runtime.**
+- Severities: `error`, `ACTION` (from `Update-DhScript`), `warning`, `advisory`, `info`. `-Strict` sets `$global:LASTEXITCODE` (1 on error / ACTION / warning, else 0). `Build.ps1` runs it on `Examples\*.ps1` and fails on ACTION or error.
+
+### 7.33 — Compressed data, size budget, table state in the address (v2.6.0)
+
+- `Export-DhDashboard -CompressData`: `ConvertTo-DhGzipBase64` (Private) gzips `$tablesConfigJson` and `$blocksConfigJson`; they become `[]` and the payload goes into `var DH_ZDATA = /*%%ZDATA%%*/null;` (Core). Boot: the `DOMContentLoaded` handler calls `dhUnzipConfig(DH_ZDATA, dhBoot)` (atob, `DecompressionStream('gzip')`, `JSON.parse`, then reassign `TABLES_CONFIG` / `BLOCKS_CONFIG`) or `dhBoot()` directly. **Nothing may read `TABLES_CONFIG` / `BLOCKS_CONFIG` before `dhBoot`** (they are `[]` until then in a compressed report); no other `DOMContentLoaded` listener exists, keep it that way. The configs must stay valid JSON (they are parsed, not evaluated). Tools that read `TABLES_CONFIG` from the HTML (`Show-DhNavMap`) see `[]` in a compressed report.
+- `-SizeBudgetMB` (default 15, 0 = off): measured on the final HTML string; the per-table/block sizes come from the JSON parts (`$jsConfigBlocks`, `$blockList`), matched by their `"id"`.
+- `New-DhDashboard -LinkState` adds `"linkState":true` to every table config. Table fragment: `dhTableStateGet/Set/All/Finish`, `_restoreLinkState` (constructor, before `_initPageSizes`, so the select shows the restored size), `_saveLinkState` (sort, page buttons, page size, Change chip; a no-op without the switch, so a plain report never touches the address on sort). `URLState._write` adds `state.t` from `dhTableStateAll`; the page waits in `_pendingPage` and is clamped by `dhTableStateFinish(engines)` at the very end of `dhBoot`, after card, tree and global filters are restored. Hash keys: `s` `[[field,'asc'|'desc']...]`, `p`, `z` (one of 5/10/15/25/50/100), `c` (`n`|`c`). Cap 1,500 characters, least recently used tables dropped (`_lsTouch`).
+
+### 7.34 — Link columns: templates, relative links, target (v2.6.0)
+
+- Column keys `UrlTemplate`, `RelativeLinks` (bool), `LinkTarget` (`new`|`same`), validated in `Add-DhTable` (only on `CellType='link'`; `UrlTemplate` excludes `UrlField`; every `{Field}` must be a data property, `{{`/`}}` literal). Export emits `urlTemplate` (+ `linkText`), `linkTarget`, `relativeLinks` only when set; a template column has no `urlField`.
+- Runtime: `dhLinkUrl(raw, allowRelative)`, `dhLinkFill(tpl, row)`, `dhLinkNewTab(url, target)` in Core (node-tested allow/deny list). `TableEngine._linkFor(col,row,rawVal)` is the one place a cell becomes a link; `_renderCell` and `_openDetail` (drawer) use it. The drawer's `kv` items carry `_link` / `_newTab`, re-vetted by `dhLinkUrl(...,true)` in `renderSection`. A template allows relative URLs; a data value only with `RelativeLinks` (a value like "N/A" must stay text).
+
+### 7.35 — Tree tables: windowing and CSV (v2.6.0)
+
+- One flat list: `dhTtMatch(rows, byId, q, typeSel)` (match + forced ancestors) and `dhTtFlatten(roots, kids, expanded, m)` → `[{r,pos,size}]`; `rebuild()` runs on expand, collapse, filter and select, never on scroll. Above `DH_TT_WIN_MIN` (2,000) rows the tree gets `.tt-win`: fixed `--tt-row-h` (28 px), `dhTtWindow(scrollTop, viewH, rowH, total, 20)` picks the slice, two `.tt-spacer` divs keep the scroll height. Scroll repaints once per frame with a 100 ms timer as fallback, and keeps keyboard focus in the tree (the tree itself has `tabindex=-1`; keydown on the tree uses `focusId`, which a `focusin` listener keeps current). `paint()` clamps `scrollTop` when the list shrank.
+- Print: `dhTtPrintHooks` (`before` draws the first `DH_TT_PRINT_MAX` open rows with a note, `after` repaints), called from `dhBeforePrint` / `dhAfterPrint`.
+- CSV: `dhCsvText(header, rows)` (BOM, quotes, CRLF, `dhCsvSafe`) and `dhCsvDownload`; the toolbar `data-tt="csv"` button saves `flat`, the `data-tt-csv` buttons in Members / Member of save the list. Columns: Id, ParentId, Type, Label, Path, Status, Flags, then every property label in first-seen order.
+- `Add-DhTreeTable`: `-MaxRows` default 20,000 (warning), hard limit 100,000. Building 50,000 rows takes about 25 s in `Add-DhTreeTable` and 30 s in the export on a laptop.
 ### 7.17 — Bars that measure a value (v2.2+)
 
 ```powershell
@@ -861,12 +885,66 @@ Export-DhDashboard -Report $report -OutputPath $out -ExportLibraries Embed -Prin
 |---|---|
 | `Default` | General-purpose, blue accents, system UI font. |
 | `Azure` | Microsoft Azure / 365 branding (Segoe UI, Azure blue). |
-| `VMware` | VMware-ecosystem dashboards (Inter font, VMware green). |
+| `VMware` | VMware-ecosystem dashboards (VMware green; Inter if the reader has it). |
 | `Grey` | Neutral / muted, no brand colour. |
-| `Company` | Crimson + Montserrat. Marketing / executive reports. |
+| `Company` | Crimson + Montserrat if the reader has it. Marketing / executive reports. |
 | `Rag` (v1.4) | **Strict Office/Excel RAG palette** (`#375623` / `#7F4B00` / `#9C0006` / `#595959`). Use when audit / compliance / finance audience needs spreadsheet parity. |
 
 All themes define `--cell-ok-fg`, `--cell-warn-fg`, `--cell-danger-fg`, `--cell-nodata-fg` (v1.4) + bg variants. Use these as CSS variables; never hardcode colours.
+
+### 9.1 — The v2.7.0 token contract (read before touching a theme file)
+
+Four rules now hold across all twelve theme files. `Tools/Test-DhContrast.ps1` enforces the
+first two over 61 selectors (was 33) and ~5,700 measurements; it must report **0 below the
+minimum** before a release.
+
+1. **`--bg-header` is the theme's own `--accent-secondary`** in light mode, with
+   `--header-fg: #FFFFFF` and `--header-fg-muted: rgba(255,255,255,0.94)`. The 0.94 is not
+   cosmetic: at 0.82 the muted header text measured 3.97 on VMware's band and 4.08 on
+   Azure's, the two lightest bands. In dark mode the band is a deep tint of the accent hue
+   (saturation taken from the theme's own accent, so `Rag` and `Grey` stay neutral) with at
+   least 1.30 contrast against `--bg-page`. Before 2.7.0 `Grey` and `Azure` set it to
+   *exactly* `--bg-page`, so the band did not exist.
+2. **Every text token clears 4.5:1 against every background it can land on** — not only
+   `--bg-surface` and `--bg-page`, but `--bg-row-alt`, `--bg-thead`,
+   `--chart-container-bg`, and each of those composited under `--progress-track-bg` (the
+   8% overlay behind `.dh-kv-item`) or the element's own `--cell-*-bg` tint. This is what
+   a first pass missed: `--text-muted` was corrected against surface and page and still
+   failed on `.dh-kv-label` at 3.80.
+3. **`--size-2xs` (0.72rem / 11.5px) is the floor**, for badges and chips only. Nothing in
+   the HTML goes below it. The exception is the network-map SVG labels
+   (`.nm-edge-label text` and `.nm-node-badges` at 10.5px, `.nm-lane-label` /
+   `.nm-group-label` at 11px): node and edge geometry is computed from hardcoded character
+   widths in `Get-DhJsNetwork.ps1` (`lw = len * 6 + 10`, `maxChars = (nw - 34) / 6.6`, rect
+   `height: 16`), so the type cannot move without retuning the layout — and network-map
+   layouts must stay deterministic.
+4. **Tracking is three tokens** — `--track-tight` (-0.02em, display numerals and the report
+   title), `--track-none` (0), `--track-label` (0.04em). `text-transform: uppercase`
+   survives on 8 rules only: the three `th` rules, `.summary-label`, `.cell-badge`,
+   `.finding-badge`, `.record-metric-label` and the SVG `.nm-lane-label`. Block titles are
+   sentence case. Before 2.7.0 there were 38 uppercase rules and 10 tracking values.
+
+Two consequences worth knowing when editing:
+
+- **`body.theme-forced-light` / `-dark` are gone.** They were unreachable (both stylesheets
+  are always embedded, and `applyThemeMode` only falls back to them when one is missing)
+  and carried no `--accent-*`, `--chart-*`, `--header-fg` or font tokens, so they would
+  have stripped every brand colour if they ever had engaged.
+- **No theme fetches a font.** A generated report makes zero network requests. `Company`
+  and `VMware` name Montserrat and Inter first in their stack, so a reader who has the font
+  installed sees it and everyone else gets Segoe UI. The old `@import` from
+  `fonts.googleapis.com` broke the single-file promise and failed silently offline.
+
+### 9.2 — `-Density` (2.7.0)
+
+`New-DhDashboard -Density Normal|Compact|Comfortable` sets the opening density; the runtime
+button still cycles all three, and a reader's choice in the URL hash wins. It reuses the
+existing `DENSITY` controller in `Get-DhJsCore.ps1` — the only new plumbing is
+`data-density` on `<html>` (`Export-DhDashboard.ps1`) and the boot branch in
+`Get-DhJsBoot.ps1` that applies it when `URLState.load()` carries no density. The classes
+land on `<body>`, so `body.density-compact` / `body.density-comfortable` redefine the size
+tokens and the whole label layer scales, not just table rows. Compact never goes below
+11.2px.
 
 ---
 

@@ -20,7 +20,7 @@ function Get-DhCssRagLight {
 :root {
   /* RagLight — Spec-exact Office/Excel RAG palette (KPI spec §7.2) */
   --bg-page:          #FFFFFF;
-  --bg-header:        #FAFAFA;
+  --bg-header:        #404040;
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F7F7F7;
@@ -48,7 +48,7 @@ function Get-DhCssRagLight {
 
   --text-primary:   #333333;
   --text-secondary: #595959;
-  --text-muted:     #808080;
+  --text-muted:     #5E5E5E;
   --text-accent:    #404040;
   --text-invert:    #FFFFFF;
 
@@ -60,6 +60,8 @@ function Get-DhCssRagLight {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'SF Pro Display', system-ui, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -70,6 +72,10 @@ function Get-DhCssRagLight {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -102,7 +108,7 @@ function Get-DhCssRagLight {
 
   --nav-bg:            #FAFAFA;
   --nav-border:        #E0E0E0;
-  --nav-title-fg:      #808080;
+  --nav-title-fg:      #636363;
   --nav-link-fg:       #595959;
   --nav-link-hover-bg: rgba(89,89,89,0.07);
   --nav-link-hover-fg: #333333;
@@ -117,8 +123,8 @@ function Get-DhCssRagLight {
   --chart-5: #2F5496;  --chart-6: #806000;  --chart-7: #7B7B7B;  --chart-8: #4B4B4B;
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
-  --header-fg: #333333;
-  --header-fg-muted: #808080;
+  --header-fg: #FFFFFF;
+  --header-fg-muted: rgba(255,255,255,0.94);
 }
 '@
 }

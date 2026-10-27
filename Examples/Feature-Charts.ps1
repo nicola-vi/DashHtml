@@ -46,7 +46,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
 
 $rng = [System.Random]::new(21)
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'When to use it' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'When to use it' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 $hours = @('00:00', '04:00', '08:00', '12:00', '16:00', '20:00')
 
 $vms = foreach ($i in 1..60) {

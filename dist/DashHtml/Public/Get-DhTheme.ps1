@@ -4,7 +4,7 @@ function Get-DhTheme {
         List available DashHtml theme families or retrieve a family's CSS.
 
     .DESCRIPTION
-        Without parameters, returns a summary of all 5 built-in theme families.
+        Without parameters, returns a summary of all 6 built-in theme families.
 
         With -Name, returns a PSCustomObject with LightCss and DarkCss properties
         containing the full CSS strings for both variants of the chosen family.
@@ -50,12 +50,12 @@ function Get-DhTheme {
 
     # Internal light/dark mapping (mirrors New-DhDashboard)
     $themeMap = @{
-        'Default' = @{ Light = 'DefaultLight'; Dark = 'DefaultDark';  LightDesc = 'Light grey (#F0F4F8), blue accent';      DarkDesc = 'Near-black (#0b0f14), cyan accent';    Font = 'System UI / Segoe UI'  }
-        'Azure'   = @{ Light = 'AzureLight';   Dark = 'AzureDark';    LightDesc = 'Warm grey (#F3F2F1), Azure blue header'; DarkDesc = 'Office dark (#1B1A19), Azure accent';  Font = 'Segoe UI (system)'     }
-        'VMware'  = @{ Light = 'VMwareLight';  Dark = 'VMwareDark';   LightDesc = 'White/navy header, VMware green';        DarkDesc = 'Navy (#1D2437), VMware green accent';  Font = 'Inter (Google Fonts)'  }
-        'Grey'    = @{ Light = 'GreyLight';    Dark = 'GreyDark';     LightDesc = 'Warm grey (#EEEEEE), steel accent';      DarkDesc = 'Dark neutral (#1A1A1A), grey accent';  Font = 'System UI / Segoe UI'  }
-        'Company' = @{ Light = 'CompanyLight'; Dark = 'CompanyDark';  LightDesc = 'White, Crimson Glory (#BE0036)';         DarkDesc = 'Near-black (#0E0709), Crimson accent'; Font = 'Montserrat (Google Fonts)' }
-        'Rag'     = @{ Light = 'RagLight';     Dark = 'RagDark';      LightDesc = 'White, spec-exact Office/Excel RAG palette (#375623 / #7F4B00 / #9C0006)'; DarkDesc = 'Near-black (#0E0E0E), Office dark-mode RAG companions'; Font = 'System UI / Segoe UI' }
+        'Default' = @{ Light = 'DefaultLight'; Dark = 'DefaultDark';  LightDesc = 'Light grey page, deep blue header (#005F8A)'; DarkDesc = 'Near-black (#0b0f14), deep blue band';    Font = 'System UI / Segoe UI'  }
+        'Azure'   = @{ Light = 'AzureLight';   Dark = 'AzureDark';    LightDesc = 'Warm grey page, Azure blue header (#106EBE)'; DarkDesc = 'Office dark (#1B1A19), deep blue band';  Font = 'Segoe UI (system)'     }
+        'VMware'  = @{ Light = 'VMwareLight';  Dark = 'VMwareDark';   LightDesc = 'White page, VMware green header (#007D63)'; DarkDesc = 'Navy (#1D2437), deep green band';   Font = 'Inter if installed, else Segoe UI' }
+        'Grey'    = @{ Light = 'GreyLight';    Dark = 'GreyDark';     LightDesc = 'Warm grey page, slate header (#37474F)'; DarkDesc = 'Dark neutral (#1A1A1A), slate band';  Font = 'System UI / Segoe UI'  }
+        'Company' = @{ Light = 'CompanyLight'; Dark = 'CompanyDark';  LightDesc = 'White page, Crimson header (#8C0031)';   DarkDesc = 'Near-black (#0E0709), deep crimson band'; Font = 'Montserrat if installed, else Segoe UI' }
+        'Rag'     = @{ Light = 'RagLight';     Dark = 'RagDark';      LightDesc = 'White page, graphite header; spec-exact Office/Excel RAG palette (#375623 / #7F4B00 / #9C0006)'; DarkDesc = 'Near-black (#0E0E0E), graphite band, Office dark-mode RAG companions'; Font = 'System UI / Segoe UI' }
     }
 
     if ($PSCmdlet.ParameterSetName -eq 'List') {

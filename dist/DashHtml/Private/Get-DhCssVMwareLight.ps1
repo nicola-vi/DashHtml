@@ -4,7 +4,6 @@ function Get-DhCssVMwareLight {
                Called by Get-DhThemeCss which appends the shared structural CSS.
     #>
     return @'
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 :root {
   /* VMwareLight — Broadcom VMware brand
      Green: #00B388 (Pantone 354C)  Grey: #53565A (Cool Gray 11C)
@@ -17,7 +16,7 @@ function Get-DhCssVMwareLight {
   --vmware-grey:      #53565A;
 
   --bg-page:          #F5F5F5;
-  --bg-header:        #1D2437;
+  --bg-header:        #007D63;
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F5FCFA;
@@ -45,8 +44,8 @@ function Get-DhCssVMwareLight {
 
   --text-primary:   #1D2437;
   --text-secondary: #53565A;
-  --text-muted:     #9EA3A8;
-  --text-accent:    #00A07A;
+  --text-muted:     #5A6065;
+  --text-accent:    #00785B;
   --text-invert:    #FFFFFF;
 
   --border-subtle:  #E5E7EB;
@@ -56,6 +55,8 @@ function Get-DhCssVMwareLight {
   --font-ui:      'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
 
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
@@ -67,6 +68,10 @@ function Get-DhCssVMwareLight {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -97,12 +102,12 @@ function Get-DhCssVMwareLight {
 
   --nav-bg:            #FFFFFF;
   --nav-border:        #E5E7EB;
-  --nav-title-fg:      #9EA3A8;
+  --nav-title-fg:      #63686E;
   --nav-link-fg:       #53565A;
   --nav-link-hover-bg: rgba(0,179,136,0.07);
   --nav-link-hover-fg: #00B388;
   --nav-active-bg:     rgba(0,179,136,0.10);
-  --nav-active-fg:     #00B388;
+  --nav-active-fg:     #008565;
   --nav-active-border: rgba(0,179,136,0.45);
 
   --chart-container-bg: #F5FCFA;
@@ -111,7 +116,7 @@ function Get-DhCssVMwareLight {
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #FFFFFF;
-  --header-fg-muted: rgba(255,255,255,0.75);
+  --header-fg-muted: rgba(255,255,255,0.94);
 }
 '@
 }

@@ -50,6 +50,66 @@ function Get-DhJsTreeTable {
     return out;
   }
 
+  /* v2.6.0 - which rows a find text and type chips keep: match = the rows that pass, force = their
+     ancestors (shown, and open, so the match is visible). null when nothing filters. */
+  function dhTtMatch(rows, byId, q, typeSel) {
+    q = (q || '').toLowerCase();
+    var anyType = Object.keys(typeSel || {}).length;
+    if (!q && !anyType) return null;
+    var match = {}, force = {};
+    rows.forEach(function (r) {
+      if (anyType && !typeSel[r.type]) return;
+      if (q && (r.label + ' ' + r.type).toLowerCase().indexOf(q) === -1) return;
+      match[r.id] = true;
+      var p = r.parent;
+      while (p && byId[p] && !force[p]) { force[p] = true; p = byId[p].parent; }   /* a forced parent's ancestors are forced already */
+    });
+    return { match: match, force: force };
+  }
+
+  /* v2.6.0 - the rows the tree shows, in order: [{ r, pos, size }] (pos / size among the visible siblings,
+     for aria-posinset / aria-setsize). One flat list feeds drawing, keyboard, windowing and print. */
+  function dhTtFlatten(roots, kids, expanded, m) {
+    var out = [];
+    (function walk(list) {
+      var vis = m ? list.filter(function (r) { return m.match[r.id] || m.force[r.id]; }) : list;
+      for (var i = 0; i < vis.length; i++) {
+        var r = vis[i];
+        out.push({ r: r, pos: i + 1, size: vis.length });
+        var open = m ? !!m.force[r.id] : !!expanded[r.id];
+        if (kids[r.id].length && open) walk(kids[r.id]);
+      }
+    })(roots);
+    return out;
+  }
+
+  /* v2.6.0 - the slice of a fixed-height list to draw: rows in view plus `overscan` on each side, and the
+     spacer heights above and below it. */
+  function dhTtWindow(scrollTop, viewH, rowH, total, overscan) {
+    var start = Math.max(0, Math.floor(scrollTop / rowH) - overscan);
+    var end = Math.min(total, Math.ceil((scrollTop + viewH) / rowH) + overscan);
+    if (start > end) start = end;
+    return { start: start, end: end, top: start * rowH, bottom: (total - end) * rowH };
+  }
+
+  /* v2.6.0 - CSV text with the table export's rules: BOM, quoted cells, CRLF, formula guard (dhCsvSafe). */
+  function dhCsvText(header, rows) {
+    function cell(v) { return '"' + dhCsvSafe(v).replace(/"/g, '""') + '"'; }
+    var lines = [header.map(cell).join(',')];
+    rows.forEach(function (r) { lines.push(r.map(cell).join(',')); });
+    return '﻿' + lines.join('\r\n');
+  }
+  function dhCsvDownload(text, name) {
+    var url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8;' }));
+    var a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  /* Tree tables register what they need to do around printing (the windowed ones draw their open rows). */
+  var dhTtPrintHooks = [];
+  var DH_TT_WIN_MIN = 2000, DH_TT_PRINT_MAX = 2000;
+
   var DH_TT_GLYPH = { ou: 'OU', group: 'G', user: 'U', computer: 'PC', container: 'C', other: '•' };
   var DH_TT_TYPE  = { ou: 'OU', group: 'Group', user: 'User', computer: 'Computer', container: 'Container', other: 'Other' };
 
@@ -75,6 +135,7 @@ function Get-DhJsTreeTable {
             '<input type="search" class="treefilter-find tt-find" placeholder="Find…" aria-label="Find in ' + esc(block.title || 'directory') + '" autocomplete="off">' +
             '<button type="button" class="treefilter-btn" data-tt="expand">Expand all</button>' +
             '<button type="button" class="treefilter-btn" data-tt="collapse">Collapse all</button>' +
+            '<button type="button" class="treefilter-btn" data-tt="csv" title="Save the rows shown in the tree as CSV">CSV</button>' +
             '<span class="tt-chips" role="group" aria-label="Show types">' + typesPresent.map(function (t) {
               return '<button type="button" class="nm-chip tt-chip" data-tt-type="' + esc(t) + '" aria-pressed="false">' + esc(DH_TT_TYPE[t] || t) + '</button>';
             }).join('') + '</span>' +
@@ -97,35 +158,73 @@ function Get-DhJsTreeTable {
       if (r.type === 'group') return (membersOf[r.id] || []).length;
       return kids[r.id].length;
     }
-    function visibleRows() {
-      var q = findText.toLowerCase(), anyType = Object.keys(typeSel).length;
-      var match = null, force = {};
-      if (q || anyType) {
-        match = {};
-        rows.forEach(function (r) {
-          if (anyType && !typeSel[r.type]) return;
-          if (q && (r.label + ' ' + r.type).toLowerCase().indexOf(q) === -1) return;
-          match[r.id] = true;
-          var p = r.parent;
-          while (p && byId[p]) { force[p] = true; p = byId[p].parent; }
-        });
+    /* v2.6.0 - one flat list of the visible rows (dhTtFlatten), rebuilt on expand, collapse and filter, never on
+       scroll. Above DH_TT_WIN_MIN rows the tree is windowed: fixed row height, only the rows in view (plus 20 on
+       each side) are in the DOM, spacers keep the scrollbar honest. */
+    var WIN = rows.length > DH_TT_WIN_MIN, rowH = 28, flat = [], flatIdx = {};
+    if (WIN) {
+      tree.classList.add('tt-win');
+      tree.setAttribute('tabindex', '-1');
+      var cssH = parseInt(getComputedStyle(container).getPropertyValue('--tt-row-h'), 10);
+      if (cssH > 0) rowH = cssH;
+    }
+    function rebuild() {
+      flat = dhTtFlatten(roots, kids, expanded, dhTtMatch(rows, byId, findText, typeSel));
+      flatIdx = {};
+      for (var i = 0; i < flat.length; i++) flatIdx[flat[i].r.id] = i;
+    }
+    function tabTarget() { return (focusId && flatIdx[focusId] !== undefined) ? focusId : (flat[0] && flat[0].r.id); }
+    function paint(keepFocus) {
+      var tabId = tabTarget(), html;
+      if (!WIN) html = flat.map(function (x) { return rowHtml(x, tabId); }).join('');
+      else {
+        /* the list may have shrunk (a filter) below the current scroll position: clamp before measuring */
+        var vh = tree.clientHeight || 400, maxTop = Math.max(0, flat.length * rowH - vh);
+        if (tree.scrollTop > maxTop) tree.scrollTop = maxTop;
+        var w = dhTtWindow(Math.min(tree.scrollTop, maxTop), vh, rowH, flat.length, 20);
+        html = '<div class="tt-spacer" role="presentation" style="height:' + w.top + 'px"></div>' +
+               flat.slice(w.start, w.end).map(function (x) { return rowHtml(x, tabId); }).join('') +
+               '<div class="tt-spacer" role="presentation" style="height:' + w.bottom + 'px"></div>';
       }
-      var out = [];
-      (function walk(list) {
-        list.forEach(function (r) {
-          if (match && !match[r.id] && !force[r.id]) return;
-          out.push(r);
-          var open = match ? !!force[r.id] : !!expanded[r.id];
-          if (kids[r.id].length && open) walk(kids[r.id]);
-        });
-      })(roots);
-      return out;
+      var had = keepFocus && document.activeElement && tree.contains(document.activeElement) ? (document.activeElement.getAttribute('data-id') || '') : null;
+      tree.innerHTML = html;
+      if (had !== null) {                                 /* windowed scroll: keep the keyboard in the tree */
+        var fe = had ? rowEl(had) : null;
+        (fe || tree).focus({ preventScroll: true });
+      }
+    }
+    function scrollToIdx(i) {
+      if (!WIN || i === undefined) return;
+      var top = i * rowH, vh = tree.clientHeight || 400;
+      if (top < tree.scrollTop) tree.scrollTop = top;
+      else if (top + rowH > tree.scrollTop + vh) tree.scrollTop = top + rowH - vh;
+    }
+    if (WIN) {
+      /* one repaint per frame; the timer covers a frame that never comes (a hidden or throttled page) */
+      var pending = false;
+      tree.addEventListener('scroll', function () {
+        if (pending) return;
+        pending = true;
+        var go = function () { if (!pending) return; pending = false; paint(true); };
+        if (window.requestAnimationFrame) requestAnimationFrame(go);
+        setTimeout(go, 100);
+      });
+      dhTtPrintHooks.push({
+        before: function () {                             /* paper has no scrollbar: the open rows, up to DH_TT_PRINT_MAX */
+          var n = Math.min(flat.length, DH_TT_PRINT_MAX), tabId = tabTarget();
+          tree.innerHTML = flat.slice(0, n).map(function (x) { return rowHtml(x, tabId); }).join('') +
+            (flat.length > n ? '<p class="dh-more tt-print-note">Printed the first ' + n + ' of ' + flat.length + ' open rows.</p>' : '');
+        },
+        after: function () { paint(false); }
+      });
     }
 
-    function rowHtml(r, tabId) {
+    function rowHtml(x, tabId) {
+      var r = x.r;
       var has = kids[r.id].length > 0, filtering = !!(findText || Object.keys(typeSel).length);
       var open = filtering ? true : !!expanded[r.id], st = secStatus(r.status), n = childCount(r);
       return '<div class="dh-tree-row' + (selectedId === r.id ? ' dh-tree-sel' : '') + '" role="treeitem" aria-level="' + (depth[r.id] + 1) + '"' +
+        ' aria-posinset="' + x.pos + '" aria-setsize="' + x.size + '"' +
         ' aria-selected="' + (selectedId === r.id ? 'true' : 'false') + '"' + (has ? ' aria-expanded="' + (open ? 'true' : 'false') + '"' : '') +
         ' data-id="' + esc(r.id) + '" tabindex="' + (r.id === tabId ? '0' : '-1') + '" style="padding-left:' + (6 + depth[r.id] * 16) + 'px">' +
         '<span class="dh-tree-chev"' + (has ? ' data-act="toggle"' : '') + '>' + (has ? (open ? '&#9662;' : '&#9656;') : '') + '</span>' +
@@ -137,10 +236,10 @@ function Get-DhJsTreeTable {
     }
 
     function renderTree(refocus) {
-      var list = visibleRows();
-      var tabId = (focusId && list.some(function (r) { return r.id === focusId; })) ? focusId : (list[0] && list[0].id);
-      tree.innerHTML = list.map(function (r) { return rowHtml(r, tabId); }).join('');
-      empty.hidden = list.length > 0;
+      rebuild();
+      empty.hidden = flat.length > 0;
+      if (refocus) scrollToIdx(flatIdx[refocus]);
+      paint(false);
       if (refocus) { var el = rowEl(refocus); if (el) el.focus(); }
     }
     function rowEl(id) {
@@ -167,6 +266,25 @@ function Get-DhJsTreeTable {
       if (nested || (memberOf[r.id] || []).length) t.push({ k: 'nesting', l: 'Nesting' });
       return t;
     }
+    /* v2.6.0 - CSV: Id, ParentId, Type, Label, Path, Status, Flags, then every property name in the list */
+    function csvOf(list) {
+      var keys = [], seen = {};
+      list.forEach(function (r) { (r.props || []).forEach(function (p) { if (!seen[p.label]) { seen[p.label] = 1; keys.push(p.label); } }); });
+      var out = list.map(function (r) {
+        var pv = {};
+        (r.props || []).forEach(function (p) { pv[p.label] = p.value; });
+        return [r.id, r.parent || '', DH_TT_TYPE[r.type] || r.type, r.label, pathLabel(r), r.status || '', (r.flags || []).join('; ')]
+          .concat(keys.map(function (k) { return pv[k] == null ? '' : pv[k]; }));
+      });
+      return dhCsvText(['Id', 'ParentId', 'Type', 'Label', 'Path', 'Status', 'Flags'].concat(keys), out);
+    }
+    function csvName(suffix) {
+      return (String(block.id || 'tree') + '-' + suffix).replace(/[^\w.\-]+/g, '_').slice(0, 80) + '.csv';
+    }
+    function csvButton(kind) {
+      return '<button type="button" class="treefilter-btn tt-csv" data-tt-csv="' + kind + '" title="Save this list as CSV">CSV</button>';
+    }
+
     function list(ids, cap) {
       if (!ids.length) return '<p class="dh-text">None.</p>';
       var shown = ids.slice(0, cap || 500);
@@ -178,9 +296,10 @@ function Get-DhJsTreeTable {
       if (tab === 'members') {
         var ms = membersOf[r.id] || [], c = { user: 0, computer: 0, group: 0 };
         ms.forEach(function (m) { if (c[typeOf[m]] !== undefined) c[typeOf[m]]++; });
-        return '<p class="dh-text">' + ms.length + ' member' + (ms.length === 1 ? '' : 's') + ': ' + c.user + ' users, ' + c.computer + ' computers, ' + c.group + ' groups.</p>' + list(ms);
+        return '<p class="dh-text">' + ms.length + ' member' + (ms.length === 1 ? '' : 's') + ': ' + c.user + ' users, ' + c.computer + ' computers, ' + c.group + ' groups.' +
+               (ms.length ? ' ' + csvButton('members') : '') + '</p>' + list(ms);
       }
-      if (tab === 'memberof') return list(memberOf[r.id] || []);
+      if (tab === 'memberof') return ((memberOf[r.id] || []).length ? '<p class="dh-text">' + csvButton('memberof') + '</p>' : '') + list(memberOf[r.id] || []);
       if (tab === 'nesting') {
         var h = '';
         if (r.type === 'group') {
@@ -233,9 +352,10 @@ function Get-DhJsTreeTable {
     function goTo(id) {                                  /* a link in a tab: make the row visible, then select it */
       var p = byId[id] && byId[id].parent;
       while (p && byId[p]) { expanded[p] = true; p = byId[p].parent; }
-      var hidden = !visibleRows().some(function (r) { return r.id === id; });
-      if (hidden) { findText = ''; find.value = ''; typeSel = {}; container.querySelectorAll('.tt-chip').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); }); }
+      rebuild();
+      if (flatIdx[id] === undefined) { findText = ''; find.value = ''; typeSel = {}; container.querySelectorAll('.tt-chip').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); }); }
       select(id);
+      if (WIN) { scrollToIdx(flatIdx[id]); paint(false); }
       var el = rowEl(id); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
     }
 
@@ -246,13 +366,17 @@ function Get-DhJsTreeTable {
       select(id);
     });
     tree.addEventListener('keydown', function (e) {
-      var rowNode = e.target.closest && e.target.closest('.dh-tree-row'); if (!rowNode || e.target !== rowNode) return;
-      var id = rowNode.getAttribute('data-id'), r = byId[id], list2 = visibleRows(), i = list2.indexOf(r), key = e.key, to = null;
+      var rowNode = e.target.closest && e.target.closest('.dh-tree-row'), id;
+      if (rowNode && e.target === rowNode) id = rowNode.getAttribute('data-id');
+      else if (e.target === tree && focusId && flatIdx[focusId] !== undefined) id = focusId;   /* windowed: the focused row scrolled away */
+      else return;
+      var r = byId[id], i = flatIdx[id], key = e.key, to = null;
+      if (i === undefined) return;
       var filtering = !!(findText || Object.keys(typeSel).length);
-      if (key === 'ArrowDown') to = list2[Math.min(i + 1, list2.length - 1)];
-      else if (key === 'ArrowUp') to = list2[Math.max(i - 1, 0)];
-      else if (key === 'Home') to = list2[0];
-      else if (key === 'End') to = list2[list2.length - 1];
+      if (key === 'ArrowDown') to = flat[Math.min(i + 1, flat.length - 1)].r;
+      else if (key === 'ArrowUp') to = flat[Math.max(i - 1, 0)].r;
+      else if (key === 'Home') to = flat[0].r;
+      else if (key === 'End') to = flat[flat.length - 1].r;
       else if (key === 'ArrowRight') {
         if (kids[id].length && !expanded[id] && !filtering) { expanded[id] = true; focusId = id; e.preventDefault(); renderTree(id); return; }
         if (kids[id].length) to = kids[id][0];
@@ -264,9 +388,24 @@ function Get-DhJsTreeTable {
       e.preventDefault();
       if (to) { focusId = to.id; renderTree(to.id); }
     });
-    find.addEventListener('input', function () { findText = find.value; renderTree(); });
+    /* the row with focus is the keyboard's starting point, however it got focus (Tab, click, script) */
+    tree.addEventListener('focusin', function (e) {
+      var fr = e.target.closest && e.target.closest('.dh-tree-row');
+      if (fr) focusId = fr.getAttribute('data-id');
+    });
+    var findTimer = 0;
+    find.addEventListener('input', function () {
+      findText = find.value;
+      if (!WIN) { renderTree(); return; }
+      clearTimeout(findTimer);
+      findTimer = setTimeout(function () { tree.scrollTop = 0; renderTree(); }, 150);   /* 50,000 rows: wait for a pause in typing */
+    });
     container.querySelector('.tt-toolbar').addEventListener('click', function (e) {
       var tb = e.target.closest('[data-tt]');
+      if (tb && tb.getAttribute('data-tt') === 'csv') {
+        dhCsvDownload(csvOf(flat.map(function (x) { return x.r; })), csvName('visible'));
+        return;
+      }
       if (tb) {
         if (tb.getAttribute('data-tt') === 'expand') order.forEach(function (r) { if (kids[r.id].length) expanded[r.id] = true; });
         else expanded = {};
@@ -294,6 +433,13 @@ function Get-DhJsTreeTable {
       var nb = tabsEl.querySelector('[data-tab="' + tab + '"]'); if (nb) nb.focus();
     });
     body.addEventListener('click', function (e) {
+      var cb = e.target.closest('[data-tt-csv]');
+      if (cb && selectedId && byId[selectedId]) {
+        var kind = cb.getAttribute('data-tt-csv'), sr = byId[selectedId];
+        var ids = (kind === 'members' ? membersOf[sr.id] : memberOf[sr.id]) || [];
+        dhCsvDownload(csvOf(ids.map(function (x) { return byId[x]; }).filter(Boolean)), csvName(sr.label + '-' + (kind === 'members' ? 'members' : 'member-of')));
+        return;
+      }
       var g = e.target.closest('[data-goto]'); if (g) goTo(g.getAttribute('data-goto'));
     });
 

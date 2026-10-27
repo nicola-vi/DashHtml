@@ -43,7 +43,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
 
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 $report = New-DhDashboard -Title 'Page elements' -Subtitle 'Header, banners, notes, tabs, events, grid and print' -Theme $Theme -NavTitle 'Page' -NavMaxDepth 2 `
     -GeneratedBy 'Feature-PageElements.ps1' -PrintCover -InfoFields @(
         @{ Label = 'Organisation'; Value = 'Contoso' }, @{ Label = 'Environment'; Value = 'Production' }
@@ -79,7 +79,7 @@ Add-DhCollapsible -Report $report -Id 'c-free' -Title 'Free content (folded by d
 # ============================================================== TABS
 Add-DhAlertBanner -Report $report -Id 'tabs-banner' -Severity warning -Icon '!' -NavPath 'Tabs' -Message 'This banner is bound to the Tabs view only (-NavPath Tabs).'
 & $note 'n-tabs' 'Tabs' 'Tabs switch the content of one block. The menu navigates the page; tabs do not change the address.'
-Add-DhTabs -Report $report -Id 'tabs' -Title 'One service, three views' -NavPath 'Tabs' -Tabs @(
+Add-DhTabs -Report $report -Id 'tabs' -Title 'One service, three views' -NavPath 'Tabs' -AllowHtml:$false -Tabs @(
     @{ Title = 'Overview'; Active = $true; Content = 'The service has run for 214 days without an unplanned outage. Last release: 2026-10-02.' }
     @{ Title = 'Dependencies'; Content = 'Depends on the identity provider, the message bus and the primary database.' }
     @{ Title = 'Runbook'; Content = '1. Check the health endpoint. 2. Check the queue depth. 3. Restart the worker pool.' } )

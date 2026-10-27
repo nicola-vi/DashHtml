@@ -9,7 +9,7 @@ function Get-DhCssAzureDark {
      Primary: #479EF5 (lightened for dark bg)  Backgrounds: Office dark slate */
 
   --bg-page:          #1B1A19;
-  --bg-header:        #1B1A19;
+  --bg-header:        #1E3246;
   --bg-surface:       #252423;
   --bg-table:         #201F1E;
   --bg-row-alt:       #2D2C2B;
@@ -37,8 +37,8 @@ function Get-DhCssAzureDark {
 
   --text-primary:   #F3F2F1;
   --text-secondary: #C8C6C4;
-  --text-muted:     #8A8886;
-  --text-accent:    #479EF5;
+  --text-muted:     #AEACAB;
+  --text-accent:    #5BA8F6;
   --text-invert:    #1B1A19;
 
   --border-subtle:  #3B3A39;
@@ -48,6 +48,8 @@ function Get-DhCssAzureDark {
   --font-ui:      'Segoe UI', 'Segoe UI Variable', system-ui, -apple-system, sans-serif;
   --font-mono:    'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'Segoe UI Variable', system-ui, -apple-system, sans-serif;
+
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
 
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
@@ -59,6 +61,10 @@ function Get-DhCssAzureDark {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -89,7 +95,7 @@ function Get-DhCssAzureDark {
 
   --nav-bg:            #1B1A19;
   --nav-border:        #3B3A39;
-  --nav-title-fg:      #605E5C;
+  --nav-title-fg:      #9A9796;
   --nav-link-fg:       #C8C6C4;
   --nav-link-hover-bg: rgba(71,158,245,0.08);
   --nav-link-hover-fg: #479EF5;

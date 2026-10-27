@@ -278,6 +278,15 @@ if ($SkipTests) {
                     Write-Host "     Node tests passed: $np" -ForegroundColor Green
                 } finally { Pop-Location }
             } else { Write-Host "     node not found - JS tests skipped." -ForegroundColor DarkGray }
+            # v2.6.0 - the examples must pass the script audit (Test-DhReport): an ACTION finding fails the build
+            if ($buildDesign) {
+                Import-Module $psdFile -Force                 # the repo core first, so Design binds to it, not to an installed copy
+                Import-Module $designPsd -Force
+                $exFindings = @(Test-DhReport -Path (Join-Path $repoRoot 'Examples/*.ps1') -PassThru)
+                $exAction = @($exFindings | Where-Object Severity -in 'ACTION', 'error')
+                if ($exAction.Count) { Write-Error "BUILD FAILED: Test-DhReport found $($exAction.Count) ACTION finding(s) in Examples:`n$(($exAction | ForEach-Object { "$($_.Target) $($_.Message)" }) -join "`n")" }
+                Write-Host "     Test-DhReport on Examples: $($exFindings.Count) finding(s), none blocking" -ForegroundColor Green
+            }
         } else {
             Write-Host "     No Tests/ directory found - skipping." -ForegroundColor DarkGray
         }

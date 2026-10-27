@@ -34,7 +34,9 @@ function Get-DhBaselineDiff {
     $props = {
         param($row)
         $h = [ordered]@{}
-        if ($row -is [System.Collections.IDictionary]) { foreach ($k in $row.Keys) { $h[[string]$k] = $row[$k] } }
+        # 2.5.4 - PSBase on every dictionary keyed by data (field names, key values): .Keys / .Count
+        # would return the entry of that name when a field or key is called Keys, Values or Count
+        if ($row -is [System.Collections.IDictionary]) { foreach ($k in $row.PSBase.Keys) { $h[[string]$k] = $row[$k] } }
         else { foreach ($p in $row.PSObject.Properties) { $h[$p.Name] = $p.Value } }
         $h
     }
@@ -70,14 +72,14 @@ function Get-DhBaselineDiff {
     $dupData = [System.Collections.Generic.List[string]]::new(); $nNew = 0; $nChanged = 0; $nSame = 0; $i = 0
     foreach ($d in $Data) {
         $dp = & $props $d
-        if (-not $dp.Contains($KeyField)) { throw "$who -KeyField '$KeyField' is not a property of data row $($i + 1). Fields: $($dp.Keys -join ', ')" }
+        if (-not $dp.Contains($KeyField)) { throw "$who -KeyField '$KeyField' is not a property of data row $($i + 1). Fields: $($dp.PSBase.Keys -join ', ')" }
         $k = & $text $dp[$KeyField]
         if (-not $seen.Add($k)) { if ($dupData.Count -lt 5) { $dupData.Add($k) }; $i++; continue }
         if (-not $baseByKey.ContainsKey($k)) {
             $changes["$i"] = [ordered]@{ State = 'new'; Fields = @(); Was = [ordered]@{} }; $nNew++
         } else {
             $bp = $baseByKey[$k]; $diff = [System.Collections.Generic.List[string]]::new(); $was = [ordered]@{}
-            $cmp = if (@($Fields).Count) { @($Fields) } else { @($dp.Keys) | Where-Object { $_ -ne $KeyField } }
+            $cmp = if (@($Fields).Count) { @($Fields) } else { @($dp.PSBase.Keys) | Where-Object { $_ -ne $KeyField } }
             foreach ($f in $cmp) {
                 if ($f -eq $KeyField) { continue }
                 $av = if ($dp.Contains($f)) { $dp[$f] } else { $null }
@@ -103,12 +105,12 @@ function Get-DhBaselineDiff {
     }
     if ($dupData.Count) { throw "$who -KeyField '$KeyField': duplicate value(s) in the data: $($dupData -join ', '). A key must identify one row." }
     $removed = [System.Collections.Generic.List[object]]::new()
-    foreach ($k in $baseByKey.Keys) { if (-not $seen.Contains($k)) { $removed.Add($baseByKey[$k]) } }
+    foreach ($k in $baseByKey.PSBase.Keys) { if (-not $seen.Contains($k)) { $removed.Add($baseByKey[$k]) } }
     if (-not $Baseline.Count) { $warnings.Add('The baseline is empty: every row is New.') }
-    foreach ($f in $typeClash.Keys) {
+    foreach ($f in $typeClash.PSBase.Keys) {
         $warnings.Add("'$f' is a date on one side and text on the other in $($typeClash[$f]) row(s) (a baseline read with Import-Csv keeps dates as text), so it can show as Changed when nothing changed. Save the baseline with Export-Clixml to keep the types, or convert the column before comparing.")
     }
-    foreach ($f in $numClash.Keys) {
+    foreach ($f in $numClash.PSBase.Keys) {
         $warnings.Add("'$f' is a number on one side and text in another format on the other in $($numClash[$f]) row(s) (for example 1.5 and '1,5' from an Import-Csv baseline), so those rows show as Changed although the value is the same. Save the baseline with Export-Clixml to keep the types, or convert the column before comparing.")
     }
     [ordered]@{

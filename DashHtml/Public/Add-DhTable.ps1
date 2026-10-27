@@ -31,7 +31,14 @@ function Add-DhTable {
           UrlField    = 'DocUrl'          # property holding the URL (default: this column's value);
                                           #   may be a property that is not a visible column
           LinkText    = 'MS Learn'        # fixed link text (default: the cell value)
-                                          # only http(s) and mailto URLs become links
+                                          # only http(s), mailto and tel URLs become links (tel: v2.6.0)
+          UrlTemplate = 'AppDetails.html?id={Id}'   # v2.6.0: build the URL from row fields, each value
+                                          #   URL-encoded; {{ / }} are literal braces; an empty value
+                                          #   shows text instead of a link. Not with UrlField.
+          RelativeLinks = $true           # v2.6.0: a data value without a scheme (page.html, ../x.html,
+                                          #   #fragment) is a link too (a template always allows it)
+          LinkTarget  = 'same'            # v2.6.0: 'new' | 'same'; default: other sites open a new tab,
+                                          #   relative links the same tab
 
           # Number / value formatting  (displayed in cell and exported)
           Format      = 'number'          # see Format values below
@@ -111,6 +118,13 @@ function Add-DhTable {
         the table, its footer or its paging; CSV / Excel / PDF exports gain a Change column and can include them
         through a checkbox. The baseline is data: ConvertTo-DhYaml does not write it. An empty baseline marks every
         row New (with a warning). Without -Baseline nothing changes.
+
+    .PARAMETER BaselinePath
+        v2.6.0. Read the previous run's rows from a file instead of passing -Baseline: .clixml / .xml
+        (Import-Clixml, keeps types: the best choice), .csv (Import-Csv, every value is text) or .json. The file
+        is only read, never written: save this run's rows yourself (Export-Clixml) after the export. A missing
+        file is not an error: the table is built without markers and a warning says so (the first run of a
+        schedule). Cannot be combined with -Baseline; needs -KeyField. ConvertTo-DhYaml keeps the path.
 
     .PARAMETER KeyField
         v2.5.2. The property that identifies a row across runs (case-insensitive text). Required with -Baseline.
@@ -216,6 +230,7 @@ function Add-DhTable {
         [int]       $ColumnMaxWidth = 800,      # v2.4.0 - widest an auto-sized column may grow (px)
         [switch]    $RememberColumns,          # v2.5.0 - keep the reader's column choice (per viewer, per browser)
         [AllowEmptyCollection()] [object[]] $Baseline,   # v2.5.2 - rows of the previous run (with -KeyField): New / Changed / Removed markers
+        [string]    $BaselinePath = '',        # v2.6.0 - read the previous rows from .clixml / .xml / .csv / .json (read-only)
         [string]    $KeyField = '',            # v2.5.2 - the property that identifies a row across runs
         [string[]]  $BaselineFields = @(),     # v2.5.2 - compared properties (default: the table's columns, without the key)
         [string]    $BaselineLabel = 'previous run',
@@ -260,8 +275,10 @@ function Add-DhTable {
     # Auto-detect columns
     if ($Columns.Count -eq 0 -and $Data.Count -gt 0) {
         $first = $Data[0]
-        $Columns = if ($first -is [hashtable] -or $first -is [System.Collections.Specialized.OrderedDictionary]) {
-            $first.Keys | ForEach-Object { @{ Field = $_; Label = $_ } }
+        # 2.5.4 - PSBase: on a dictionary, .Keys / .Count resolve to an ENTRY of that name when the
+        # data has one (a column called Keys), so the real key list must be read through PSBase
+        $Columns = if ($first -is [System.Collections.IDictionary]) {
+            $first.PSBase.Keys | ForEach-Object { @{ Field = $_; Label = $_ } }
         } else {
             $first.PSObject.Properties | ForEach-Object { @{ Field = $_.Name; Label = $_.Name } }
         }
@@ -283,9 +300,34 @@ function Add-DhTable {
         # (default: this column's own value); LinkText is fixed link text
         # (default: the cell value). Only http(s) and mailto URLs become links,
         # checked in the browser; anything else renders as plain text.
+        # v2.6.0 - also tel:; UrlTemplate builds the URL from row fields; RelativeLinks lets a data value
+        # without a scheme (AppDetails.html?id=1, #fragment) be a link; LinkTarget new | same.
+        $hasTpl = $c.Contains('UrlTemplate') -and -not [string]::IsNullOrWhiteSpace([string]$c['UrlTemplate'])
+        foreach ($lkKey in @('UrlTemplate', 'LinkTarget', 'RelativeLinks')) {
+            if ($ctNorm -ne 'link' -and $c.Contains($lkKey) -and $null -ne $c[$lkKey] -and "$($c[$lkKey])" -ne '') {
+                throw "Add-DhTable: column '$($c.Field)' - $lkKey needs CellType = 'link'."
+            }
+        }
         if ($ctNorm -eq 'link') {
-            $c['UrlField'] = if ($c.Contains('UrlField') -and -not [string]::IsNullOrWhiteSpace([string]$c['UrlField'])) { [string]$c['UrlField'] } else { [string]$c.Field }
+            $hasUrlField = $c.Contains('UrlField') -and -not [string]::IsNullOrWhiteSpace([string]$c['UrlField'])
+            if ($hasTpl -and $hasUrlField) {
+                throw "Add-DhTable: column '$($c.Field)' - use UrlField or UrlTemplate, not both."
+            }
+            if ($hasTpl) {
+                $c['UrlTemplate'] = [string]$c['UrlTemplate']
+                $c['UrlField'] = ''
+            } else {
+                $c['UrlField'] = if ($hasUrlField) { [string]$c['UrlField'] } else { [string]$c.Field }
+            }
             $c['LinkText'] = if ($c.Contains('LinkText')) { [string]$c['LinkText'] } else { '' }
+            if ($c.Contains('LinkTarget') -and $null -ne $c['LinkTarget'] -and "$($c['LinkTarget'])" -ne '') {
+                $lt = ([string]$c['LinkTarget']).ToLowerInvariant()
+                if ($lt -notin @('new', 'same')) { throw "Add-DhTable: column '$($c.Field)' - LinkTarget must be 'new' or 'same'. Got: $($c['LinkTarget'])" }
+                $c['LinkTarget'] = $lt
+            }
+            if ($c.Contains('RelativeLinks') -and $null -ne $c['RelativeLinks'] -and $c['RelativeLinks'] -isnot [bool]) {
+                throw "Add-DhTable: column '$($c.Field)' - RelativeLinks must be `$true or `$false. Got: $($c['RelativeLinks'])"
+            }
         }
 
         # v1.4 F8 — sparkline-specific column keys
@@ -358,8 +400,8 @@ function Add-DhTable {
     # Normalise data rows
     $normData = foreach ($row in $Data) {
         $h = [ordered]@{}
-        if ($row -is [hashtable] -or $row -is [System.Collections.Specialized.OrderedDictionary]) {
-            foreach ($k in $row.Keys) { $h[$k] = $row[$k] }
+        if ($row -is [System.Collections.IDictionary]) {
+            foreach ($k in $row.PSBase.Keys) { $h[$k] = $row[$k] }
         } else {
             foreach ($p in $row.PSObject.Properties) { $h[$p.Name] = $p.Value }
         }
@@ -371,8 +413,17 @@ function Add-DhTable {
     if (@($normData).Count -gt 0) {
         $dataFields = Get-DhTableFieldNames -Table @{ Id = $TableId; Columns = @($normCols); Data = @($normData) }
         foreach ($c in @($normCols)) {
-            if ($c.CellType -eq 'link' -and $c.UrlField -cnotin $dataFields) {
+            if ($c.CellType -eq 'link' -and $c.UrlField -and $c.UrlField -cnotin $dataFields) {
                 throw "Add-DhTable: column '$($c.Field)' — UrlField '$($c.UrlField)' is not a property of the data. Fields: $($dataFields -join ', ')"
+            }
+            # v2.6.0 - every {Field} in a UrlTemplate must be a property of the data ({{ and }} are literal braces)
+            if ($c.CellType -eq 'link' -and $c.Contains('UrlTemplate') -and $c.UrlTemplate) {
+                $tplFields = [regex]::Matches(($c.UrlTemplate -replace '\{\{|\}\}', ''), '\{([^{}]+)\}') | ForEach-Object { $_.Groups[1].Value }
+                foreach ($tf in @($tplFields)) {
+                    if ($tf -cnotin $dataFields) {
+                        throw "Add-DhTable: column '$($c.Field)' - UrlTemplate names {$tf}, which is not a property of the data. Fields: $($dataFields -join ', ')"
+                    }
+                }
             }
         }
     }
@@ -380,7 +431,14 @@ function Add-DhTable {
     # v2.5.2 - baseline markers: New / Changed / Removed against the previous run, matched by -KeyField
     $baselineOut = $null
     $hasBaseline = $PSBoundParameters.ContainsKey('Baseline')
-    if (-not $hasBaseline -and ($KeyField -or @($BaselineFields).Count)) {
+    # v2.6.0 - -BaselinePath: the same rows, read from a file. Read-only; a missing file is the first run.
+    if ($BaselinePath) {
+        if ($hasBaseline) { throw "Add-DhTable '$TableId': use -Baseline or -BaselinePath, not both." }
+        if (-not $KeyField) { throw "Add-DhTable '$TableId': -BaselinePath needs -KeyField (the property that identifies a row across runs)." }
+        $fromFile = Import-DhBaselineFile -Path $BaselinePath -TableId $TableId
+        if ($null -ne $fromFile) { $Baseline = @($fromFile); $hasBaseline = $true }
+    }
+    if (-not $hasBaseline -and -not $BaselinePath -and ($KeyField -or @($BaselineFields).Count)) {
         Write-Warning "Add-DhTable '$TableId': -KeyField / -BaselineFields have no effect without -Baseline."
     }
     if ($hasBaseline) {
@@ -480,7 +538,7 @@ function Add-DhTable {
         $c
     }
 
-    $Report.Tables.Add([ordered]@{
+    $tableSpec = [ordered]@{
         Id          = $TableId
         Title       = $Title
         Description = $Description
@@ -513,7 +571,16 @@ function Add-DhTable {
         Collapsible    = $Collapsible
         DefaultOpen    = $DefaultOpen
         Icon           = $Icon
-    })
+    }
+    # v2.6.0 - a file baseline is part of the layout (the rows are not), so the YAML writer keeps it;
+    # stored only when used, so a plain table's spec is unchanged
+    if ($BaselinePath) {
+        $tableSpec['BaselinePath']   = $BaselinePath
+        $tableSpec['KeyField']       = $KeyField
+        $tableSpec['BaselineFields'] = @($BaselineFields)
+        if ($BaselineLabel -ne 'previous run') { $tableSpec['BaselineLabel'] = $BaselineLabel }
+    }
+    $Report.Tables.Add($tableSpec)
 
     Write-Verbose "Add-DhTable: '$TableId' — $(@($normData).Count) rows, $(@($normCols).Count) cols, $(@($normCharts).Count) charts."
 }

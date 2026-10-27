@@ -42,7 +42,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
 
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 $utilRag = @{ Green = @{ Max = 70 }; Amber = @{ Min = 70; Max = 90 }; Red = @{ Min = 90 }; NoData = $true }
 $report = New-DhDashboard -Title 'KPI tiles' -Subtitle 'Styles, trends, clicks and strips' -Theme $Theme -NavTitle 'KPI' -NavMaxDepth 2 -GeneratedBy 'Feature-KpiTiles.ps1'
 

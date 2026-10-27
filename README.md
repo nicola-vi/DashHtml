@@ -23,7 +23,9 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 - **Split findings (2.3+)** — `Add-DhFindings -Layout Split` with per-finding facts, evidence rows and a "changed since last run" marker
 - **Network maps (2.4+)** — `Add-DhNetworkMap`: nodes joined by links in grouped boxes or Tier 0/1/2 lanes, deterministic layout, filters, node search, shortest-path trace to a target, SVG download
 - **OU tree filter (2.4+)** — `Add-DhTreeFilter`: click an OU, the linked table shows only that OU and below
-- **Directory explorer (2.5+)** — `Add-DhTreeTable`: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting
+- **Directory explorer (2.5+)** — `Add-DhTreeTable`: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting; windowed above 2,000 rows so 50,000 objects stay quick, with CSV of the visible rows and member lists (2.6+)
+- **One check command (2.6+)** — `Test-DhReport` (DashHtml.Design) runs the link, menu, size, baseline, script-audit and schema checks on a report, a script, a layout or a built HTML file
+- **Big reports (2.6+)** — `Export-DhDashboard -CompressData` (gzip, about 7 times smaller for a 50,000-row table) and a size warning (`-SizeBudgetMB`)
 - **Search and menu badges (2.4+)** — `New-DhDashboard -Search` (pages, findings, table rows; press `/`) and `-NavBadge` (worst finding severity on each menu item)
 - **Columns that fit (2.4+)** — every table column is as wide as its widest text, so the last character is no longer cut off
 - **Print and PDF (2.2+)** — a Print button; printed output shows every section in menu order, every finding expanded, tables unpaged, an optional cover page
@@ -182,14 +184,26 @@ Use `Get-Help <cmdlet> -Full` for complete parameter documentation.
 
 Six built-in families — each includes a light and a dark variant, both always embedded in the output HTML. The toggle button in the nav bar switches at runtime.
 
-| Family | Light | Dark | Font |
-|--------|-------|------|------|
-| `Default` | Light grey + blue | Near-black + cyan | System UI |
-| `Azure` | Warm grey + Azure blue | Office dark + Azure | Segoe UI |
-| `VMware` | White/navy + VMware green | Navy + VMware green | Inter |
-| `Grey` | Warm grey + steel | Dark neutral + muted grey | System UI |
-| `Company` | White + Crimson | Near-black + Crimson | Montserrat |
-| `Rag` *(v1.4+)* | Spec-exact Office/Excel RAG palette on white | Office dark-mode RAG companions on near-black | System UI |
+| Family | Light | Dark | Header band | Font |
+|--------|-------|------|-------------|------|
+| `Default` | Light grey page + blue | Near-black + cyan | `#005F8A` / deep blue | Segoe UI (system) |
+| `Azure` | Warm grey page + Azure blue | Office dark + Azure | `#106EBE` / deep blue | Segoe UI (system) |
+| `VMware` | White page + VMware green | Navy + VMware green | `#007D63` / deep green | Inter if installed, else Segoe UI |
+| `Grey` | Warm grey page + steel | Dark neutral + muted grey | `#37474F` / slate | Segoe UI (system) |
+| `Company` | White page + Crimson | Near-black + Crimson | `#8C0031` / deep crimson | Montserrat if installed, else Segoe UI |
+| `Rag` *(v1.4+)* | Spec-exact Office/Excel RAG palette on white | Office dark-mode RAG companions on near-black | `#404040` / graphite | Segoe UI (system) |
+
+**v2.7.0 — every family now has a coloured header band in both light and dark mode.**
+Before 2.7.0 three families had a white band and, in dark mode, all six collapsed to a
+near-black band that was the same colour as the page (in `Grey` and `Azure`, exactly the
+same), so the band effectively disappeared. The band colour is each theme's own
+`--accent-secondary`; dark mode uses a deep tint of the same hue.
+
+**Fonts are never fetched.** A generated report makes no network requests at all. `Company`
+and `VMware` name Montserrat and Inter first in their font stack, so readers who have those
+fonts installed see them and everyone else gets Segoe UI. Before 2.7.0 both themes pulled
+the font from Google Fonts with an `@import`, which broke the single-file promise and
+failed silently offline.
 
 ```powershell
 # List all families
@@ -273,6 +287,43 @@ Every theme now defines `--cell-nodata-fg` / `--cell-nodata-bg` so missing / unm
 ### Opening theme: `-ThemeMode` (2.2+)
 
 `New-DhDashboard -ThemeMode Light|Dark|Auto` sets the theme a report opens in. The default is `Light`, as before. `Auto` follows the reader's system light/dark setting, live, until they use the toggle. A choice made with the toggle always wins: it is kept in the URL, so a shared link carries it, and in the browser's local storage, since 2.1.4.
+
+---
+
+### Reading density: `-Density` (2.7.0+)
+
+`New-DhDashboard -Density Normal|Compact|Comfortable` sets the density a report opens at.
+The default is `Normal`. The density button in the nav bar still cycles all three at
+runtime, and a reader's choice is kept in the URL, so it wins over the authored value.
+
+Density now scales the whole type scale, not just table rows:
+
+| | `Compact` | `Normal` | `Comfortable` |
+|---|---|---|---|
+| body / table cells | 12.8px | 13.6px | 14.4px |
+| labels and chips | 11.5px | 12px | 12.8px |
+| smallest text | 11.2px | 11.5px | 12px |
+| table row height | 26px | 40px | 54px |
+
+`Compact` is the closest thing to the pre-2.7.0 look if you need the old
+information-per-screen back, but it never goes below 11.2px.
+
+### Readability changes in 2.7.0
+
+Three defects were measured across all twelve theme variants and fixed:
+
+- **`--text-muted` failed WCAG AA everywhere** — it ranged from 2.38:1 to 4.41:1 against
+  its own surface, against a 4.5 requirement, and it was applied to the smallest text in
+  the report. Every variant now clears 4.5:1 against both `--bg-surface` and `--bg-page`,
+  with each theme's hue preserved. The same applied to `--nav-title-fg` in 11 of 12.
+- **The type floor was 9.6px.** 30 hardcoded sizes bypassed the scale, reaching `0.60rem`.
+  Nothing outside `@media print` is below 11.5px now (`--size-2xs`), and that floor is for
+  badges and chips only. The network-map SVG labels are the documented exception: their
+  node and edge geometry is computed from hardcoded character widths.
+- **`text-transform: uppercase` was used 38 times**, with 10 different `letter-spacing`
+  values, mostly on 12px text. Caps now appear on 8 rules — column headers, the KPI field
+  label and the two status pills — and tracking is three tokens: `--track-tight`,
+  `--track-none`, `--track-label`. Block titles are sentence case.
 ---
 
 ## Tables
@@ -387,8 +438,9 @@ $now | Export-Clixml .\servers-last-run.xml           # becomes the next run's b
 - Rows that disappeared are not in the table, its footer or its paging. They wait in a collapsed **Removed since last night** group under it (open when printed). CSV, Excel and PDF exports gain a **Change** column; a checkbox adds the removed rows.
 - `-KeyField` is matched as case-insensitive text. A duplicate key (in either set) or a data row without the key throws; a baseline row without the key is ignored with a warning. `-BaselineFields` sets what counts as Changed (default: the table's columns, without the key, so a hidden `LastSeen` timestamp does not mark every row). Null equals an empty string. A field that is a date on one side and text on the other (a baseline read with `Import-Csv`) gives a warning: save the baseline with `Export-Clixml` to keep the types.
 - The baseline is data, so `ConvertTo-DhYaml` does not write it. Without `-Baseline` nothing changes.
+- **2.6+:** `-BaselinePath .\servers-last-run.xml` reads the file for you (`.clixml` / `.xml` through `Import-Clixml`, `.csv`, `.json`), so the import line goes away. The module only reads it: keep the `Export-Clixml` line. On the first run of a schedule the file does not exist yet: you get a warning and a table without markers, not an error. `ConvertTo-DhYaml` keeps the path.
 
-### Link cells (2.2+)
+### Link cells (2.2+, templates and relative links 2.6+)
 
 `CellType='link'` turns a column into links. The URL comes from `UrlField`, which can be a property that is not a visible column; the default is the column's own value. `LinkText` sets fixed link text; the default is the cell value.
 
@@ -399,7 +451,29 @@ $now | Export-Clixml .\servers-last-run.xml           # becomes the next run's b
 )
 ```
 
-Only `http:`, `https:` and `mailto:` URLs become links. Anything else, `javascript:` included, renders as plain text. Links open in a new tab with `rel="noopener noreferrer"`. `UrlField` must exist in the data.
+Only `http:`, `https:`, `mailto:` and `tel:` URLs become links. Anything else, `javascript:` included (also written with tabs or odd case), renders as plain text. Links to other sites open in a new tab with `rel="noopener noreferrer"`. `UrlField` must exist in the data. The detail drawer (`-DetailDrawer`) shows the same link.
+
+**Link to a detail page or a portal (2.6+).** `UrlTemplate` builds the URL from the row, so the script does not have to add a URL property to every object. Each `{Field}` is replaced by that row's value, URL-encoded; `{{` and `}}` are literal braces; a row with an empty value shows plain text instead of a broken link. A template may be relative (a page written next to the report), and relative links open in the same tab.
+
+```powershell
+# a summary table that links to one HTML page per app, written by the same script
+foreach ($a in $apps) { Export-DhDashboard -Report (New-AppPage $a) -OutputPath ".\out\app-$($a.Id).html" -Force }
+Add-DhTable -Report $r -TableId 'apps' -Title 'Apps' -Data $apps -Columns @(
+    @{ Field='Name';  Label='App' }
+    @{ Field='Id';    Label='Details'; CellType='link'; UrlTemplate='app-{Id}.html'; LinkText='View details' }
+    @{ Field='Id';    Label='Intune';  CellType='link'; LinkText='Open in Intune'
+       UrlTemplate='https://intune.microsoft.com/#view/Microsoft_Intune_Apps/SettingsMenu/~/0/appId/{Id}' }
+)
+```
+
+- `RelativeLinks = $true`: a data value without a scheme (`AppDetails.html?id=123`, `../vm/srv01.html`, `#...`) becomes a link too. It is off by default, so a link column holding "N/A" does not turn into a link to a page called N/A.
+- `LinkTarget = 'new' | 'same'` overrides where the link opens.
+- `UrlTemplate` and `UrlField` are mutually exclusive; every `{Field}` must be a property of the data (checked when the table is added).
+
+### Table state in the address (2.6+)
+
+`New-DhDashboard -LinkState` keeps each table's sort, page, page size and Change chip in the page address, next to the menu path and the text filters (which are always kept). Copy the address and the reader sees the same view. Unknown columns in an old link are ignored and a page past the end shows the last page. Without the switch the address is unchanged.
+
 ### Sparkline cells (v1.4+)
 
 Set `CellType='sparkline'` and feed the column **arrays** of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (`SPARK.build`), so the look stays consistent between summary tiles and table cells.
@@ -1333,6 +1407,19 @@ Add-DhTreeTable -Report $r -Id 'dir' -Title 'Directory' -NavPath 'Identity/Direc
 - **Group nesting is not container nesting.** `ParentId` chains must not loop (that throws). Memberships may loop, because real directories do: a circular nesting is detected, marked "circular nesting", and not followed.
 - It is a browser, not a grid for thousands: rows draw only when their parent is open; the cmdlet warns above `-MaxRows` (5,000) and throws above 20,000. For a large estate use `Add-DhTreeFilter` with a table.
 - `Examples/Demo-ActiveDirectory.ps1` has one (view Identity / Directory).
+- **2.6+:** above 2,000 rows the tree is windowed: only the rows in view are in the page (fixed 28 px rows; set `--tt-row-h` in a custom theme to change it), so expanding, scrolling and finding stay quick with 50,000 objects. Long labels end in an ellipsis in that mode. Print draws the open rows, up to 2,000. `-MaxRows` warns above 20,000 rows by default and the cmdlet throws above 100,000.
+- **CSV (2.6+):** the toolbar's CSV button saves the rows shown in the tree (after find, type chips and expansion): Id, ParentId, Type, Label, Path, Status, Flags and one column per property. The Members and Member of tabs save their list. Same rules as the table CSV (UTF-8 with BOM, formula guard).
+
+## Big reports: compression and size budget (2.6+)
+
+```powershell
+Export-DhDashboard -Report $r -OutputPath .\ad.html -CompressData        # data gzip + base64
+Export-DhDashboard -Report $r -OutputPath .\ad.html -SizeBudgetMB 30     # warn above 30 MB (default 15; 0 = never)
+```
+
+- **`-CompressData`** stores the table and block data compressed; the page unpacks it when it opens (Edge and Chrome 80+, Firefox 113+, Safari 16.4+; an older browser shows a message instead). A 50,000-row table went from 9.2 MB to 1.3 MB. Print, search and exports work the same. It is off by default because the data is then no longer readable or searchable in the HTML source.
+- **`-SizeBudgetMB`** warns when the written file is bigger than the budget and names the three biggest tables and blocks.
+
 ## Search and menu badges (2.4+)
 
 ```powershell
@@ -1658,6 +1745,19 @@ Export-DhYamlSchema -OutFile dashhtml.schema.json
 completes keys and flags a mistyped one. The reader ignores unknown keys silently, so the schema is the only place a
 typo such as `navTitel` is caught. Keys may be written PascalCase, camelCase or lowercase. In a script:
 `Test-Json -Json (<layout as JSON>) -Schema (Get-Content dashhtml.schema.json -Raw)`.
+
+**One check command (2.6).** `Test-DhReport` runs every check that applies to what you give it and never changes a file:
+
+```powershell
+$report | Test-DhReport                       # links, menu lint, size estimate, baseline sanity
+Test-DhReport -Path .\build-ad.ps1            # the upgrade audit (parsed, not run)
+Test-DhReport -Path .\layout.yaml             # the schema; names the failing table and key
+Test-DhReport -Path .\out\*.html -Strict      # built with an older DashHtml? lists the missed fixes; exit code 1 for CI
+Test-DhReport -Path .\out\ad.html -Deep       # also the accessibility and contrast audits (a checkout's Tools, Edge/Chrome)
+```
+
+`-PassThru` returns the findings (Check, Severity, Target, Message). A baseline whose rows are nearly all New usually
+means a wrong `-KeyField`; it is reported as a warning.
 
 See the [module README](DashHtml.Design/README.md) and the
 [example](Examples/design/) for the layout schema and full details.

@@ -21,9 +21,10 @@ function Add-DhTreeTable {
           -Memberships  one entry per membership: GroupId and MemberId (a member can be a user, a
                         computer or another group)
 
-        It is for browsing, not for thousands of rows: rows are drawn only when their parent is
-        open, and the cmdlet warns above -MaxRows and throws above 20000 rows. For a big estate
-        use Add-DhTreeFilter (OUs only) plus a table.
+        Rows are drawn only when their parent is open. Above 2,000 rows the tree is windowed (v2.6.0):
+        only the rows in view are in the page, so 50,000 objects stay quick. The cmdlet warns above
+        -MaxRows (default 20000) and throws above 100000 rows. The toolbar's CSV button saves the
+        visible rows; the Members and Member of tabs save their list.
 
         All text is HTML-encoded.
 
@@ -41,7 +42,7 @@ function Add-DhTreeTable {
     .PARAMETER Memberships
         Array of @{ GroupId; MemberId }. Both must be row Ids. GroupId should be a group (a warning
         names any that is not).
-    .PARAMETER MaxRows        Warn above this many rows (default 5000); throws above 20000.
+    .PARAMETER MaxRows        Warn above this many rows (default 20000; 5000 before 2.6.0); throws above 100000.
     .PARAMETER Height         Height of both panes in px (default 520).
     .PARAMETER DefaultOpenDepth
         Levels that start expanded (default 1: roots are open, so their children show).
@@ -69,7 +70,7 @@ function Add-DhTreeTable {
         [AllowEmptyCollection()] [object[]] $Memberships = @(),
 
         [ValidateRange(1, 100000)]
-        [int]      $MaxRows = 5000,
+        [int]      $MaxRows = 20000,
         [ValidateRange(240, 1600)]
         [int]      $Height = 520,
         [ValidateRange(0, 99)]
@@ -107,8 +108,8 @@ function Add-DhTreeTable {
     }
 
     if (@($Rows).Count -lt 1) { throw "Add-DhTreeTable '$Id': -Rows must contain at least one row." }
-    if (@($Rows).Count -gt 20000) {
-        throw "Add-DhTreeTable '$Id': $(@($Rows).Count) rows is over the hard limit of 20000. Send the top levels, or use Add-DhTreeFilter with a table."
+    if (@($Rows).Count -gt 100000) {
+        throw "Add-DhTreeTable '$Id': $(@($Rows).Count) rows is over the hard limit of 100000. Send the top levels, or use Add-DhTreeFilter with a table."
     }
     if (@($Rows).Count -gt $MaxRows) {
         Write-Warning "Add-DhTreeTable '$Id': $(@($Rows).Count) rows exceeds -MaxRows ($MaxRows). The data is embedded in the page; consider fewer rows."
@@ -138,7 +139,7 @@ function Add-DhTreeTable {
         $props = [ordered]@{}
         if ($r.Contains('Properties') -and $null -ne $r['Properties']) {
             if ($r['Properties'] -isnot [System.Collections.IDictionary]) { throw "Add-DhTreeTable '$Id': row '$rid' Properties must be a hashtable of label = value." }
-            foreach ($k in $r['Properties'].Keys) { $props[[string]$k] = $(if ($null -eq $r['Properties'][$k]) { '' } else { [string]$r['Properties'][$k] }) }
+            foreach ($k in $r['Properties'].PSBase.Keys) { $props[[string]$k] = $(if ($null -eq $r['Properties'][$k]) { '' } else { [string]$r['Properties'][$k] }) }
         }
         $flags = @(if ($r.Contains('Flags') -and $null -ne $r['Flags']) { @($r['Flags']) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { [string]$_ } })
         [ordered]@{

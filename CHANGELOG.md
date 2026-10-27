@@ -4,6 +4,66 @@ All notable changes to DashHtml are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-10-27
+
+A presentation-layer release. No cmdlet behaviour changes and no data changes, but **every report looks different**: regenerate to pick it up. The one new parameter, `-Density`, is opt-in.
+
+### Added
+- **`New-DhDashboard -Density Normal|Compact|Comfortable`** (default `Normal`): the reading density a report opens at. The density button still cycles all three at runtime, and a reader's choice in the address wins over the authored value. Density now scales the whole type scale rather than only table rows — body text is 12.8 / 13.6 / 14.4px and rows are 26 / 40 / 54px. `Compact` is the closest thing to the pre-2.7.0 look, and never goes below 11.2px.
+- `--size-2xs` (0.72rem / 11.5px), the type floor, and three tracking tokens: `--track-tight`, `--track-none`, `--track-label`.
+
+### Changed
+- **Every theme now has a coloured header band, in light *and* dark mode.** The band is each theme's own `--accent-secondary` (Default `#005F8A`, Azure `#106EBE`, Grey `#37474F`, VMware `#007D63`, Company `#8C0031`, Rag `#404040`) with white text; dark mode uses a deep tint of the same hue, with the saturation taken from the theme's own accent so `Grey` and `Rag` stay neutral. Before 2.7.0 three families had a white band, and in dark mode all six used a near-black that was within 1.1 contrast of the page — in `Grey` and `Azure`, exactly the page colour, so the band was invisible.
+- **Block titles are sentence case.** `text-transform: uppercase` went from 38 rules to 8 — the three `th` rules, `.summary-label`, `.cell-badge`, `.finding-badge`, `.record-metric-label` and the SVG lane label — and the 10 ad-hoc `letter-spacing` values became the three tracking tokens.
+- A plain `.cell-badge` with no status class now uses the `--cell-nodata-*` pair. It used `--text-secondary` on `--border-medium`, a border tone, which measured about 4:1.
+- `.finding-badge-info` uses `--text-accent` instead of `--accent-primary`, so the brand accent that drives charts and fills did not have to move for one badge to be readable.
+- `Get-DhTheme` reports the real font behaviour and the new band colours; the "all 5 built-in theme families" text said 5 since Rag was added.
+- `Tools/contrast-selectors.json` covers 61 selectors (was 33), including the muted-text layer that was never measured.
+- DashHtml.Design requires DashHtml 2.7.0.
+
+### Fixed
+- **`--text-muted` failed WCAG AA in all twelve theme variants**, measuring 2.38:1 to 4.41:1 against a 4.5 requirement while being applied to the smallest text in the report. Every variant now clears 4.5:1 against every background it can land on: `--bg-surface`, `--bg-page`, `--bg-row-alt`, `--bg-thead`, `--chart-container-bg`, and each of those under the 8% `--progress-track-bg` overlay or a `--cell-*-bg` tint. `--nav-title-fg` failed in 11 of 12 and is fixed the same way, as is `--text-accent` in five variants and two `--cell-*-fg` in VMware dark.
+- **`--header-fg-muted` was 0.82 white**, which measured 3.97 on VMware's band and 4.08 on Azure's, the two lightest. It is now 0.94.
+- **The type floor was 9.6px.** 30 hardcoded sizes bypassed the token scale, down to `0.60rem`; nothing in the HTML is below 11.5px now. The network-map SVG labels are the documented exception: their node and edge geometry is computed from hardcoded character widths, so the type cannot move without retuning the layout.
+- Three hardcoded colours in the structural CSS now use tokens: the `#151e2b` gradient start on `.table-section-header` / `.table-section-toggle` (a dark colour leaking into light mode, previously only compensated for in print), the `#00c8ff33` focus ring (Default's dark accent, used by every theme) and the nav bar's own shadow.
+- Removed `body.theme-forced-light` / `-dark`: unreachable dead code that carried no brand tokens and would have stripped every accent, chart and font setting if it had engaged.
+- `line-height: 1` on three text-bearing rules (`.nav-group-tab`, `.summary-delta`, `.dh-tree-info`) — the icon and glyph boxes keep it deliberately.
+- **No report fetches a font any more.** `Company` and `VMware` pulled Montserrat and Inter from `fonts.googleapis.com` with an `@import` inside the embedded stylesheet, which broke the single-file promise, blocked rendering and failed silently offline — the themes already fell back to Segoe UI for most readers. Both still name their font first in the stack, so a reader who has it installed sees it.
+
+## [2.6.0] - 2026-10-26
+
+Everything below is opt-in or a warning: a report that does not use the new parameters exports the same data and looks the same, apart from the runtime text and the items under "Changed".
+
+### Added
+- **`Test-DhReport`** (DashHtml.Design): one command for the checks. A report object gets Links (tables named by charts, links and actions exist), Menu (the `-StrictNav` lint, also without `-StrictNav`), Size (estimated data size per table and tree table) and Baseline (a table whose rows are nearly all New, or whose whole baseline was removed: usually a wrong `-KeyField`). A `.ps1` gets the `Update-DhScript` audit (parsed, never run). A layout `.yaml` / `.json` is validated against the schema and each failing table, block or key is named (`tables[1] (id 'bad'): unknown key or wrong value: 'pageSize' ("lots")`). An `.html` built with an older DashHtml lists the fixes it misses; `-Deep` adds the accessibility and contrast audits from a checkout's `Tools`. Findings are objects with `-PassThru`; `-Strict` sets `$LASTEXITCODE` for CI. `Build.ps1` runs it on `Examples\*.ps1` and fails on an ACTION finding.
+- **`Export-DhDashboard -CompressData`**: table and block data stored gzip + base64 and unpacked in the page before it starts (`DecompressionStream`: Edge / Chrome 80+, Firefox 113+, Safari 16.4+; an older browser shows a message instead). A 50,000-row table went from 9.2 MB to 1.3 MB. Off by default, because the data is no longer readable in the HTML source.
+- **`Export-DhDashboard -SizeBudgetMB`** (default 15): a warning when the written file is bigger, naming the three biggest tables and blocks. `0` turns it off.
+- **`New-DhDashboard -LinkState`**: each table's sort, page, page size and Change chip are kept in the page address (next to the menu path and the text filters, which were always kept), so a copied link opens the same view. Unknown columns in a link are ignored, a page past the end shows the last page, and above about 1,500 characters the least recently used tables are left out. Without the switch the address is unchanged.
+- **`Add-DhTable -BaselinePath`**: read the previous run's rows from `.clixml` / `.xml`, `.csv` or `.json` instead of passing `-Baseline`. Read-only (save the new rows yourself with `Export-Clixml`); a missing file is the first run of a schedule: a warning, and the table is built without markers. `ConvertTo-DhYaml` keeps the path and key field.
+- **Link columns** (`CellType = 'link'`, feature request #1): `UrlTemplate = 'AppDetails.html?id={Id}'` builds the URL from row fields (each value URL-encoded; `{{` / `}}` are literal braces; an empty value shows text instead of a broken link), `RelativeLinks = $true` lets a data value without a scheme (`page.html`, `../x.html`, `#fragment`) be a link, `LinkTarget = 'new' | 'same'` (default: other sites open a new tab, relative links the same tab), and `tel:` links. The detail drawer shows a link column as the same link. Scheme check in one function, `dhLinkUrl`: control characters and spaces are removed before the scheme is read, so `java\tscript:` stays text; only http, https, mailto and tel pass.
+- **Tree tables: windowing and CSV.** Above 2,000 rows `Add-DhTreeTable` draws only the rows in view (fixed 28 px rows, 20 above and below, spacers for the scrollbar): 50,000 objects expand, scroll and filter without delay. The keyboard, `aria-level` / `aria-posinset` / `aria-setsize` and print work from the same flat list; print draws the open rows up to 2,000, with a note. A CSV button saves the visible rows (Id, ParentId, Type, Label, Path, Status, Flags and every property), and the Members and Member of tabs save their list; same rules as the table CSV (BOM, formula guard).
+- Tests: 12 node tests (link URL allow/deny list with obfuscated schemes, templates, targets, address state, tree flattening and windowing, tree CSV) and Pester Describes `v2.6.0 features` and `DashHtml 2.6.0 Test-DhReport`.
+
+### Changed
+- `Add-DhTreeTable -MaxRows` warns above 20,000 rows by default (was 5,000) and throws above 100,000 (was 20,000).
+- The examples pass `-AllowHtml:$false` where their content comes from a variable, so the script audit has nothing to flag.
+- `New-DhDashboard -LinkState` and the new column keys are in `dashhtml.schema.json`.
+- DashHtml.Design requires DashHtml 2.6.0.
+
+### Fixed
+- `Update-DhScript -PassThru` failed on a one-line script ("[System.Char] does not contain a method named 'Trim'").
+- Test pins updated: the 2.2.0 link-regex pin now checks the call to `_linkFor` (the allow-list is in `dhLinkUrl`, with node tests); the notices test checks the contributor rule instead of the GPL row that was trimmed from `THIRD-PARTY-NOTICES.md`.
+
+## [2.5.4] - 2026-10-25
+
+### Fixed
+- **Data fields named `Keys`, `Values` or `Count`.** A row with a property called `Keys` (for example `[pscustomobject]@{ A = 1; Keys = 'First event field' }`) was exported as `{"First event field":null}`: the header rendered, every cell was empty, and no warning was given. The dictionary test was not the cause (`Add-DhTable` already checked the type). The cause was PowerShell itself: on a dictionary, `$row.Keys` returns the entry named `Keys` when there is one, before the real key list (`.Values` and `.Count` behave the same way). Every dictionary keyed by data is now read through `.PSBase`: row serialisation in `Export-DhDashboard`, column auto-detect and row normalisation in `Add-DhTable`, the field checks behind `-ValueField` / `UrlField` / `-DetailFields` (`Get-DhTableFieldNames`) and `Add-DhRangeBar`, the baseline compare (data and baseline rows, key values, warnings) and its exported old values, tree-table `Properties`, and bar-chart `-KeyClass`. Regenerate affected reports.
+- `Add-DhTable` reads a row of any `IDictionary` type as a dictionary. Before, only `[hashtable]` and `[ordered]` were, so a `Dictionary[string,object]` row was exported as its .NET properties (`Comparer`, `Count`, `Keys`, ...).
+- DashHtml.Design 2.5.4: `ConvertTo-DhYaml -IncludeData`, the YAML reader and the script that `ConvertFrom-DhYaml` generates keep such fields too (same cause, in `DhYamlWriter`, `DhYamlReader` and `ConvertTo-DhPsLiteral`).
+
+### Added
+- Tests: rows with `Keys` / `Values` / `Count` fields as pscustomobject, hashtable, ordered and generic dictionary; chart field checks, a baseline keyed on `Keys`, tree-table properties, `-KeyClass`, and a YAML round trip. All of them fail on 2.5.3.
+
 ## [2.5.3] - 2026-10-19
 
 ### Changed

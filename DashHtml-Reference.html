@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Build-DhReference.ps1">
-<title>DashHtml v2.5.3 — PowerShell Module Reference</title>
+<title>DashHtml v2.7.0 — PowerShell Module Reference</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -275,7 +275,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
       <div class="logo-badge">D</div>
       <span class="sidebar-title">DashHtml</span>
     </div>
-    <span class="sidebar-version">v2.5.3 · PS 7.0+</span>
+    <span class="sidebar-version">v2.7.0 · PS 7.0+</span>
   </div>
   <div class="nav-section-label">Overview</div>
   <a class="nav-item" href="#overview"><span class="nav-dot"></span>Getting started</a>
@@ -477,13 +477,15 @@ at runtime without any server round-trip.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-NavLayout</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavMaxDepth</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-ThemeMode</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Density</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-PrintCover</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavBadge</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Search</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavAllLabel</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavTree</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-StrictNav</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavOverflow</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
+   [<span class='hl-opt'><span class='hl-param'>-NavOverflow</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-LinkState</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -575,6 +577,15 @@ depth-agnostic, so raising this costs nothing but layout.</p><span class='param-
 one: Light (default) | Dark | Auto (follow the system&#39;s light/dark
 setting). A choice made with the toggle button always wins.</p><span class='param-default'>default: &#39;Light&#39;</span></td>
         </tr>        <tr>
+          <td><span class="param-name">-Density</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.7.0. The reading density the report opens at: Normal (default),
+Compact (tighter rows and a smaller label layer - closest to the
+pre-2.7.0 look) or Comfortable (taller rows, larger type). The reader
+can still cycle it with the density button; their choice is kept in
+the URL, so a shared link carries it.</p><span class='param-default'>default: &#39;Normal&#39;</span></td>
+        </tr>        <tr>
           <td><span class="param-name">-PrintCover</span></td>
           <td><span class="param-type">&lt;switch&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -627,6 +638,14 @@ item with nothing below it, a -NavAllLabel that names no group.</p></td>
           <td class="param-desc"><p>v2.5.0. More (default): when a menu strip would wrap to a second row (v2.5.3; was: past two rows), the chips that do not fit
 move into a &quot;More&quot; menu and the selected chip always stays visible. Wrap: let them wrap as in
 earlier versions. A short menu looks the same either way.</p><span class='param-default'>default: &#39;More&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-LinkState</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.6.0. Keep each table&#39;s sort, page, page size and Change chip in the page address (next to the
+menu path and the text filters, which are always kept), so a copied link opens the same view.
+Off by default: without it the address holds what it held before. Unknown or vanished columns in
+a link are ignored and a page past the end shows the last page.</p></td>
         </tr>
         </tbody>
       </table>
@@ -688,7 +707,9 @@ the report, and every unknown block type, is reported as a warning
    [<span class='hl-opt'><span class='hl-param'>-Force</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-OpenInBrowser</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-ExportLibraries</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-PrintMaxRows</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
+   [<span class='hl-opt'><span class='hl-param'>-PrintMaxRows</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-CompressData</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-SizeBudgetMB</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -738,6 +759,21 @@ appeared.</p><span class='param-default'>default: &#39;Cdn&#39;</span></td>
           <td class="param-desc"><p>v2.2.0. When the report is printed, each table prints its filtered rows
 up to this many (default 200), with a note when rows were left out.
 The interactive view is unaffected.</p><span class='param-default'>default: 200</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-CompressData</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.6.0. Store the table and block data gzip-compressed (base64) instead of as plain JSON; the
+page unpacks it when it opens (DecompressionStream: Edge / Chrome 80+, Firefox 113+, Safari
+16.4+; an older browser shows a message instead of the data). Typically 5 to 10 times smaller
+for large tables. Off by default, because the data is then no longer readable or searchable in
+the HTML source. Print, search and exports work the same.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SizeBudgetMB</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.6.0. Warn (never fail) when the written file is bigger than this many megabytes (default 15),
+naming the three biggest tables and blocks. 0 turns the check off.</p><span class='param-default'>default: 15</span></td>
         </tr>
         </tbody>
       </table>
@@ -766,7 +802,7 @@ Export-DhDashboard -Report $report -OutputPath &#39;.\report.html&#39; -Force -O
       <span class="cmd-tag badge-orange">UTIL</span>
     </div>
 
-    <div class='desc-block'><p>Without parameters, returns a summary of all 5 built-in theme families.</p><p>With -Name, returns a PSCustomObject with LightCss and DarkCss properties
+    <div class='desc-block'><p>Without parameters, returns a summary of all 6 built-in theme families.</p><p>With -Name, returns a PSCustomObject with LightCss and DarkCss properties
 containing the full CSS strings for both variants of the chosen family.</p><p>With -SaveTo (requires -Name), saves both CSS files to the specified
 directory as  &lt;Family&gt;-light.css  and  &lt;Family&gt;-dark.css.</p></div>
 
@@ -857,6 +893,7 @@ $css.DarkCss    # CSS for the dark variant</div>
    [<span class='hl-opt'><span class='hl-param'>-ColumnMaxWidth</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-RememberColumns</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Baseline</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-BaselinePath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-KeyField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-BaselineFields</span> <span class='hl-type'>&lt;String[]&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-BaselineLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -917,7 +954,11 @@ Full column property reference:</p><p># Identity
                                   #   | &#39;path&#39;  (v2.3.0: an array drawn as A → B → Tier 0)
   ProgressMax = 100               # denominator for progressbar</p><p># Link cells (v2.2.0, CellType=&#39;link&#39;)
   UrlField    = &#39;DocUrl&#39;          # property holding the URL (default: this column&#39;s value);</p><pre class="desc-code">                            #   may be a property that is not a visible column
-</pre><p>LinkText    = &#39;MS Learn&#39;        # fixed link text (default: the cell value)</p><pre class="desc-code">                            # only http(s) and mailto URLs become links
+</pre><p>LinkText    = &#39;MS Learn&#39;        # fixed link text (default: the cell value)</p><pre class="desc-code">                            # only http(s), mailto and tel URLs become links (tel: v2.6.0)
+</pre><p>UrlTemplate = &#39;AppDetails.html?id={Id}&#39;   # v2.6.0: build the URL from row fields, each value</p><pre class="desc-code">                            #   URL-encoded; {{ / }} are literal braces; an empty value
+                            #   shows text instead of a link. Not with UrlField.
+</pre><p>RelativeLinks = $true           # v2.6.0: a data value without a scheme (page.html, ../x.html,</p><pre class="desc-code">                            #   #fragment) is a link too (a template always allows it)
+</pre><p>LinkTarget  = &#39;same&#39;            # v2.6.0: &#39;new&#39; | &#39;same&#39;; default: other sites open a new tab,</p><pre class="desc-code">                            #   relative links the same tab
 </pre><p># Number / value formatting  (displayed in cell and exported)
   Format      = &#39;number&#39;          # see Format values below
   Locale      = &#39;en-US&#39;           # BCP-47 locale (default: browser locale)
@@ -1031,6 +1072,15 @@ that disappeared in a collapsed &quot;Removed since the previous run&quot; group
 the table, its footer or its paging; CSV / Excel / PDF exports gain a Change column and can include them
 through a checkbox. The baseline is data: ConvertTo-DhYaml does not write it. An empty baseline marks every
 row New (with a warning). Without -Baseline nothing changes.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-BaselinePath</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v2.6.0. Read the previous run&#39;s rows from a file instead of passing -Baseline: .clixml / .xml
+(Import-Clixml, keeps types: the best choice), .csv (Import-Csv, every value is text) or .json. The file
+is only read, never written: save this run&#39;s rows yourself (Export-Clixml) after the export. A missing
+file is not an error: the table is built without markers and a warning says so (the first run of a
+schedule). Cannot be combined with -Baseline; needs -KeyField. ConvertTo-DhYaml keeps the path.</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-KeyField</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -3583,9 +3633,10 @@ selected object in tabs:
   -Rows         one entry per object: Id, ParentId (the OU or container it sits in), Type,
                 Label, plus optional Status, Flags, Properties, Detail
   -Memberships  one entry per membership: GroupId and MemberId (a member can be a user, a
-                computer or another group)</p><p>It is for browsing, not for thousands of rows: rows are drawn only when their parent is
-open, and the cmdlet warns above -MaxRows and throws above 20000 rows. For a big estate
-use Add-DhTreeFilter (OUs only) plus a table.</p><p>All text is HTML-encoded.</p></div>
+                computer or another group)</p><p>Rows are drawn only when their parent is open. Above 2,000 rows the tree is windowed (v2.6.0):
+only the rows in view are in the page, so 50,000 objects stay quick. The cmdlet warns above
+-MaxRows (default 20000) and throws above 100000 rows. The toolbar&#39;s CSV button saves the
+visible rows; the Members and Member of tabs save their list.</p><p>All text is HTML-encoded.</p></div>
 
     <div class="syntax-label">Syntax</div>
     <div class="syntax-block"><span class='hl-cmd'>Add-DhTreeTable</span>
@@ -3650,7 +3701,7 @@ names any that is not).</p></td>
           <td><span class="param-name">-MaxRows</span></td>
           <td><span class="param-type">&lt;Int32&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 5000</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 20000</span></td>
         </tr>        <tr>
           <td><span class="param-name">-Height</span></td>
           <td><span class="param-type">&lt;Int32&gt;</span></td>
@@ -5490,7 +5541,9 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
 <li><strong>Split findings (2.3+)</strong> — <code>Add-DhFindings -Layout Split</code> with per-finding facts, evidence rows and a &quot;changed since last run&quot; marker</li>
 <li><strong>Network maps (2.4+)</strong> — <code>Add-DhNetworkMap</code>: nodes joined by links in grouped boxes or Tier 0/1/2 lanes, deterministic layout, filters, node search, shortest-path trace to a target, SVG download</li>
 <li><strong>OU tree filter (2.4+)</strong> — <code>Add-DhTreeFilter</code>: click an OU, the linked table shows only that OU and below</li>
-<li><strong>Directory explorer (2.5+)</strong> — <code>Add-DhTreeTable</code>: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting</li>
+<li><strong>Directory explorer (2.5+)</strong> — <code>Add-DhTreeTable</code>: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting; windowed above 2,000 rows so 50,000 objects stay quick, with CSV of the visible rows and member lists (2.6+)</li>
+<li><strong>One check command (2.6+)</strong> — <code>Test-DhReport</code> (DashHtml.Design) runs the link, menu, size, baseline, script-audit and schema checks on a report, a script, a layout or a built HTML file</li>
+<li><strong>Big reports (2.6+)</strong> — <code>Export-DhDashboard -CompressData</code> (gzip, about 7 times smaller for a 50,000-row table) and a size warning (<code>-SizeBudgetMB</code>)</li>
 <li><strong>Search and menu badges (2.4+)</strong> — <code>New-DhDashboard -Search</code> (pages, findings, table rows; press <code>/</code>) and <code>-NavBadge</code> (worst finding severity on each menu item)</li>
 <li><strong>Columns that fit (2.4+)</strong> — every table column is as wide as its widest text, so the last character is no longer cut off</li>
 <li><strong>Print and PDF (2.2+)</strong> — a Print button; printed output shows every section in menu order, every finding expanded, tables unpaged, an optional cover page</li>
@@ -5729,48 +5782,65 @@ Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
 <th>Family</th>
 <th>Light</th>
 <th>Dark</th>
+<th>Header band</th>
 <th>Font</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>Default</code></td>
-<td>Light grey + blue</td>
+<td>Light grey page + blue</td>
 <td>Near-black + cyan</td>
-<td>System UI</td>
+<td><code>#005F8A</code> / deep blue</td>
+<td>Segoe UI (system)</td>
 </tr>
 <tr>
 <td><code>Azure</code></td>
-<td>Warm grey + Azure blue</td>
+<td>Warm grey page + Azure blue</td>
 <td>Office dark + Azure</td>
-<td>Segoe UI</td>
+<td><code>#106EBE</code> / deep blue</td>
+<td>Segoe UI (system)</td>
 </tr>
 <tr>
 <td><code>VMware</code></td>
-<td>White/navy + VMware green</td>
+<td>White page + VMware green</td>
 <td>Navy + VMware green</td>
-<td>Inter</td>
+<td><code>#007D63</code> / deep green</td>
+<td>Inter if installed, else Segoe UI</td>
 </tr>
 <tr>
 <td><code>Grey</code></td>
-<td>Warm grey + steel</td>
+<td>Warm grey page + steel</td>
 <td>Dark neutral + muted grey</td>
-<td>System UI</td>
+<td><code>#37474F</code> / slate</td>
+<td>Segoe UI (system)</td>
 </tr>
 <tr>
 <td><code>Company</code></td>
-<td>White + Crimson</td>
+<td>White page + Crimson</td>
 <td>Near-black + Crimson</td>
-<td>Montserrat</td>
+<td><code>#8C0031</code> / deep crimson</td>
+<td>Montserrat if installed, else Segoe UI</td>
 </tr>
 <tr>
 <td><code>Rag</code> <em>(v1.4+)</em></td>
 <td>Spec-exact Office/Excel RAG palette on white</td>
 <td>Office dark-mode RAG companions on near-black</td>
-<td>System UI</td>
+<td><code>#404040</code> / graphite</td>
+<td>Segoe UI (system)</td>
 </tr>
 </tbody>
 </table>
+<p><strong>v2.7.0 — every family now has a coloured header band in both light and dark mode.</strong>
+Before 2.7.0 three families had a white band and, in dark mode, all six collapsed to a
+near-black band that was the same colour as the page (in <code>Grey</code> and <code>Azure</code>, exactly the
+same), so the band effectively disappeared. The band colour is each theme's own
+<code>--accent-secondary</code>; dark mode uses a deep tint of the same hue.</p>
+<p><strong>Fonts are never fetched.</strong> A generated report makes no network requests at all. <code>Company</code>
+and <code>VMware</code> name Montserrat and Inter first in their font stack, so readers who have those
+fonts installed see them and everyone else gets Segoe UI. Before 2.7.0 both themes pulled
+the font from Google Fonts with an <code>@import</code>, which broke the single-file promise and
+failed silently offline.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># List all families
 Get-DhTheme
 
@@ -5861,7 +5931,68 @@ Add-DhTable -Report $report -TableId 'srv' -Title 'Servers' -Data $rows -Columns
 </div></div>
 <hr />
 <h3 id="opening-theme-thememode-2.2">Opening theme: <code>-ThemeMode</code> (2.2+)</h3>
-<h2 id="new-dhdashboard-thememode-lightdarkauto-sets-the-theme-a-report-opens-in.the-default-is-light-as-before.auto-follows-the-readers-system-lightdark-setting-live-until-they-use-the-toggle.a-choice-made-with-the-toggle-always-wins-it-is-kept-in-the-url-so-a-shared-link-carries-it-and-in-the-browsers-local-storage-since-2.1.4"><code>New-DhDashboard -ThemeMode Light|Dark|Auto</code> sets the theme a report opens in. The default is <code>Light</code>, as before. <code>Auto</code> follows the reader's system light/dark setting, live, until they use the toggle. A choice made with the toggle always wins: it is kept in the URL, so a shared link carries it, and in the browser's local storage, since 2.1.4.</h2>
+<p><code>New-DhDashboard -ThemeMode Light|Dark|Auto</code> sets the theme a report opens in. The default is <code>Light</code>, as before. <code>Auto</code> follows the reader's system light/dark setting, live, until they use the toggle. A choice made with the toggle always wins: it is kept in the URL, so a shared link carries it, and in the browser's local storage, since 2.1.4.</p>
+<hr />
+<h3 id="reading-density-density-2.7.0">Reading density: <code>-Density</code> (2.7.0+)</h3>
+<p><code>New-DhDashboard -Density Normal|Compact|Comfortable</code> sets the density a report opens at.
+The default is <code>Normal</code>. The density button in the nav bar still cycles all three at
+runtime, and a reader's choice is kept in the URL, so it wins over the authored value.</p>
+<p>Density now scales the whole type scale, not just table rows:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>Compact</code></th>
+<th><code>Normal</code></th>
+<th><code>Comfortable</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>body / table cells</td>
+<td>12.8px</td>
+<td>13.6px</td>
+<td>14.4px</td>
+</tr>
+<tr>
+<td>labels and chips</td>
+<td>11.5px</td>
+<td>12px</td>
+<td>12.8px</td>
+</tr>
+<tr>
+<td>smallest text</td>
+<td>11.2px</td>
+<td>11.5px</td>
+<td>12px</td>
+</tr>
+<tr>
+<td>table row height</td>
+<td>26px</td>
+<td>40px</td>
+<td>54px</td>
+</tr>
+</tbody>
+</table>
+<p><code>Compact</code> is the closest thing to the pre-2.7.0 look if you need the old
+information-per-screen back, but it never goes below 11.2px.</p>
+<h3 id="readability-changes-in-2.7.0">Readability changes in 2.7.0</h3>
+<p>Three defects were measured across all twelve theme variants and fixed:</p>
+<ul>
+<li><strong><code>--text-muted</code> failed WCAG AA everywhere</strong> — it ranged from 2.38:1 to 4.41:1 against
+its own surface, against a 4.5 requirement, and it was applied to the smallest text in
+the report. Every variant now clears 4.5:1 against both <code>--bg-surface</code> and <code>--bg-page</code>,
+with each theme's hue preserved. The same applied to <code>--nav-title-fg</code> in 11 of 12.</li>
+<li><strong>The type floor was 9.6px.</strong> 30 hardcoded sizes bypassed the scale, reaching <code>0.60rem</code>.
+Nothing outside <code>@media print</code> is below 11.5px now (<code>--size-2xs</code>), and that floor is for
+badges and chips only. The network-map SVG labels are the documented exception: their
+node and edge geometry is computed from hardcoded character widths.</li>
+<li><strong><code>text-transform: uppercase</code> was used 38 times</strong>, with 10 different <code>letter-spacing</code>
+values, mostly on 12px text. Caps now appear on 8 rules — column headers, the KPI field
+label and the two status pills — and tracking is three tokens: <code>--track-tight</code>,
+<code>--track-none</code>, <code>--track-label</code>. Block titles are sentence case.</li>
+</ul>
+<hr />
 <h2 id="tables">Tables</h2>
 <h3 id="basic-table">Basic table</h3>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$data = @(
@@ -5948,15 +6079,33 @@ $now | Export-Clixml .\servers-last-run.xml           # becomes the next run's b
 <li>Rows that disappeared are not in the table, its footer or its paging. They wait in a collapsed <strong>Removed since last night</strong> group under it (open when printed). CSV, Excel and PDF exports gain a <strong>Change</strong> column; a checkbox adds the removed rows.</li>
 <li><code>-KeyField</code> is matched as case-insensitive text. A duplicate key (in either set) or a data row without the key throws; a baseline row without the key is ignored with a warning. <code>-BaselineFields</code> sets what counts as Changed (default: the table's columns, without the key, so a hidden <code>LastSeen</code> timestamp does not mark every row). Null equals an empty string. A field that is a date on one side and text on the other (a baseline read with <code>Import-Csv</code>) gives a warning: save the baseline with <code>Export-Clixml</code> to keep the types.</li>
 <li>The baseline is data, so <code>ConvertTo-DhYaml</code> does not write it. Without <code>-Baseline</code> nothing changes.</li>
+<li><strong>2.6+:</strong> <code>-BaselinePath .\servers-last-run.xml</code> reads the file for you (<code>.clixml</code> / <code>.xml</code> through <code>Import-Clixml</code>, <code>.csv</code>, <code>.json</code>), so the import line goes away. The module only reads it: keep the <code>Export-Clixml</code> line. On the first run of a schedule the file does not exist yet: you get a warning and a table without markers, not an error. <code>ConvertTo-DhYaml</code> keeps the path.</li>
 </ul>
-<h3 id="link-cells-2.2">Link cells (2.2+)</h3>
+<h3 id="link-cells-2.2-templates-and-relative-links-2.6">Link cells (2.2+, templates and relative links 2.6+)</h3>
 <p><code>CellType='link'</code> turns a column into links. The URL comes from <code>UrlField</code>, which can be a property that is not a visible column; the default is the column's own value. <code>LinkText</code> sets fixed link text; the default is the cell value.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>-Columns @(
     @{ Field='Check'; Label='Check' }
     @{ Field='Reference'; Label='Reference'; CellType='link'; UrlField='DocUrl'; LinkText='Microsoft Learn' }
 )
 </div></div>
-<p>Only <code>http:</code>, <code>https:</code> and <code>mailto:</code> URLs become links. Anything else, <code>javascript:</code> included, renders as plain text. Links open in a new tab with <code>rel=&quot;noopener noreferrer&quot;</code>. <code>UrlField</code> must exist in the data.</p>
+<p>Only <code>http:</code>, <code>https:</code>, <code>mailto:</code> and <code>tel:</code> URLs become links. Anything else, <code>javascript:</code> included (also written with tabs or odd case), renders as plain text. Links to other sites open in a new tab with <code>rel=&quot;noopener noreferrer&quot;</code>. <code>UrlField</code> must exist in the data. The detail drawer (<code>-DetailDrawer</code>) shows the same link.</p>
+<p><strong>Link to a detail page or a portal (2.6+).</strong> <code>UrlTemplate</code> builds the URL from the row, so the script does not have to add a URL property to every object. Each <code>{Field}</code> is replaced by that row's value, URL-encoded; <code>{{</code> and <code>}}</code> are literal braces; a row with an empty value shows plain text instead of a broken link. A template may be relative (a page written next to the report), and relative links open in the same tab.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># a summary table that links to one HTML page per app, written by the same script
+foreach ($a in $apps) { Export-DhDashboard -Report (New-AppPage $a) -OutputPath &quot;.\out\app-$($a.Id).html&quot; -Force }
+Add-DhTable -Report $r -TableId 'apps' -Title 'Apps' -Data $apps -Columns @(
+    @{ Field='Name';  Label='App' }
+    @{ Field='Id';    Label='Details'; CellType='link'; UrlTemplate='app-{Id}.html'; LinkText='View details' }
+    @{ Field='Id';    Label='Intune';  CellType='link'; LinkText='Open in Intune'
+       UrlTemplate='https://intune.microsoft.com/#view/Microsoft_Intune_Apps/SettingsMenu/~/0/appId/{Id}' }
+)
+</div></div>
+<ul>
+<li><code>RelativeLinks = $true</code>: a data value without a scheme (<code>AppDetails.html?id=123</code>, <code>../vm/srv01.html</code>, <code>#...</code>) becomes a link too. It is off by default, so a link column holding &quot;N/A&quot; does not turn into a link to a page called N/A.</li>
+<li><code>LinkTarget = 'new' | 'same'</code> overrides where the link opens.</li>
+<li><code>UrlTemplate</code> and <code>UrlField</code> are mutually exclusive; every <code>{Field}</code> must be a property of the data (checked when the table is added).</li>
+</ul>
+<h3 id="table-state-in-the-address-2.6">Table state in the address (2.6+)</h3>
+<p><code>New-DhDashboard -LinkState</code> keeps each table's sort, page, page size and Change chip in the page address, next to the menu path and the text filters (which are always kept). Copy the address and the reader sees the same view. Unknown columns in an old link are ignored and a page past the end shows the last page. Without the switch the address is unchanged.</p>
 <h3 id="sparkline-cells-v1.4">Sparkline cells (v1.4+)</h3>
 <p>Set <code>CellType='sparkline'</code> and feed the column <strong>arrays</strong> of numbers — each row renders an inline mini-chart. Same SVG helper as the tile sparkline (<code>SPARK.build</code>), so the look stays consistent between summary tiles and table cells.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$rows = @(
@@ -6787,6 +6936,16 @@ Add-DhTreeFilter -Report $r -Id 'ou-tree' -Title 'Browse by OU' -TableId 'ous' -
 <li><strong>Group nesting is not container nesting.</strong> <code>ParentId</code> chains must not loop (that throws). Memberships may loop, because real directories do: a circular nesting is detected, marked &quot;circular nesting&quot;, and not followed.</li>
 <li>It is a browser, not a grid for thousands: rows draw only when their parent is open; the cmdlet warns above <code>-MaxRows</code> (5,000) and throws above 20,000. For a large estate use <code>Add-DhTreeFilter</code> with a table.</li>
 <li><code>Examples/Demo-ActiveDirectory.ps1</code> has one (view Identity / Directory).</li>
+<li><strong>2.6+:</strong> above 2,000 rows the tree is windowed: only the rows in view are in the page (fixed 28 px rows; set <code>--tt-row-h</code> in a custom theme to change it), so expanding, scrolling and finding stay quick with 50,000 objects. Long labels end in an ellipsis in that mode. Print draws the open rows, up to 2,000. <code>-MaxRows</code> warns above 20,000 rows by default and the cmdlet throws above 100,000.</li>
+<li><strong>CSV (2.6+):</strong> the toolbar's CSV button saves the rows shown in the tree (after find, type chips and expansion): Id, ParentId, Type, Label, Path, Status, Flags and one column per property. The Members and Member of tabs save their list. Same rules as the table CSV (UTF-8 with BOM, formula guard).</li>
+</ul>
+<h2 id="big-reports-compression-and-size-budget-2.6">Big reports: compression and size budget (2.6+)</h2>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Export-DhDashboard -Report $r -OutputPath .\ad.html -CompressData        # data gzip + base64
+Export-DhDashboard -Report $r -OutputPath .\ad.html -SizeBudgetMB 30     # warn above 30 MB (default 15; 0 = never)
+</div></div>
+<ul>
+<li><strong><code>-CompressData</code></strong> stores the table and block data compressed; the page unpacks it when it opens (Edge and Chrome 80+, Firefox 113+, Safari 16.4+; an older browser shows a message instead). A 50,000-row table went from 9.2 MB to 1.3 MB. Print, search and exports work the same. It is off by default because the data is then no longer readable or searchable in the HTML source.</li>
+<li><strong><code>-SizeBudgetMB</code></strong> warns when the written file is bigger than the budget and names the three biggest tables and blocks.</li>
 </ul>
 <h2 id="search-and-menu-badges-2.4">Search and menu badges (2.4+)</h2>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$r = New-DhDashboard -Title 'Assessment' -Search -NavBadge
@@ -7072,6 +7231,15 @@ Export-DhYamlSchema -OutFile dashhtml.schema.json
 completes keys and flags a mistyped one. The reader ignores unknown keys silently, so the schema is the only place a
 typo such as <code>navTitel</code> is caught. Keys may be written PascalCase, camelCase or lowercase. In a script:
 <code>Test-Json -Json (&lt;layout as JSON&gt;) -Schema (Get-Content dashhtml.schema.json -Raw)</code>.</p>
+<p><strong>One check command (2.6).</strong> <code>Test-DhReport</code> runs every check that applies to what you give it and never changes a file:</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$report | Test-DhReport                       # links, menu lint, size estimate, baseline sanity
+Test-DhReport -Path .\build-ad.ps1            # the upgrade audit (parsed, not run)
+Test-DhReport -Path .\layout.yaml             # the schema; names the failing table and key
+Test-DhReport -Path .\out\*.html -Strict      # built with an older DashHtml? lists the missed fixes; exit code 1 for CI
+Test-DhReport -Path .\out\ad.html -Deep       # also the accessibility and contrast audits (a checkout's Tools, Edge/Chrome)
+</div></div>
+<p><code>-PassThru</code> returns the findings (Check, Severity, Target, Message). A baseline whose rows are nearly all New usually
+means a wrong <code>-KeyField</code>; it is reported as a warning.</p>
 <p>See the <a href="DashHtml.Design/README.md">module README</a> and the
 <a href="Examples/design/">example</a> for the layout schema and full details.</p>
 <hr />
@@ -7254,7 +7422,7 @@ See <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a> for the full lis
   </section>
 
   <div class="page-footer">
-    Generated by Build-DhReference.ps1 · DashHtml v2.5.3 · 2026-10-20 12:56
+    Generated by Build-DhReference.ps1 · DashHtml v2.7.0 · 2026-10-27 10:50
   </div>
 
 </main>

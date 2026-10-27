@@ -60,6 +60,8 @@ function Get-DhJsPrint {
       var eng = engines[d.id.replace(/^chg-removed-/, '')];
       if (eng && eng._renderRemoved) eng._renderRemoved();
     });
+    /* v2.6.0: a windowed tree table draws its open rows (up to 2,000) for paper */
+    dhTtPrintHooks.forEach(function (h) { h.before(); });
 
     /* 1. light theme, without recording it as the reader's choice */
     if (themeMode !== 'light') applyThemeMode('light');
@@ -171,6 +173,7 @@ function Get-DhJsPrint {
       if (engines[id]) { engines[id]._printRows = 0; engines[id].render(); }
     });
     (st.reopened || []).forEach(function (d) { d.open = false; });
+    dhTtPrintHooks.forEach(function (h) { h.after(); });
     document.documentElement.classList.remove('dh-printing');
     if (st.theme !== themeMode) applyThemeMode(st.theme);
   }

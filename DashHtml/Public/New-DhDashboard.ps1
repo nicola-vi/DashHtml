@@ -53,6 +53,13 @@ function New-DhDashboard {
         one: Light (default) | Dark | Auto (follow the system's light/dark
         setting). A choice made with the toggle button always wins.
 
+    .PARAMETER Density
+        v2.7.0. The reading density the report opens at: Normal (default),
+        Compact (tighter rows and a smaller label layer - closest to the
+        pre-2.7.0 look) or Comfortable (taller rows, larger type). The reader
+        can still cycle it with the density button; their choice is kept in
+        the URL, so a shared link carries it.
+
     .PARAMETER PrintCover
         v2.2.0. When the report is printed (or saved as PDF from the browser),
         start with a cover page: title, subtitle, logo, info fields and the
@@ -86,6 +93,12 @@ function New-DhDashboard {
         v2.5.0. More (default): when a menu strip would wrap to a second row (v2.5.3; was: past two rows), the chips that do not fit
         move into a "More" menu and the selected chip always stays visible. Wrap: let them wrap as in
         earlier versions. A short menu looks the same either way.
+
+    .PARAMETER LinkState
+        v2.6.0. Keep each table's sort, page, page size and Change chip in the page address (next to the
+        menu path and the text filters, which are always kept), so a copied link opens the same view.
+        Off by default: without it the address holds what it held before. Unknown or vanished columns in
+        a link are ignored and a page past the end shows the last page.
 
     .PARAMETER StrictNav
         v2.5.0. At export, warn (never throw) about likely menu mistakes: sibling labels that clash,
@@ -160,6 +173,13 @@ function New-DhDashboard {
         [ValidateSet('Light','Dark','Auto')]
         [string]   $ThemeMode = 'Light',
 
+        # ---- v2.7.0 ----
+        # Reading density the report opens at. The density button still cycles
+        # Normal -> Compact -> Comfortable at runtime; this only sets the
+        # starting point, and a reader's choice (URL hash) wins over it.
+        [ValidateSet('Normal','Compact','Comfortable')]
+        [string]   $Density = 'Normal',
+
         # Print a cover page first: title, subtitle, logo, info fields, and the
         # first verdict tile (Add-DhSummary Style='verdict') when there is one.
         [switch]   $PrintCover,
@@ -188,7 +208,11 @@ function New-DhDashboard {
         # When a menu strip would wrap to a second row: More (default) moves the chips that do not fit into
         # a 'More' menu (the selected one always stays visible); Wrap lets them wrap as before.
         [ValidateSet('More','Wrap')]
-        [string]   $NavOverflow = 'More'
+        [string]   $NavOverflow = 'More',
+
+        # ---- v2.6.0 ----
+        # Keep each table's sort, page, page size and Change chip in the page address (a link opens the same view).
+        [switch]   $LinkState
     )
 
     # Map theme family to internal light/dark CSS names
@@ -288,7 +312,7 @@ function New-DhDashboard {
         Subtitle       = $Subtitle
         LogoBase64     = $logoBase64
         LogoMime       = $logoMime
-        ThemeFamily    = $Theme           # user-facing family name (Default | Azure | VMware | Grey | Company)
+        ThemeFamily    = $Theme           # user-facing family name (Default | Azure | VMware | Grey | Company | Rag)
         Theme          = $lightInternal   # internal primary CSS name (always light variant)
         AlternateTheme = $darkInternal    # internal alternate CSS name (always dark variant)
         CssFileName    = ''               # always empty — both themes are embedded in the HTML
@@ -302,6 +326,7 @@ function New-DhDashboard {
         NavLayout      = $NavLayout            # v2.0.0 Auto | Strips | Sidebar
         NavMaxDepth    = $NavMaxDepth          # v2.0.0 policy cap (1-5)
         ThemeMode      = $ThemeMode.ToLowerInvariant()   # v2.2.0 light | dark | auto
+        Density        = $Density.ToLowerInvariant()     # v2.7.0 normal | compact | comfortable
         PrintCover     = [bool]$PrintCover               # v2.2.0
         NavBadge       = [bool]$NavBadge                 # v2.4.0
         Search         = [bool]$Search                   # v2.4.0
@@ -309,6 +334,7 @@ function New-DhDashboard {
         NavTree        = @($navTreeOut)                  # v2.5.0
         StrictNav      = [bool]$StrictNav                # v2.5.0
         NavOverflow    = $NavOverflow                    # v2.5.0
+        LinkState      = [bool]$LinkState                # v2.6.0
     }
 }
 

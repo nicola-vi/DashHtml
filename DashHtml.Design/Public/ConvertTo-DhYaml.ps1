@@ -52,6 +52,7 @@ function ConvertTo-DhYaml {
         if ($Report.Contains('GeneratedBy')    -and $Report.GeneratedBy)    { $model['generatedBy'] = $Report.GeneratedBy }
         # Options added after 1.0: written only when they differ from the default, so older YAML is unchanged
         if ($Report.Contains('ThemeMode')  -and $Report.ThemeMode -and $Report.ThemeMode -ne 'light') { $model['themeMode'] = $Report.ThemeMode }
+        if ($Report.Contains('Density')    -and $Report.Density   -and $Report.Density   -ne 'normal') { $model['density']   = $Report.Density }
         if ($Report.Contains('PrintCover') -and $Report.PrintCover) { $model['printCover'] = $true }
         if ($Report.Contains('NavBadge')   -and $Report.NavBadge)   { $model['navBadge']   = $true }   # DashHtml 2.4.0
         if ($Report.Contains('Search')     -and $Report.Search)     { $model['search']     = $true }   # DashHtml 2.4.0
@@ -63,7 +64,9 @@ function ConvertTo-DhYaml {
         }
         if ($Report.Contains('NavTree') -and @($Report.NavTree).Count -gt 0) { $model['navTree'] = @($Report.NavTree | ForEach-Object { Copy-DhSpec $_ }) }
         if ($Report.Contains('StrictNav') -and $Report.StrictNav) { $model['strictNav'] = $true }
-        if ($Report.Contains('NavOverflow') -and $Report.NavOverflow -and $Report.NavOverflow -ne 'More') { $model['navOverflow'] = $Report.NavOverflow }        if ($Report.Contains('InfoFields') -and @($Report.InfoFields).Count -gt 0) {
+        if ($Report.Contains('NavOverflow') -and $Report.NavOverflow -and $Report.NavOverflow -ne 'More') { $model['navOverflow'] = $Report.NavOverflow }
+        if ($Report.Contains('LinkState') -and $Report.LinkState) { $model['linkState'] = $true }   # DashHtml 2.6.0
+        if ($Report.Contains('InfoFields') -and @($Report.InfoFields).Count -gt 0) {
             $model['infoFields'] = @($Report.InfoFields | ForEach-Object { [ordered]@{ label = $_.Label; value = $_.Value } })
         }
 

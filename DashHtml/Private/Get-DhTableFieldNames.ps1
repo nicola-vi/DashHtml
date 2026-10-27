@@ -15,7 +15,7 @@ function Get-DhTableFieldNames {
     $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($c in @($Table.Columns)) { if ($c -and $c.Field) { [void]$names.Add([string]$c.Field) } }
     foreach ($row in @($Table.Data | Select-Object -First 50)) {
-        if ($row -is [System.Collections.IDictionary]) { foreach ($k in $row.Keys) { [void]$names.Add([string]$k) } }
+        if ($row -is [System.Collections.IDictionary]) { foreach ($k in $row.PSBase.Keys) { [void]$names.Add([string]$k) } }
     }
     , @($names)
 }

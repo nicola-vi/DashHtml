@@ -18,7 +18,7 @@ function Get-DhCssRagDark {
 :root {
   /* RagDark — Office-compatible RAG palette on near-black surface */
   --bg-page:          #0E0E0E;
-  --bg-header:        #141414;
+  --bg-header:        #282828;
   --bg-surface:       #1A1A1A;
   --bg-table:         #161616;
   --bg-row-alt:       #1C1C1C;
@@ -46,7 +46,7 @@ function Get-DhCssRagDark {
 
   --text-primary:   #F2F2F2;
   --text-secondary: #BFBFBF;
-  --text-muted:     #808080;
+  --text-muted:     #9D9D9D;
   --text-accent:    #D9D9D9;
   --text-invert:    #0E0E0E;
 
@@ -58,6 +58,8 @@ function Get-DhCssRagDark {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'SF Pro Display', system-ui, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -68,6 +70,10 @@ function Get-DhCssRagDark {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -99,7 +105,7 @@ function Get-DhCssRagDark {
 
   --nav-bg:            #141414;
   --nav-border:        #2A2A2A;
-  --nav-title-fg:      #808080;
+  --nav-title-fg:      #939393;
   --nav-link-fg:       #BFBFBF;
   --nav-link-hover-bg: rgba(217,217,217,0.08);
   --nav-link-hover-fg: #F2F2F2;

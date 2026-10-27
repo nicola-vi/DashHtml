@@ -49,7 +49,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
 
 $rng = [System.Random]::new(5)
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 $utilRag = @{ Green = @{ Max = 70 }; Amber = @{ Min = 70; Max = 90 }; Red = @{ Min = 90 }; NoData = $true }
 
 $servers = foreach ($i in 1..24) {
@@ -68,7 +68,7 @@ $servers = foreach ($i in 1..24) {
     }
 }
 
-$report = New-DhDashboard -Title 'Tables' -Subtitle 'Cell types, colour rules, detail panel, links and big data' -Theme $Theme -NavTitle 'Tables' -NavMaxDepth 2 -GeneratedBy 'Feature-Tables.ps1'
+$report = New-DhDashboard -Title 'Tables' -Subtitle 'Cell types, colour rules, detail panel, links and big data' -Theme $Theme -NavTitle 'Tables' -NavMaxDepth 2 -GeneratedBy 'Feature-Tables.ps1' -LinkState
 
 # ============================================================== CELLS
 & $note 'n-types' 'Cells/Types and formats' 'Column Format controls how a value is shown (the data stays raw, so sorting and export stay correct): number, currency, bytes, percent, datetime, duration. Align right for numbers. PinFirst keeps the first column in view while you scroll sideways.'
@@ -91,13 +91,14 @@ Add-DhTable -Report $report -TableId 'colour' -Title 'Servers' -NavPath 'Cells/C
 Add-DhBarChart -Report $report -Id 'colour-bars' -Title 'Servers per status (click a bar to filter)' -NavPath 'Cells/Colour rules' -TableId 'colour' -Field 'Status' -ClickFilters `
     -KeyClass @{ OK = 'cell-ok'; Warning = 'cell-warn'; Critical = 'cell-danger' }
 
-& $note 'n-lists' 'Cells/Lists and trends' 'chips shows a list as tags; path draws a chain (who reaches what); sparkline draws a small trend and sorts by its last, max, min, avg or sum; link turns a URL column into a link (http, https and mailto only).'
+& $note 'n-lists' 'Cells/Lists and trends' 'chips shows a list as tags; path draws a chain (who reaches what); sparkline draws a small trend and sorts by its last, max, min, avg or sum; link turns a URL column into a link (http, https, mailto and tel only); UrlTemplate builds the URL from the row (Portal column). New-DhDashboard -LinkState keeps each table''s sort, page and page size in the address, so a copied link opens the same view.'
 Add-DhTable -Report $report -TableId 'lists' -Title 'Servers' -NavPath 'Cells/Lists and trends' -NavLabel 'Lists and trends' -Data $servers -PageSize 8 -Columns @(
     @{ Field = 'Name'; Label = 'Server'; PinFirst = $true }
     @{ Field = 'Roles'; Label = 'Roles'; CellType = 'chips' }
     @{ Field = 'Path'; Label = 'Path to Tier 0'; CellType = 'path' }
     @{ Field = 'Trend'; Label = 'CPU, 8 hours'; CellType = 'sparkline'; SparklineStyle = 'area'; SortBy = 'max' }
-    @{ Field = 'Doc'; Label = 'Runbook'; CellType = 'link'; LinkText = 'Open' } )
+    @{ Field = 'Doc'; Label = 'Runbook'; CellType = 'link'; LinkText = 'Open' }
+    @{ Field = 'Site'; Label = 'Portal'; CellType = 'link'; UrlTemplate = 'https://portal.example.com/sites/{Site}/servers/{Name}' } )
 
 # ============================================================== INTERACTION
 & $note 'n-detail' 'Interaction/Detail panel' 'Click (or press Enter on) a row: every property of the row opens in a side panel, including ones that are not columns. Escape or a click outside closes it. DetailFields chooses and labels the properties.'

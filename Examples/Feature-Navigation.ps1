@@ -74,7 +74,7 @@ $hosts = foreach ($i in 1..8) {
 $vms = foreach ($i in 1..24) {
     [pscustomobject]@{ VM = 'vm-{0:000}' -f $i; Host = 'esxi-{0:00}' -f (1 + $i % 8); Role = @('app', 'db', 'web')[$i % 3]; MemGB = 4 * (1 + $i % 6) }
 }
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'What you are looking at' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'What you are looking at' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 
 $report = New-DhDashboard -Title 'Navigation guide' -Subtitle 'Click through the menu; each view explains itself' `
     -Theme $Theme -NavTitle 'Guide' -GeneratedBy 'Feature-Navigation.ps1' `

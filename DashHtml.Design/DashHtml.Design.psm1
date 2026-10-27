@@ -7,6 +7,9 @@
     ConvertTo-DhYaml     report object -> YAML   (lossless "layout view")
     ConvertFrom-DhYaml   YAML/JSON     -> .ps1   (runnable build script)
     ConvertFrom-DhScript .ps1          -> YAML   (best-effort static parse)
+    Export-DhYamlSchema  cmdlets       -> JSON Schema of the layout
+    Update-DhScript      .ps1          -> 2.0.0 upgrade audit / rewrite
+    Test-DhReport        report, .ps1, .yaml, .html -> findings (2.6.0)
 
     This module changes NOTHING in the core DashHtml module; it is a pure
     design / round-trip tool. It has no external dependencies (self-contained

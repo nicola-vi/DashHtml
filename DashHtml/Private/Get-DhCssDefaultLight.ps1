@@ -7,7 +7,7 @@ function Get-DhCssDefaultLight {
 :root {
   /* DefaultLight — Clean light, blue accents */
   --bg-page:          #F0F4F8;
-  --bg-header:        #FFFFFF;
+  --bg-header:        #005F8A;
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F7FAFE;
@@ -35,8 +35,8 @@ function Get-DhCssDefaultLight {
 
   --text-primary:   #1A2332;
   --text-secondary: #445566;
-  --text-muted:     #8899AA;
-  --text-accent:    #0077BB;
+  --text-muted:     #516071;
+  --text-accent:    #006BA8;
   --text-invert:    #FFFFFF;
 
   --border-subtle:  #DDE4EE;
@@ -46,6 +46,8 @@ function Get-DhCssDefaultLight {
   --font-ui:      'Segoe UI', 'SF Pro Text', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'SF Pro Display', system-ui, sans-serif;
+
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
 
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
@@ -57,6 +59,10 @@ function Get-DhCssDefaultLight {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -87,7 +93,7 @@ function Get-DhCssDefaultLight {
 
   --nav-bg:            #FFFFFF;
   --nav-border:        #DDE4EE;
-  --nav-title-fg:      #8899AA;
+  --nav-title-fg:      #57697A;
   --nav-link-fg:       #445566;
   --nav-link-hover-bg: rgba(0,136,187,0.07);
   --nav-link-hover-fg: #0077BB;
@@ -100,8 +106,8 @@ function Get-DhCssDefaultLight {
   --chart-5: #8844CC;  --chart-6: #E06600;  --chart-7: #0099AA;  --chart-8: #667700;
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
-  --header-fg: #1A2332;
-  --header-fg-muted: #8899AA;
+  --header-fg: #FFFFFF;
+  --header-fg-muted: rgba(255,255,255,0.94);
 }
 '@
 }

@@ -9,7 +9,7 @@ function Get-DhCssGreyLight {
      No strong colour bias — professional, print-friendly feel */
 
   --bg-page:          #EEEEEE;
-  --bg-header:        #455A64;
+  --bg-header:        #37474F;
   --bg-surface:       #F5F5F5;
   --bg-table:         #FAFAFA;
   --bg-row-alt:       #F0F0F0;
@@ -37,7 +37,7 @@ function Get-DhCssGreyLight {
 
   --text-primary:   #263238;
   --text-secondary: #4D6570;
-  --text-muted:     #90A4AE;
+  --text-muted:     #465760;
   --text-accent:    #37474F;
   --text-invert:    #FFFFFF;
 
@@ -49,6 +49,8 @@ function Get-DhCssGreyLight {
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'SF Pro Display', system-ui, -apple-system, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -59,6 +61,10 @@ function Get-DhCssGreyLight {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -89,7 +95,7 @@ function Get-DhCssGreyLight {
 
   --nav-bg:            #ECEFF1;
   --nav-border:        #CFD8DC;
-  --nav-title-fg:      #90A4AE;
+  --nav-title-fg:      #4C5F69;
   --nav-link-fg:       #546E7A;
   --nav-link-hover-bg: rgba(84,110,122,0.08);
   --nav-link-hover-fg: #37474F;
@@ -103,7 +109,7 @@ function Get-DhCssGreyLight {
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #FFFFFF;
-  --header-fg-muted: rgba(255,255,255,0.80);
+  --header-fg-muted: rgba(255,255,255,0.94);
 }
 '@
 }

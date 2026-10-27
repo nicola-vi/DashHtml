@@ -69,7 +69,8 @@ function ConvertTo-DhYamlText {
     $pad = '  ' * $Indent
 
     if (Test-DhYamlMap $InputObject) {
-        foreach ($key in $InputObject.Keys) {
+        # 2.5.4 - PSBase: with -IncludeData a row can have a Keys / Count field, which .Keys would return
+        foreach ($key in $InputObject.PSBase.Keys) {
             $val = $InputObject[$key]
             if (Test-DhYamlScalar $val) {
                 [void]$sb.AppendLine("$pad${key}: $(ConvertTo-DhYamlScalar $val)")
@@ -119,7 +120,7 @@ function ConvertTo-DhYamlSeqBlock {
         }
         elseif (Test-DhYamlMap $item) {
             # First key inline after "- ", the rest indented one level deeper.
-            $keys = @($item.Keys)
+            $keys = @($item.PSBase.Keys)
             if ($keys.Count -eq 0) { [void]$sb.AppendLine("$pad- {}"); continue }
             $childPad = '  ' * ($Indent + 1)
             $first = $true

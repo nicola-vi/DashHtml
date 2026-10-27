@@ -43,7 +43,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../DashHtml/DashHtml.psd1') -Force
 
-$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text }
+$note = { param([string] $Id, [string] $Path, [string] $Text) Add-DhHtmlBlock -Report $report -Id $Id -Title 'In this view' -Style info -NavPath $Path -Content $Text -AllowHtml:$false }
 $servers = @(
     [pscustomobject]@{ Name = 'dc01'; Site = 'HQ';    Os = 'Windows Server 2022'; Cores = 4; RamGB = 8;  CpuPct = 2; Model = 'VMware20,1'; Ip = '10.10.1.11'; Roles = @('PDC', 'GC') }
     [pscustomobject]@{ Name = 'dc02'; Site = 'HQ';    Os = 'Windows Server 2022'; Cores = 4; RamGB = 8;  CpuPct = 4; Model = 'VMware20,1'; Ip = '10.10.1.12'; Roles = @('GC') }

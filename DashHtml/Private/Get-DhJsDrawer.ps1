@@ -47,8 +47,12 @@ function Get-DhJsDrawer {
     if (kind === 'kv') {
       var cols = (sec.columns >= 1 && sec.columns <= 6) ? sec.columns : 2;
       h += '<dl class="dh-kv dh-kv-cols-' + cols + '">' + items.map(function (it) {
+        var shown = it.value == null || it.value === '' ? '&#8212;' : esc(it.value);
+        /* v2.6.0 - a table link column (TableEngine._linkFor sets _link); vetted again here */
+        var lu = it._link ? dhLinkUrl(it._link, true) : '';
+        if (lu) shown = '<a class="cell-link" href="' + esc(lu) + '"' + (it._newTab ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + shown + '</a>';
         return '<div class="dh-kv-item' + secCls(it.status || it['class']) + '"><dt class="dh-kv-label">' + esc(it.label) +
-               '</dt><dd class="dh-kv-value">' + (it.value == null || it.value === '' ? '&#8212;' : esc(it.value)) + '</dd></div>';
+               '</dt><dd class="dh-kv-value">' + shown + '</dd></div>';
       }).join('') + '</dl>';
     } else if (kind === 'bars') {
       var mx = sec.max > 0 ? sec.max : items.reduce(function (m, it) { var v = Number(it.value); return v > m ? v : m; }, 0);

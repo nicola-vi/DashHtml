@@ -9,7 +9,7 @@ function Get-DhCssAzureLight {
      Primary: #0078D4  Font: Segoe UI  Backgrounds: F3F2F1 warm-grey shell */
 
   --bg-page:          #F3F2F1;
-  --bg-header:        #0078D4;
+  --bg-header:        #106EBE;
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #FAF9F8;
@@ -37,8 +37,8 @@ function Get-DhCssAzureLight {
 
   --text-primary:   #323130;
   --text-secondary: #605E5C;
-  --text-muted:     #A19F9D;
-  --text-accent:    #0078D4;
+  --text-muted:     #63605F;
+  --text-accent:    #0068B8;
   --text-invert:    #FFFFFF;
 
   --border-subtle:  #EDEBE9;
@@ -50,6 +50,8 @@ function Get-DhCssAzureLight {
   --font-mono:    'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace;
   --font-display: 'Segoe UI', 'Segoe UI Variable', system-ui, -apple-system, sans-serif;
 
+  --size-2xs:    0.72rem;  /* 11.5px - hard floor, badges and chips only */
+
   --size-xs:    0.75rem;
   --size-sm:    0.85rem;
   --size-base:  0.9375rem;
@@ -60,6 +62,10 @@ function Get-DhCssAzureLight {
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-bold:   700;
+
+  --track-tight:  -0.02em;   /* display numerals, report title */
+  --track-none:   0;
+  --track-label:  0.04em;    /* the few remaining uppercase labels */
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -90,7 +96,7 @@ function Get-DhCssAzureLight {
 
   --nav-bg:            #FFFFFF;
   --nav-border:        #EDEBE9;
-  --nav-title-fg:      #A19F9D;
+  --nav-title-fg:      #696765;
   --nav-link-fg:       #323130;
   --nav-link-hover-bg: rgba(0,120,212,0.07);
   --nav-link-hover-fg: #0078D4;
@@ -104,7 +110,7 @@ function Get-DhCssAzureLight {
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #FFFFFF;
-  --header-fg-muted: rgba(255,255,255,0.80);
+  --header-fg-muted: rgba(255,255,255,0.94);
 }
 '@
 }

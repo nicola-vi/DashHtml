@@ -108,6 +108,11 @@ function Get-DhJsTable {
         acBar.parentNode.insertBefore(acCard,acBar);
       }
     }
+    /* v2.6.0 - New-DhDashboard -LinkState: sort, page size and Change chip from the address before the first render */
+    this.linkState  = !!cfg.linkState;
+    this._pageSize0 = this.pageSize;
+    this._pendingPage = 0;
+    this._restoreLinkState();
     this._initPageSizes();
     this._bindFilter();
     this._bindClearSel();
@@ -119,6 +124,81 @@ function Get-DhJsTable {
     this._buildChangeBar();
     this.render();
   }
+
+  /* ── Table state in the address (v2.6.0, New-DhDashboard -LinkState) ──
+     Only what differs from the default is written: s = [[field, 'asc'|'desc'], ...], p = page (> 1),
+     z = page size (when changed), c = Change chip ('n' | 'c'). The text filter is already kept under
+     "filters". Reading is defensive: unknown or unsortable columns, odd page sizes and other keys are
+     ignored, and a page past the end is clamped once every filter has been restored. */
+  var DH_LS_CAP = 1500, dhLsSeq = 0;
+  var DH_PAGE_SIZES = [5, 10, 15, 25, 50, 100];
+  function dhTableStateGet(eng) {
+    var st = {};
+    if (eng.sortFields.length) st.s = eng.sortFields.map(function (sf) { return [sf.field, sf.dir]; });
+    if (eng.pageable && eng.currentPage > 1) st.p = eng.currentPage;
+    if (eng.pageSize !== eng._pageSize0) st.z = eng.pageSize;
+    if (eng.changeFilter) st.c = eng.changeFilter;
+    return Object.keys(st).length ? st : null;
+  }
+  function dhTableStateSet(eng, st) {
+    if (!st || typeof st !== 'object') return;
+    var sortable = Object.create(null);
+    eng.columns.forEach(function (c) { if (c.sortable !== false) sortable[c.field] = true; });
+    if (Array.isArray(st.s)) {
+      var sf = [];
+      st.s.forEach(function (x) {
+        if (!Array.isArray(x) || typeof x[0] !== 'string' || sortable[x[0]] !== true) return;
+        if (x[1] !== 'asc' && x[1] !== 'desc') return;
+        if (sf.some(function (y) { return y.field === x[0]; })) return;
+        sf.push({ field: x[0], dir: x[1] });
+      });
+      eng.sortFields = sf;
+    }
+    var z = parseInt(st.z, 10);
+    if (DH_PAGE_SIZES.indexOf(z) !== -1) eng.pageSize = z;
+    var p = parseInt(st.p, 10);
+    if (eng.pageable && p > 1) eng._pendingPage = p;
+    if ((st.c === 'n' || st.c === 'c') && eng.base) eng.changeFilter = st.c;
+  }
+  /* Every -LinkState table's state; past DH_LS_CAP characters the least recently used tables are dropped. */
+  function dhTableStateAll(engs) {
+    var list = [];
+    Object.keys(engs).forEach(function (id) {
+      var e = engs[id];
+      if (!e.linkState) return;
+      var st = dhTableStateGet(e);
+      if (st) list.push({ id: id, st: st, touch: e._lsTouch || 0 });
+    });
+    if (!list.length) return null;
+    list.sort(function (a, b) { return b.touch - a.touch; });
+    var out = {}, size = 2, n = 0;
+    list.forEach(function (x) {
+      var add = JSON.stringify(x.id).length + JSON.stringify(x.st).length + 2;
+      if (size + add <= DH_LS_CAP) { out[x.id] = x.st; size += add; n++; }
+    });
+    return n ? out : null;
+  }
+  /* The page from the address, applied after every other filter (card, tree, global) was restored. */
+  function dhTableStateFinish(engs) {
+    Object.keys(engs).forEach(function (id) {
+      var e = engs[id], p = e._pendingPage;
+      if (!p) return;
+      e._pendingPage = 0;
+      var tp = Math.max(1, Math.ceil(e._getFiltered().length / e.pageSize));
+      e.currentPage = Math.min(p, tp);
+      e.render();
+    });
+  }
+  TableEngine.prototype._restoreLinkState = function () {
+    if (!this.linkState) return;
+    var t = URLState.load().t;
+    if (t && typeof t === 'object' && Object.prototype.hasOwnProperty.call(t, this.id)) dhTableStateSet(this, t[this.id]);
+  };
+  TableEngine.prototype._saveLinkState = function () {
+    if (!this.linkState) return;
+    this._lsTouch = ++dhLsSeq;
+    URLState.save();
+  };
 
   /* ── Baseline markers (v2.5.2) ───────────────────────────────────────
      A line under the toolbar ("vs previous run: +3 new, ~2 changed, -1 removed"), Change chips that filter the table,
@@ -133,7 +213,7 @@ function Get-DhJsTable {
     var html = '<span class="tbl-baseline-note">' + esc(dhBaselineNote(b)) + '</span>' +
                '<span class="chg-chips" role="group" aria-label="Filter by change">';
     defs.forEach(function (d) {
-      html += '<button type="button" class="chg-chip" data-chg="' + d[0] + '" aria-pressed="' + (d[0] === '' ? 'true' : 'false') + '">' + esc(d[1]) + ' <span class="chg-n">' + d[2] + '</span></button>';
+      html += '<button type="button" class="chg-chip" data-chg="' + d[0] + '" aria-pressed="' + (d[0] === self.changeFilter ? 'true' : 'false') + '">' + esc(d[1]) + ' <span class="chg-n">' + d[2] + '</span></button>';
     });
     html += '</span>';
     if (b.removed) html += '<label class="chg-incl"><input type="checkbox" class="chg-incl-box"> Include removed rows in exports</label>';
@@ -157,6 +237,7 @@ function Get-DhJsTable {
       self.render();
       self._refreshLinkedBarCharts();
       self._renderCharts();
+      self._saveLinkState();
     });
     var box = bar.querySelector('.chg-incl-box');
     if (box) box.addEventListener('change', function () { self._includeRemoved = box.checked; });
@@ -237,7 +318,7 @@ function Get-DhJsTable {
       if(n===self.pageSize)o.selected=true;
       sel.appendChild(o);
     });
-    sel.addEventListener('change',function(){self.pageSize=parseInt(sel.value,10);self.currentPage=1;self.render();});
+    sel.addEventListener('change',function(){self.pageSize=parseInt(sel.value,10);self.currentPage=1;self.render();self._saveLinkState();});
     if (!this.filterable){var fw=document.getElementById('filter-wrap-'+this.id);if(fw)fw.style.display='none';}
   };
 
@@ -670,19 +751,20 @@ function Get-DhJsTable {
          Only http(s) and mailto become links; anything else, javascript:
          included, is shown as plain text. Built with DOM calls, never
          innerHTML, so neither the URL nor the text can inject markup. */
-      var url = row && col.urlField ? row[col.urlField] : rawVal;
-      url = (url !== null && url !== undefined) ? String(url).trim() : '';
-      var linkTxt = col.linkText || dispVal || url;
-      if (url && /^(https?:|mailto:)/i.test(url)) {
+      /* v2.6.0 - also tel:, relative / #fragment URLs (col.relativeLinks or a template), URL
+         templates (col.urlTemplate) and the link target (col.linkTarget), all in dhLinkUrl / dhLinkFill. */
+      var lk = this._linkFor(col, row, rawVal);
+      if (lk) {
         var a = document.createElement('a');
-        a.href = url;
-        a.textContent = linkTxt;
+        a.href = lk.url;
+        a.textContent = col.linkText || dispVal || lk.url;
         a.className = 'cell-link';
-        if (!/^mailto:/i.test(url)) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
-        a.title = url;
+        if (lk.newTab) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+        a.title = lk.url;
         td.appendChild(a);
       } else {
-        td.textContent = dispVal || url;
+        var rawUrl = row && col.urlField ? row[col.urlField] : rawVal;
+        td.textContent = dispVal || (rawUrl !== null && rawUrl !== undefined ? String(rawUrl).trim() : '');
       }
     } else {
       td.textContent=dispVal;
@@ -1019,7 +1101,7 @@ function Get-DhJsTable {
               self.sortFields=[{field:col.field,dir:'asc'}];
             }
           }
-          self.currentPage=1;self.render();
+          self.currentPage=1;self.render();self._saveLinkState();
         };
         th.addEventListener('click',function(e){ doSort(e.shiftKey); });
         th.addEventListener('keydown',function(e){
@@ -1323,11 +1405,29 @@ function Get-DhJsTable {
       return String(v);
     }
     var title=d.titleField?fmt(row[d.titleField]):'';
+    /* v2.6.0 - a link column's value is the same link in the panel */
+    var self=this, linkCol={};
+    this.columns.forEach(function(c){ if(c.cellType==='link')linkCol[c.field]=c; });
     dhDrawerOpen({
       title:title||this.title,
       subtitle:title?this.title:'',
-      sections:[{kind:'kv',columns:2,items:d.fields.map(function(f){return {label:f.label,value:fmt(row[f.field])};})}]
+      sections:[{kind:'kv',columns:2,items:d.fields.map(function(f){
+        var it={label:f.label,value:fmt(row[f.field])}, c=linkCol[f.field];
+        var lk=c?self._linkFor(c,row,row[f.field]):null;
+        if(lk){ it._link=lk.url; it._newTab=lk.newTab; if(c.linkText)it.value=c.linkText; else if(!it.value)it.value=lk.url; }
+        return it;
+      })}]
     },{opener:tr,restore:'#tbody-'+this.id+' tr[data-idx="'+globalIdx+'"]'});
+  };
+
+  /* v2.6.0 - the link of a CellType='link' cell: { url, newTab }, or null when the value must stay text.
+     A template is author-written, so a relative template is allowed; a data value is relative only
+     with RelativeLinks = $true (a link column holding "N/A" must not become a link to ./N/A). */
+  TableEngine.prototype._linkFor=function(col,row,rawVal){
+    var url;
+    if(col.urlTemplate){ url=dhLinkUrl(dhLinkFill(col.urlTemplate,row),true); }
+    else { url=dhLinkUrl(row&&col.urlField?row[col.urlField]:rawVal,!!col.relativeLinks); }
+    return url?{url:url,newTab:dhLinkNewTab(url,col.linkTarget||'')}:null;
   };
 
   TableEngine.prototype._notifyLinks=function(masterRow){
@@ -1363,7 +1463,7 @@ function Get-DhJsTable {
       var b=document.createElement('button');
       b.className='page-btn'+(active?' page-active':'');
       b.textContent=label;b.disabled=disabled;
-      b.addEventListener('click',function(){if(!disabled){self.currentPage=page;self.render();}});
+      b.addEventListener('click',function(){if(!disabled){self.currentPage=page;self.render();self._saveLinkState();}});
       return b;
     }
     container.appendChild(mkBtn('\u00AB',1,self.currentPage===1,false));

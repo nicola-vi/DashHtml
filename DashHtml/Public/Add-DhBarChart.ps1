@@ -173,7 +173,7 @@ function Add-DhBarChart {
     $keyClassNorm = [ordered]@{}
     if ($PSBoundParameters.ContainsKey('KeyClass') -and $null -ne $KeyClass) {
         # sorted, so the same input always exports the same bytes (a plain @{} has no order)
-        foreach ($k in @($KeyClass.Keys | ForEach-Object { [string]$_ } | Sort-Object -CaseSensitive)) {
+        foreach ($k in @($KeyClass.PSBase.Keys | ForEach-Object { [string]$_ } | Sort-Object -CaseSensitive)) {
             $cls = ([string]$KeyClass[$k]).Trim().ToLowerInvariant() -replace '^cell-', ''
             if ($cls -notin 'ok', 'warn', 'danger', 'nodata') {
                 throw "Add-DhBarChart '$Id': -KeyClass['$k'] must be cell-ok, cell-warn, cell-danger or cell-nodata. Got: '$($KeyClass[$k])'"

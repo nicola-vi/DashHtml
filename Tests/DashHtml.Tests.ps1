@@ -4769,11 +4769,39 @@ Describe 'v2.2.0 features' {
             { Add-DhTable -Report $r -TableId 'repl' -Title 'R' -Data $script:rows -Columns @(@{ Field = 'DC'; Label = 'DC'; CellType = 'link'; UrlField = 'Url' }) } |
                 Should -Throw '*UrlField*'
         }
-        It 'only links http(s) and mailto, and builds the anchor without innerHTML' {
+        It 'only links safe URLs, and builds the anchor without innerHTML' {
             $fn = Get-DhTestJsFunction -Html (Export-DhTestHtml -Report (& $script:newReport)) -Name '_renderCell'
-            $fn | Should -Match "/\^\(https\?:\|mailto:\)/i\.test\(url\)"
+            $fn | Should -Match 'this\._linkFor\(col, row, rawVal\)'   # v2.6.0: the allow-list is dhLinkUrl (node tests)
             $fn | Should -Match "document\.createElement\('a'\)"
             $fn | Should -Match "a\.rel = 'noopener noreferrer'"
+        }
+    }
+
+    Context 'v2.7.0 - Density' {
+        It 'defaults to normal and stores the chosen mode' {
+            (New-DhDashboard -Title 't').Density | Should -Be 'normal'
+            foreach ($d in 'Normal', 'Compact', 'Comfortable') {
+                (New-DhDashboard -Title 't' -Density $d).Density | Should -Be $d.ToLowerInvariant()
+            }
+        }
+        It 'writes the density on the html element' {
+            foreach ($d in 'Normal', 'Compact', 'Comfortable') {
+                $r = New-DhDashboard -Title 't' -Density $d
+                Export-DhTestHtml -Report $r | Should -Match "data-density=`"$($d.ToLowerInvariant())`""
+            }
+        }
+        It 'rejects an unknown density' {
+            { New-DhDashboard -Title 't' -Density 'Roomy' } | Should -Throw
+        }
+        It 'applies the authored density at boot only when the URL carries no choice' {
+            $html = Export-DhTestHtml -Report (New-DhDashboard -Title 't' -Density Compact)
+            $html | Should -Match "getAttribute\('data-density'\)"
+            $html | Should -Match "if \(_d && _d !== 'normal'\) DENSITY\.set\(_d\)"
+        }
+        It 'scales the type tokens, not only the table rows' {
+            $html = Export-DhTestHtml -Report (New-DhDashboard -Title 't')
+            $html | Should -Match 'body\.density-compact \{'
+            $html | Should -Match 'body\.density-comfortable \{'
         }
     }
 
@@ -4782,7 +4810,9 @@ Describe 'v2.2.0 features' {
             foreach ($m in 'Light', 'Dark', 'Auto') {
                 $r = New-DhDashboard -Title 't' -ThemeMode $m
                 $r.ThemeMode | Should -Be $m.ToLowerInvariant()
-                Export-DhTestHtml -Report $r | Should -Match "<html lang=`"en`" data-theme-mode=`"$($m.ToLowerInvariant())`">"
+                # v2.7.0 added data-density to the same element, so match the
+                # attribute rather than the whole tag.
+                Export-DhTestHtml -Report $r | Should -Match "<html lang=`"en`" data-theme-mode=`"$($m.ToLowerInvariant())`""
             }
         }
         It 'follows prefers-color-scheme for Auto, and a saved choice still wins' {
@@ -5317,7 +5347,7 @@ Describe 'v2.3.0 features' {
             foreach ($f in Get-ChildItem (Join-Path $script:root 'DashHtml/Vendor') -Filter 'LICENSE-*.txt') {
                 $notes | Should -Match ([regex]::Escape($f.Name)) -Because $f.Name
             }
-            $notes | Should -Match 'GPL-3.0'
+            $notes | Should -Match 'GPL / AGPL'   # the contributor rule (the design-reference table was trimmed)
             (Get-Content (Join-Path $script:root 'Build.ps1') -Raw) | Should -Match "THIRD-PARTY-NOTICES\.md"
         }
     }
@@ -6622,6 +6652,242 @@ Describe 'v2.5.2 review fixes' {
         $src = Get-Content (Join-Path $script:repo 'Tools/BrowserProbe.ps1') -Raw
         $src | Should -Match "if \(\`$IsWindows\) \{ \`$start\.WindowStyle = 'Hidden' \}"
         $src | Should -Not -Match '-WindowStyle Hidden'
+    }
+}
+
+Describe 'v2.5.4 data fields named Keys, Values or Count' {
+    # On a dictionary, $d.Keys / $d.Count return the ENTRY of that name when there is one,
+    # so every dictionary keyed by data must be read through PSBase.
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:rowsOf = {
+            param([string] $Html)
+            $m = [regex]::Match($Html, '"data":(\[\{.*?\}\])')
+            $m.Success | Should -BeTrue
+            @($m.Groups[1].Value | ConvertFrom-Json)
+        }
+    }
+    It 'exports every field of a <Kind> row' -ForEach @(
+        @{ Kind = 'pscustomobject' }, @{ Kind = 'hashtable' }, @{ Kind = 'ordered' }, @{ Kind = 'generic dictionary' }
+    ) {
+        $row = switch ($Kind) {
+            'pscustomobject' { [pscustomobject]@{ A = 1; Keys = 'First event field'; Values = 'v'; Count = 'c' } }
+            'hashtable'      { @{ A = 1; Keys = 'First event field'; Values = 'v'; Count = 'c' } }
+            'ordered'        { [ordered]@{ A = 1; Keys = 'First event field'; Values = 'v'; Count = 'c' } }
+            default {
+                $d = [System.Collections.Generic.Dictionary[string, object]]::new()
+                $d['A'] = 1; $d['Keys'] = 'First event field'; $d['Values'] = 'v'; $d['Count'] = 'c'
+                $d
+            }
+        }
+        $r = New-DhDashboard -Title 'x'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @($row)
+        @($r.Tables[0].Columns | ForEach-Object { $_.Field } | Sort-Object) | Should -Be @('A', 'Count', 'Keys', 'Values')
+        $rows = & $script:rowsOf (Export-DhTestHtml -Report $r)
+        $rows | Should -HaveCount 1
+        $rows[0].A      | Should -Be 1
+        $rows[0].Keys   | Should -Be 'First event field'
+        $rows[0].Values | Should -Be 'v'
+        $rows[0].Count  | Should -Be 'c'
+        @($rows[0].PSObject.Properties.Name) | Should -HaveCount 4
+    }
+    It 'finds Keys / Count as data fields for chart validation' {
+        $r = New-DhDashboard -Title 'x'
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Columns @(@{ Field = 'Name'; Label = 'Name' }) -Data @(
+            [pscustomobject]@{ Name = 'a'; Keys = 'k'; Count = 3 }, [pscustomobject]@{ Name = 'b'; Keys = 'l'; Count = 5 })
+        { Add-DhBarChart -Report $r -Id 'b' -Title 'B' -TableId 't' -Field 'Keys' -ValueField 'Count' } | Should -Not -Throw
+        { Add-DhRangeBar -Report $r -Id 'rb' -Title 'R' -TableId 't' -CategoryField 'Keys' -ValueField 'Count' } | Should -Not -Throw
+    }
+    It 'compares a baseline keyed on Keys with a changed Count' {
+        $r = New-DhDashboard -Title 'x'
+        $now = @([pscustomobject]@{ Keys = 'k1'; Count = 2 }, [pscustomobject]@{ Keys = 'k2'; Count = 1 })
+        $old = @([pscustomobject]@{ Keys = 'k1'; Count = 1 }, [pscustomobject]@{ Keys = 'Keys'; Count = 5 })
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $now -Baseline $old -KeyField 'Keys'
+        $bl = $r.Tables[0].Baseline
+        $bl.Counts.New     | Should -Be 1
+        $bl.Counts.Changed | Should -Be 1
+        $bl.Counts.Removed | Should -Be 1
+        $bl.Removed[0]['Keys'] | Should -Be 'Keys'
+        $bl.Changes['0'].Fields | Should -Be @('Count')
+        $h = Export-DhTestHtml -Report $r
+        $h | Should -Match '"0":\{"s":"c","f":\["Count"\],"w":\{"Count":1\}\}'
+        $h | Should -Match '"removedRows":\[\{"Keys":"Keys","Count":5\}\]'
+    }
+    It 'keeps tree-table properties and bar-chart key classes named Keys or Count' {
+        $r = New-DhDashboard -Title 'x'
+        Add-DhTreeTable -Report $r -Id 'dir' -Title 'Dir' -Rows @(@{ Id = 'g'; Type = 'group'; Label = 'G'; Properties = [ordered]@{ Count = '7'; Keys = 'k' } })
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ Sev = 'Count' })
+        Add-DhBarChart -Report $r -Id 'b' -Title 'B' -TableId 't' -Field 'Sev' -KeyClass @{ Count = 'cell-danger'; Keys = 'cell-ok' }
+        $h = Export-DhTestHtml -Report $r
+        $h | Should -Match '"props":\[\{"label":"Count","value":"7"\},\{"label":"Keys","value":"k"\}\]'
+        $h | Should -Match '"keyClass":\{"Count":"cell-danger","Keys":"cell-ok"\}'
+    }
+}
+
+Describe 'v2.6.0 features' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:tmp = Join-Path ([IO.Path]::GetTempPath()) ('DH_260_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmp | Out-Null
+        $script:rows = @(
+            [pscustomobject]@{ Name = 'a'; Id = 'x 1'; Cpu = 5; Page = 'a.html' }
+            [pscustomobject]@{ Name = 'b'; Id = 'x/2'; Cpu = 9; Page = 'N/A' })
+        $script:export = {
+            param($Report, [hashtable] $Extra = @{})
+            $p = Join-Path $script:tmp ([guid]::NewGuid().ToString('N') + '.html')
+            Export-DhDashboard -Report $Report -OutputPath $p -Force -WarningVariable w -WarningAction SilentlyContinue @Extra
+            [pscustomobject]@{ Html = (Get-Content -LiteralPath $p -Raw); Warnings = @($w | ForEach-Object { [string]$_ }); Bytes = (Get-Item $p).Length }
+        }
+    }
+    AfterAll { Remove-Item -LiteralPath $script:tmp -Recurse -Force -ErrorAction SilentlyContinue }
+
+    Context 'O9 -BaselinePath' {
+        BeforeAll {
+            $script:old = @([pscustomobject]@{ Name = 'a'; Cpu = 1 }, [pscustomobject]@{ Name = 'z'; Cpu = 2 })
+            $script:old | Export-Clixml (Join-Path $script:tmp 'b.clixml')
+            $script:old | Export-Csv (Join-Path $script:tmp 'b.csv')
+            $script:old | ConvertTo-Json | Set-Content (Join-Path $script:tmp 'b.json')
+        }
+        It 'reads a <Ext> baseline: one changed, one new, one removed' -ForEach @(@{ Ext = 'clixml' }, @{ Ext = 'csv' }, @{ Ext = 'json' }) {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -Columns @(@{ Field = 'Name'; Label = 'N' }, @{ Field = 'Cpu'; Label = 'C' }) `
+                -BaselinePath (Join-Path $script:tmp "b.$Ext") -KeyField 'Name'
+            $c = $r.Tables[0].Baseline.Counts
+            "$($c.New)/$($c.Changed)/$($c.Removed)" | Should -Be '1/1/1'
+            $r.Tables[0].BaselinePath | Should -Match "b\.$Ext$"
+            $r.Tables[0].KeyField | Should -Be 'Name'
+        }
+        It 'warns and builds without markers when the file does not exist yet' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -BaselinePath (Join-Path $script:tmp 'none.clixml') -KeyField 'Name' -WarningVariable w -WarningAction SilentlyContinue
+            $r.Tables[0].Baseline | Should -BeNullOrEmpty
+            ($w -join ' ') | Should -Match 'first run'
+        }
+        It 'rejects <Name>' -ForEach @(
+            @{ Name = 'an unknown extension'; Splat = @{ BaselinePath = 'x.txt'; KeyField = 'Name' }; Msg = '*must end in*' }
+            @{ Name = 'a missing -KeyField';  Splat = @{ BaselinePath = 'x.csv' }; Msg = '*needs -KeyField*' }
+            @{ Name = '-Baseline as well';    Splat = @{ BaselinePath = 'x.csv'; KeyField = 'Name'; Baseline = @() }; Msg = '*not both*' }) {
+            $r = New-DhDashboard -Title 'x'
+            { Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows @Splat } | Should -Throw $Msg
+        }
+        It 'leaves a plain table spec without the new keys' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows
+            $r.Tables[0].Contains('BaselinePath') | Should -BeFalse
+        }
+    }
+
+    Context 'O11 link columns' {
+        It 'emits urlTemplate, linkTarget and relativeLinks only when used' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -Columns @(
+                @{ Field = 'Name'; Label = 'N'; CellType = 'link'; UrlTemplate = 'https://portal/#app/{Id}'; LinkText = 'Open'; LinkTarget = 'same' }
+                @{ Field = 'Page'; Label = 'P'; CellType = 'link'; RelativeLinks = $true }
+                @{ Field = 'Cpu'; Label = 'C'; CellType = 'link' })
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"urlTemplate":"https://portal/#app/\{Id\}","linkText":"Open","linkTarget":"same"'
+            $h | Should -Not -Match '"field":"Name"[^}]*"urlField"'
+            $h | Should -Match '"field":"Page"[^}]*"urlField":"Page","linkText":"","relativeLinks":true'
+            $h | Should -Match '"field":"Cpu"[^}]*"urlField":"Cpu","linkText":""\}?'
+            ([regex]::Match($h, '"field":"Cpu"[^}]*').Value) | Should -Not -Match 'urlTemplate|linkTarget|relativeLinks'
+        }
+        It 'rejects <Name>' -ForEach @(
+            @{ Name = 'UrlTemplate with UrlField';       Col = @{ Field = 'Name'; Label = 'N'; CellType = 'link'; UrlTemplate = 'x{Id}'; UrlField = 'Id' }; Msg = '*not both*' }
+            @{ Name = 'a template field not in the data'; Col = @{ Field = 'Name'; Label = 'N'; CellType = 'link'; UrlTemplate = 'x{Nope}' }; Msg = '*{Nope}*' }
+            @{ Name = 'LinkTarget on a text column';     Col = @{ Field = 'Name'; Label = 'N'; LinkTarget = 'new' }; Msg = "*needs CellType = 'link'*" }
+            @{ Name = 'an unknown LinkTarget';           Col = @{ Field = 'Name'; Label = 'N'; CellType = 'link'; LinkTarget = '_blank' }; Msg = "*'new' or 'same'*" }
+            @{ Name = 'a non-boolean RelativeLinks';     Col = @{ Field = 'Name'; Label = 'N'; CellType = 'link'; RelativeLinks = 'yes' }; Msg = '*RelativeLinks*' }) {
+            $r = New-DhDashboard -Title 'x'
+            { Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -Columns @($Col) } | Should -Throw $Msg
+        }
+        It 'accepts {{ and }} as literal braces in a template' {
+            $r = New-DhDashboard -Title 'x'
+            { Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -Columns @(@{ Field = 'Name'; Label = 'N'; CellType = 'link'; UrlTemplate = 'x{{y}}{Id}' }) } | Should -Not -Throw
+        }
+        It 'shows a link column as the same link in the detail drawer' {
+            $h = Export-DhTestHtml -Report (New-DhDashboard -Title 'x')
+            (Get-DhTestJsFunction -Html $h -Name '_openDetail') | Should -Match '_linkFor\(c,row,row\[f\.field\]\)'
+            (Get-DhTestJsFunction -Html $h -Name 'renderSection') | Should -Match 'dhLinkUrl\(it\._link, true\)'
+        }
+    }
+
+    Context 'O6 -LinkState' {
+        It 'stores the switch and marks every table only when it is on' {
+            $on = New-DhDashboard -Title 'x' -LinkState
+            $on.LinkState | Should -BeTrue
+            Add-DhTable -Report $on -TableId 't' -Title 'T' -Data $script:rows
+            (Export-DhTestHtml -Report $on) | Should -Match '"linkState":true'
+            $off = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $off -TableId 't' -Title 'T' -Data $script:rows
+            (Export-DhTestHtml -Report $off) | Should -Not -Match '"linkState"'
+        }
+        It 'writes table state into the address only through _saveLinkState, which needs the switch' {
+            $h = Export-DhTestHtml -Report (New-DhDashboard -Title 'x')
+            (Get-DhTestJsFunction -Html $h -Name '_saveLinkState') | Should -Match 'if \(!this\.linkState\) return;'
+            $h | Should -Match 'var ts = dhTableStateAll\(engines\);'
+            $h | Should -Match 'dhTableStateFinish\(engines\);'
+        }
+    }
+
+    Context 'O5 -CompressData and -SizeBudgetMB' {
+        BeforeAll {
+            $script:big = 1..3000 | ForEach-Object { [pscustomobject]@{ Name = "server-$_"; Os = 'Windows Server 2022'; Site = "Site $($_ % 12)"; Note = 'the same long note repeated on every row' } }
+        }
+        It 'stores the table and block data gzip + base64 and the plain path stays the default' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:big
+            Add-DhBarChart -Report $r -Id 'b' -Title 'B' -TableId 't' -Field 'Site'
+            $plain = & $script:export $r
+            $zip = & $script:export $r @{ CompressData = $true }
+            $plain.Html | Should -Match 'var DH_ZDATA       = null;'
+            $plain.Html | Should -Match 'server-2999'
+            $zip.Html | Should -Not -Match 'server-2999'
+            $zip.Html | Should -Match 'var TABLES_CONFIG  = \[\];'
+            $m = [regex]::Match($zip.Html, 'var DH_ZDATA       = \{"t":"([A-Za-z0-9+/=]+)","b":"([A-Za-z0-9+/=]+)"\};')
+            $m.Success | Should -BeTrue
+            # compare the data part: the runtime (CSS + JS) is the same in both files
+            $empty = (& $script:export (New-DhDashboard -Title 'x')).Bytes
+            ($zip.Bytes - $empty) | Should -BeLessThan (($plain.Bytes - $empty) / 4)
+            # the payload is exactly the plain JSON
+            $gz = [IO.Compression.GZipStream]::new([IO.MemoryStream]::new([Convert]::FromBase64String($m.Groups[1].Value)), [IO.Compression.CompressionMode]::Decompress)
+            $json = [IO.StreamReader]::new($gz).ReadToEnd()
+            $tables = $json | ConvertFrom-Json
+            $tables[0].id | Should -Be 't'
+            @($tables[0].data).Count | Should -Be 3000
+        }
+        It 'warns above the size budget, naming the biggest table, and never with 0' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 'big' -Title 'T' -Data $script:big
+            $w = (& $script:export $r @{ SizeBudgetMB = 1 }).Warnings -join ' '
+            $w | Should -Match "over the 1 MB budget.*'big'"
+            $w | Should -Match 'Try -CompressData'
+            ((& $script:export $r @{ SizeBudgetMB = 0 }).Warnings -join ' ') | Should -Not -Match 'budget'
+            ((& $script:export $r).Warnings -join ' ') | Should -Not -Match 'budget'
+        }
+        It 'unpacks before boot only when there is something to unpack' {
+            $h = Export-DhTestHtml -Report (New-DhDashboard -Title 'x')
+            $h | Should -Match 'if \(DH_ZDATA\) dhUnzipConfig\(DH_ZDATA, dhBoot\); else dhBoot\(\);'
+            (Get-DhTestJsFunction -Html $h -Name 'dhUnzipConfig') | Should -Match "role', 'alert'"
+        }
+    }
+
+    Context 'O2 and O4 tree tables' {
+        It 'warns above 20000 rows by default and throws only above 100000' {
+            $src =Get-Content (Join-Path $PSScriptRoot '../DashHtml/Public/Add-DhTreeTable.ps1') -Raw
+            $src | Should -Match '\[int\]      \$MaxRows = 20000'
+            $src | Should -Match '-gt 100000\)'
+        }
+        It 'windows above 2,000 rows, adds position and size, and has CSV buttons' {
+            $h = Export-DhTestHtml -Report (New-DhDashboard -Title 'x')
+            $h | Should -Match 'var DH_TT_WIN_MIN = 2000, DH_TT_PRINT_MAX = 2000;'
+            $fn = Get-DhTestJsFunction -Html $h -Name 'renderTreeTable'
+            $fn | Should -Match 'aria-posinset'
+            $fn | Should -Match 'data-tt="csv"'
+            $fn | Should -Match "csvButton\('members'\)"
+            $fn | Should -Match 'dhTtPrintHooks\.push'
+            (Get-DhTestJsFunction -Html $h -Name 'dhBeforePrint') | Should -Match 'dhTtPrintHooks\.forEach\(function \(h\) \{ h\.before\(\); \}\)'
+            $h | Should -Match '\.tt-tree\.tt-win \.dh-tree-row \{ height: var\(--tt-row-h\)'
+        }
     }
 }
 
