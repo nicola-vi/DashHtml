@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Assessment reporting: verdict and score, findings with proof, property tiles, record lists.

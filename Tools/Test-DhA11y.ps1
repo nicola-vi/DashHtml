@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Audits exported DashHtml reports for common accessibility defects with headless Edge/Chrome.

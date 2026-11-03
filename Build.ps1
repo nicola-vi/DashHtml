@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Build.ps1 - Build and package the DashHtml PowerShell modules.
@@ -33,6 +33,11 @@
 .PARAMETER SkipTests
     Skip the Pester test run (useful for rapid local iteration).
 
+.PARAMETER Quick
+    Run only the fast tests: skips the ones tagged Slow (the example smoke tests, the
+    browser audits, compression and the node runner inside Pester). The node tests
+    still run once on their own. Not for a release build.
+
 .PARAMETER SkipLint
     Skip the PSScriptAnalyzer run (useful for rapid local iteration).
 
@@ -47,12 +52,14 @@
     ./Build.ps1 -BumpVersion
     ./Build.ps1 -BumpDesignVersion -NuGet
     ./Build.ps1 -SkipDesign -SkipTests
+    ./Build.ps1 -Quick -SkipLint
 #>
 [CmdletBinding()]
 param(
     [switch] $BumpVersion,
     [switch] $BumpDesignVersion,
     [switch] $SkipTests,
+    [switch] $Quick,
     [switch] $SkipLint,
     [switch] $SkipDesign,
     [switch] $NuGet
@@ -264,7 +271,10 @@ if ($SkipTests) {
         Import-Module $pesterModule.Path -Force
         $testPath = Join-Path $repoRoot 'Tests'
         if (Test-Path $testPath) {
-            $result = Invoke-Pester -Path $testPath -PassThru -Output Minimal
+            $pc = New-PesterConfiguration
+            $pc.Run.Path = $testPath; $pc.Run.PassThru = $true; $pc.Output.Verbosity = 'Minimal'
+            if ($Quick) { $pc.Filter.ExcludeTag = 'Slow'; Write-Host '     -Quick: tests tagged Slow are skipped' -ForegroundColor DarkGray }
+            $result = Invoke-Pester -Configuration $pc
             if ($result.FailedCount -gt 0) {
                 Write-Error "BUILD FAILED: $($result.FailedCount) test(s) failed."
             }
@@ -274,7 +284,8 @@ if ($SkipTests) {
                 try {
                     $nodeOut = & node --test 'Tests/js/*.test.js' 2>&1 | Out-String
                     if ($LASTEXITCODE -ne 0) { Write-Error "BUILD FAILED: node tests failed.`n$nodeOut" }
-                    $np = [regex]::Match($nodeOut, '(?m)^.\s*pass\s+(\d+)').Groups[1].Value
+                    # \S* not ".": the console code page (437) decodes node's UTF-8 info sign as three characters
+                    $np = [regex]::Match($nodeOut, '(?m)^\S*\s*pass\s+(\d+)').Groups[1].Value
                     Write-Host "     Node tests passed: $np" -ForegroundColor Green
                 } finally { Pop-Location }
             } else { Write-Host "     node not found - JS tests skipped." -ForegroundColor DarkGray }

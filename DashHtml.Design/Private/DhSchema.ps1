@@ -29,6 +29,7 @@ $script:DhTypeToCmdlet = @{
     treefilter     = 'Add-DhTreeFilter'    # DashHtml 2.4.0
     networkmap     = 'Add-DhNetworkMap'    # DashHtml 2.4.0
     treetable      = 'Add-DhTreeTable'     # DashHtml 2.5.0
+    gantt          = 'Add-DhGantt'         # DashHtml 3.1.0
 }
 
 $script:DhCommonParams = @(

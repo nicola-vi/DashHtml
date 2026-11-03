@@ -19,7 +19,7 @@ function Remove-DhProbeSession {
 
 # Returns the POSTed body (string) or $null on timeout. $Script may contain /*%%PORT%%*/0 for the listener port.
 function Invoke-DhProbe {
-    param([Parameter(Mandatory)] $Session, [Parameter(Mandatory)][string] $HtmlFile, [Parameter(Mandatory)][string] $Script, [int] $TimeoutSec = 60)
+    param([Parameter(Mandatory)] $Session, [Parameter(Mandatory)][string] $HtmlFile, [Parameter(Mandatory)][string] $Script, [int] $TimeoutSec = 60, [string[]] $ExtraArgs = @())
     $Session.Count++
     $html = [IO.File]::ReadAllText($HtmlFile)
     $inject = "<script>`n" + $Script.Replace('/*%%PORT%%*/0', [string]$Session.Port) + "`n</script>"
@@ -28,7 +28,7 @@ function Invoke-DhProbe {
     $copy = Join-Path $Session.Work "page$($Session.Count).html"
     [IO.File]::WriteAllText($copy, $html, (New-Object Text.UTF8Encoding($false)))
     $prof = Join-Path $Session.Work "profile$($Session.Count)"
-    $start = @{ FilePath = $Session.Browser; ArgumentList = @('--headless=new', '--disable-gpu', "--user-data-dir=$prof", ([Uri]$copy).AbsoluteUri); PassThru = $true }
+    $start = @{ FilePath = $Session.Browser; ArgumentList = @(@('--headless=new', '--disable-gpu', "--user-data-dir=$prof") + $ExtraArgs + ([Uri]$copy).AbsoluteUri); PassThru = $true }
     if ($IsWindows) { $start.WindowStyle = 'Hidden' }      # -WindowStyle is not supported on Linux / macOS
     $proc = Start-Process @start
     $body = $null
@@ -39,6 +39,22 @@ function Invoke-DhProbe {
             $body = (New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)).ReadToEnd()
             $ctx.Response.StatusCode = 204; $ctx.Response.Close()
         }
-    } finally { if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } }
+    } finally {
+        if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+        Stop-DhProbeBrowser -ProfileDir $prof
+    }
     return $body
+}
+
+# 3.0.0 - on Windows the started msedge.exe is a launcher that exits at once; the headless browser (and its
+# helpers) kept running after every probe. They are found by their own --user-data-dir and stopped.
+function Stop-DhProbeBrowser {
+    param([Parameter(Mandatory)][string] $ProfileDir)
+    $procs = if ($IsWindows) {
+        @(Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue |
+          Where-Object { $_.CommandLine -and $_.CommandLine.Contains($ProfileDir) } | ForEach-Object { $_.ProcessId })
+    } else {
+        @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($ProfileDir) } | ForEach-Object Id)
+    }
+    foreach ($id in $procs) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
 }

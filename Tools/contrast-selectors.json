@@ -33,6 +33,7 @@
     ".chg-incl",
     ".tbl-removed > summary",
     ".tbl-removed-table td",
+    ".report-title",
     ".report-subtitle",
     ".meta-label",
     ".meta-value",
@@ -60,7 +61,14 @@
     ".pagesize-label",
     ".table-info",
     ".ns-group",
-    ".cell-badge"
+    ".cell-badge",
+    ".gantt-title",
+    ".gt-tick",
+    ".gt-label",
+    ".gt-lane",
+    ".gt-txt",
+    ".gt-foot-lbl",
+    ".gt-leg"
   ],
   "accept": [
     {

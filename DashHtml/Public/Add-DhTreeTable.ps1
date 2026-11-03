@@ -82,8 +82,6 @@ function Add-DhTreeTable {
         [bool]     $DefaultOpen = $true,
         [ValidateRange(0,12)]
         [int]      $GridSpan    = 0,
-        [string]   $NavGroup    = '',
-        [string]   $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 5) ----
         [string]   $NavPath     = '',
         [ValidateSet('','Exact','Subtree','Global')]
@@ -93,7 +91,6 @@ function Add-DhTreeTable {
     )
 
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhTreeTable'
     if (-not $Report.Contains('_DhNavSeq')) { $Report['_DhNavSeq'] = 0 }
     $navSeqNo = [int]$Report['_DhNavSeq']; $Report['_DhNavSeq'] = $navSeqNo + 1
@@ -117,34 +114,40 @@ function Add-DhTreeTable {
 
     $types = @('ou', 'group', 'user', 'computer', 'container', 'other')
     $allowedStatus = @('ok', 'warn', 'danger', 'info', 'nodata', '')
+    $statusAlias = @{ warning = 'warn'; critical = 'danger'; error = 'danger' }
 
     $ids = @{}
     $norm = foreach ($r in $Rows) {
         if ($r -isnot [System.Collections.IDictionary]) {
             throw "Add-DhTreeTable '$Id': each row must be a hashtable. Got: $($r.GetType().Name)"
         }
-        foreach ($req in 'Id', 'Type', 'Label') {
-            if (-not $r.Contains($req) -or [string]::IsNullOrWhiteSpace([string]$r[$req])) {
-                throw "Add-DhTreeTable '$Id': each row must have a non-empty '$req' key."
-            }
+        # v3.0.0 - one combined check per row (this loop runs up to 100,000 times); the
+        # key is named only on failure.
+        if ([string]::IsNullOrWhiteSpace([string]$r['Id']) -or [string]::IsNullOrWhiteSpace([string]$r['Type']) -or [string]::IsNullOrWhiteSpace([string]$r['Label'])) {
+            $req = foreach ($k in 'Id', 'Type', 'Label') { if ([string]::IsNullOrWhiteSpace([string]$r[$k])) { $k; break } }
+            throw "Add-DhTreeTable '$Id': each row must have a non-empty '$req' key."
         }
         $rid = [string]$r['Id']
         if ($ids.ContainsKey($rid)) { throw "Add-DhTreeTable '$Id': duplicate row Id '$rid'." }
         $ids[$rid] = $true
         $type = ([string]$r['Type']).Trim().ToLowerInvariant()
         if ($type -notin $types) { throw "Add-DhTreeTable '$Id': row '$rid' Type must be one of $($types -join ', '). Got: $($r['Type'])" }
-        $status = if ($r.Contains('Status') -and $r['Status']) { ConvertTo-DhStatusName $r['Status'] } else { '' }
-        $status = switch ($status) { 'warning' { 'warn' } 'critical' { 'danger' } 'error' { 'danger' } default { $status } }
+        $sv = $r['Status']
+        $status = if ($sv) { ([string]$sv).Trim().ToLowerInvariant() -replace '^cell-', '' } else { '' }   # ConvertTo-DhStatusName, inline (hot loop)
+        if ($statusAlias.ContainsKey($status)) { $status = $statusAlias[$status] }
         if ($status -notin $allowedStatus) { throw "Add-DhTreeTable '$Id': row '$rid' Status must be ok, warn, danger, info or nodata. Got: $($r['Status'])" }
         $props = [ordered]@{}
-        if ($r.Contains('Properties') -and $null -ne $r['Properties']) {
-            if ($r['Properties'] -isnot [System.Collections.IDictionary]) { throw "Add-DhTreeTable '$Id': row '$rid' Properties must be a hashtable of label = value." }
-            foreach ($k in $r['Properties'].PSBase.Keys) { $props[[string]$k] = $(if ($null -eq $r['Properties'][$k]) { '' } else { [string]$r['Properties'][$k] }) }
+        $src = $r['Properties']
+        if ($null -ne $src) {
+            if ($src -isnot [System.Collections.IDictionary]) { throw "Add-DhTreeTable '$Id': row '$rid' Properties must be a hashtable of label = value." }
+            foreach ($k in $src.PSBase.Keys) { $v = $src[$k]; $props[[string]$k] = if ($null -eq $v) { '' } else { [string]$v } }
         }
-        $flags = @(if ($r.Contains('Flags') -and $null -ne $r['Flags']) { @($r['Flags']) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { [string]$_ } })
+        $fv = $r['Flags']
+        $flags = [string[]]@(if ($null -ne $fv) { foreach ($fl in @($fv)) { if (-not [string]::IsNullOrWhiteSpace([string]$fl)) { [string]$fl } } })
+        $pv = [string]$r['ParentId']
         [ordered]@{
             Id         = $rid
-            ParentId   = if ($r.Contains('ParentId') -and -not [string]::IsNullOrWhiteSpace([string]$r['ParentId'])) { [string]$r['ParentId'] } else { '' }
+            ParentId   = if ([string]::IsNullOrWhiteSpace($pv)) { '' } else { $pv }
             Type       = $type
             Label      = [string]$r['Label']
             Status     = $status
@@ -162,12 +165,19 @@ function Add-DhTreeTable {
         if ($n.ParentId -and -not $byId.ContainsKey($n.ParentId)) { throw "Add-DhTreeTable '$Id': row '$($n.Id)' references unknown ParentId '$($n.ParentId)'." }
         if ($n.Id -eq $n.ParentId) { throw "Add-DhTreeTable '$Id': row '$($n.Id)' cannot be its own parent." }
     }
+    # v3.0.0 - a chain that reached the root once is known good, so each row is walked
+    # only until it meets a checked row (was: every row walked to the root).
+    $rooted = [System.Collections.Generic.HashSet[string]]::new()
     foreach ($n in $norm) {
-        $seen = @{ ($n.Id) = $true }; $cur = $n.ParentId; $depth = 0
-        while ($cur -and $depth -lt 100000) {
-            if ($seen.ContainsKey($cur)) { throw "Add-DhTreeTable '$Id': the ParentId chain loops at row '$cur' (starting from '$($n.Id)'). Containers cannot contain themselves; group nesting belongs in -Memberships." }
-            $seen[$cur] = $true; $cur = $byId[$cur].ParentId; $depth++
+        # The common case, a row whose parent is already known good, allocates nothing.
+        if (-not $n.ParentId -or $rooted.Contains($n.ParentId)) { [void]$rooted.Add($n.Id); continue }
+        $seen = [System.Collections.Generic.List[string]]::new(); $seenSet = @{ ($n.Id) = $true }
+        $seen.Add($n.Id); $cur = $n.ParentId
+        while ($cur -and -not $rooted.Contains($cur)) {
+            if ($seenSet.ContainsKey($cur)) { throw "Add-DhTreeTable '$Id': the ParentId chain loops at row '$cur' (starting from '$($n.Id)'). Containers cannot contain themselves; group nesting belongs in -Memberships." }
+            $seenSet[$cur] = $true; $seen.Add($cur); $cur = $byId[$cur].ParentId
         }
+        foreach ($sid in $seen) { [void]$rooted.Add($sid) }
     }
 
     # Memberships: both ends must be rows; duplicates dropped; a non-group GroupId is a warning
@@ -199,8 +209,6 @@ function Add-DhTreeTable {
         Height           = $Height
         DefaultOpenDepth = $DefaultOpenDepth
         MaxNestingPaths  = $MaxNestingPaths
-        NavGroup         = $NavGroup
-        NavSubGroup      = $NavSubGroup
         NavPath          = $NavPath
         NavSegments      = $navDecl.Path
         NavSeqNo         = $navSeqNo

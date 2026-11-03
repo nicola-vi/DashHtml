@@ -52,8 +52,6 @@ function Add-DhTopologyMap {
         Hard ceiling. Default 200. Throws above this. Trees larger than this
         usually need a different visualisation anyway.
 
-    .PARAMETER NavGroup       Primary nav group label.
-    .PARAMETER NavSubGroup    Optional second-level group.
 
     .EXAMPLE
         Add-DhTopologyMap -Report $report -Id 'ad-forest' -Title 'AD Forest' `
@@ -112,8 +110,6 @@ function Add-DhTopologyMap {
 
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
-        [string] $NavGroup    = '',
-        [string] $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -122,10 +118,8 @@ function Add-DhTopologyMap {
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhTopologyMap'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -228,8 +222,6 @@ function Add-DhTopologyMap {
         AutoFitWidth    = [bool]$AutoFitWidth.IsPresent
         AutoFitMaxWidth = $AutoFitMaxWidth
         Interactive     = $Interactive
-        NavGroup    = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

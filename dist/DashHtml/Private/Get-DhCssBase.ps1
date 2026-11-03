@@ -42,7 +42,10 @@ body {
    3. REPORT HEADER
    --------------------------------------------------------------------------- */
 .report-header {
-  background: var(--bg-header);
+  /* 3.0.0 - a 120deg gradient from --bg-header to --bg-header-end. Header text must
+     clear 4.5:1 on both stops; a theme without the end token stays flat. */
+  background-color: var(--bg-header);
+  background-image: linear-gradient(120deg, var(--bg-header) 0%, var(--bg-header-end, var(--bg-header)) 100%);
   border-bottom: 1px solid var(--border-subtle);
   min-height: var(--header-height);
   display: flex;
@@ -61,7 +64,7 @@ body {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+  background: linear-gradient(90deg, transparent, var(--header-line, var(--accent-primary)), transparent);
 }
 
 .header-brand {
@@ -79,15 +82,6 @@ body {
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   filter: brightness(0.95);
-}
-
-.report-logo-placeholder {
-  width: 44px;
-  height: 44px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
 }
 
 .header-titles { min-width: 0; }
@@ -120,15 +114,13 @@ body {
   gap: 2px;
 }
 
-.meta-label {
+/* 3.0.0 - the header font (was monospace at --size-sm), one size for label and value */
+.meta-label,
+.meta-value {
+  font-family: var(--font-ui);
   font-size: var(--size-xs);
   color: var(--header-fg-muted);
-}
-
-.meta-value {
-  font-family: var(--font-mono);
-  font-size: var(--size-sm);
-  color: var(--header-fg-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1550,10 +1542,9 @@ th.th-center   { text-align: center !important; }
 }
 .alert-banner.alert-dismissed { opacity: 0; transform: translateY(-4px); }
 
-/* v1.4.2+ — Banners with -NavGroup default to hidden; the nav routing adds
-   .panel-active when the matching nav tab is selected. Page-global banners
-   (no data-navgroup) stay visible everywhere as before. */
-.alert-banner[data-navgroup]:not(.panel-active),
+/* Banners with -NavPath default to hidden; the nav routing adds
+   .panel-active when the matching menu node is selected. Page-global banners
+   (no data-navpath) stay visible everywhere. */
 .alert-banner[data-navpath]:not(.panel-active) { display: none; }
 
 .alert-banner .alert-body {
@@ -3850,8 +3841,7 @@ body.density-comfortable {
     padding-bottom: 3pt;
     border-bottom: 1px solid #999;
     break-after: avoid;
-  }
-  .dh-print-note { display: block; font-size: 8pt; font-style: italic; color: #555; margin: 4pt 0 0; }
+  }  .dh-print-note { display: block; font-size: 8pt; font-style: italic; color: #555; margin: 4pt 0 0; }
   .dh-print-cover {
     display: flex;
     flex-direction: column;
@@ -4210,6 +4200,18 @@ tr.dh-drawer-row { cursor: pointer; }
 .col-toggle-reset { display: block; width: 100%; margin-top: 4px; padding: 5px 8px; font: inherit; font-size: var(--size-xs); text-align: left; cursor: pointer; color: var(--text-secondary); background: transparent; border: 0; border-top: 1px solid var(--border-subtle); }
 .col-toggle-reset:hover, .col-toggle-reset:focus-visible { color: var(--text-primary); background: var(--progress-track-bg); }
 
+/* v3.0.0 - saved views (Add-DhTable -RememberViews): the Views menu next to Columns */
+.views-dropdown { min-width: 240px; }
+.views-item { display: flex; align-items: center; gap: 4px; }
+.views-apply { flex: 1; min-width: 0; text-align: left; padding: 5px var(--space-sm); font: inherit; font-size: var(--size-sm); color: var(--text-primary); background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.views-apply:hover, .views-apply:focus-visible { background: var(--bg-row-hover); }
+.views-del { flex: none; width: 24px; height: 24px; font: inherit; color: var(--text-secondary); background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer; }
+.views-del:hover, .views-del:focus-visible { color: var(--cell-danger-fg); background: var(--cell-danger-bg); }
+.views-empty, .views-note { padding: 5px var(--space-sm); font-size: var(--size-xs); color: var(--text-muted); }
+.views-save { display: flex; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-subtle); }
+.views-name { flex: 1; min-width: 0; padding: 4px 6px; font: inherit; font-size: var(--size-sm); color: var(--text-primary); background: var(--bg-page); border: 1px solid var(--border-medium); border-radius: var(--radius-sm); }
+.views-save-btn { padding: 4px 10px; font: inherit; font-size: var(--size-xs); color: var(--accent-primary-fg); background: var(--accent-primary); border: 0; border-radius: var(--radius-sm); cursor: pointer; }
+
 /* ── Menu overflow (v2.5.0) ────────────────────────────────────────────── */
 .nav-more { position: relative; display: inline-block; }
 .nav-more-btn {
@@ -4430,6 +4432,168 @@ td.cell-changed { outline: 1px dashed var(--cell-warn-fg); outline-offset: -2px;
   .col-resizer, .sort-icon { display: none !important; }
   /* soft shadows print as blurred images and can hide the content on top of them */
   *, *::before, *::after { box-shadow: none !important; text-shadow: none !important; }
+}
+
+/* ── Gantt timeline (v3.1.0, Add-DhGantt) ─────────────────────────────────
+   Bars sit in % of the track, so the chart reflows at any width and on paper.
+   Colours only through theme tokens: a status bar uses the status pill colour
+   (cell-*-fg, info = accent-primary), a category the chart palette. Text never
+   sits on a bar colour: inside a bar it is a surface-coloured pill. */
+.gantt-section {
+  --gt-line: 30px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-xs);
+}
+.gantt-title {
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+.gantt-empty { color: var(--text-muted); font-style: italic; padding: var(--space-md); text-align: center; }
+.gantt-note { margin: var(--space-xs) 0 0; font-size: var(--size-xs); color: var(--text-secondary); }
+.gantt-scroller { width: 100%; overflow-x: auto; }
+.gantt-plot {
+  min-width: 560px;
+  display: grid;
+  grid-template-columns: fit-content(34%) minmax(0, 1fr);
+  column-gap: 14px;
+  position: relative;
+}
+.gt-axis { grid-column: 2; position: relative; height: 24px; border-bottom: 1px solid var(--border-medium); }
+.gt-tick {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.gt-tick-major { color: var(--text-secondary); font-weight: var(--weight-bold); }
+.gt-tick-l { transform: none; }
+.gt-tick-r { transform: translateX(-100%); }
+.gt-overlay { grid-column: 2; position: relative; pointer-events: none; }
+.gt-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border-subtle); }
+.gt-grid-major { background: var(--border-medium); }
+.gt-band {
+  position: absolute;
+  top: 0; bottom: 0;
+  background: var(--bg-row-hover);
+  border-left: 1px dashed var(--border-medium);
+  border-right: 1px dashed var(--border-medium);
+}
+.gt-mark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--gt-c, var(--text-secondary)); transform: translateX(-1px); }
+.gt-mark-r { transform: translateX(-2px); }
+.gt-lane {
+  grid-column: 1 / -1;
+  position: relative;
+  z-index: 1;
+  background: var(--bg-surface);
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+}
+.gt-label {
+  grid-column: 1;
+  min-width: 0;
+  line-height: var(--gt-line);
+  font-size: var(--size-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gt-track { grid-column: 2; position: relative; }
+.gt-bar, .gt-ms { position: absolute; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; }
+.gt-bar {
+  min-width: 3px;
+  margin-top: 6px;
+  height: calc(var(--gt-line) - 12px);
+  border-radius: var(--radius-sm);
+  background: var(--gt-c, var(--accent-primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.gt-ms {
+  width: 12px;
+  height: 12px;
+  margin-top: calc((var(--gt-line) - 12px) / 2);
+  margin-left: -6px;
+  transform: rotate(45deg);
+  border-radius: 1px;
+  background: var(--gt-c, var(--text-primary));
+}
+button.gt-bar, button.gt-ms { cursor: pointer; }
+.gt-crit { outline: 2px solid var(--text-primary); outline-offset: 1px; }
+.gt-bar:focus-visible, .gt-ms:focus-visible { outline: 3px solid var(--accent-primary); outline-offset: 2px; }
+.gt-txt {
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--size-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.gt-txt-out {
+  position: absolute;
+  height: var(--gt-line);
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  color: var(--text-secondary);
+}
+.gt-plain     { --gt-c: var(--accent-primary); }
+.gt-st-ok     { --gt-c: var(--cell-ok-fg); }
+.gt-st-warn   { --gt-c: var(--cell-warn-fg); }
+.gt-st-danger { --gt-c: var(--cell-danger-fg); }
+.gt-st-info   { --gt-c: var(--accent-primary); }
+.gt-st-nodata { --gt-c: var(--cell-nodata-fg); }
+.gt-cat-1 { --gt-c: var(--chart-1); } .gt-cat-2 { --gt-c: var(--chart-2); }
+.gt-cat-3 { --gt-c: var(--chart-3); } .gt-cat-4 { --gt-c: var(--chart-4); }
+.gt-cat-5 { --gt-c: var(--chart-5); } .gt-cat-6 { --gt-c: var(--chart-6); }
+.gt-cat-7 { --gt-c: var(--chart-7); } .gt-cat-8 { --gt-c: var(--chart-8); }
+.gt-foot { grid-column: 2; position: relative; height: 24px; }
+.gt-foot-lbl { position: absolute; top: 4px; font-size: var(--size-xs); color: var(--text-secondary); white-space: nowrap; }
+.gt-band-lbl { padding-left: 4px; }
+.gt-mark-lbl { transform: translateX(-50%); }
+.gt-mark-lbl.gt-tick-l { transform: none; }
+.gt-mark-lbl.gt-tick-r { transform: translateX(-100%); }
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: var(--space-sm);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--size-xs);
+  color: var(--text-secondary);
+}
+.gt-leg { display: inline-flex; align-items: center; gap: 6px; }
+.gt-sw { width: 14px; height: 10px; border-radius: 2px; background: var(--gt-c, var(--accent-primary)); }
+.gt-sw.gt-crit { outline-width: 2px; outline-offset: 1px; }
+.gt-sw-ms { width: 9px; height: 9px; background: var(--text-primary); transform: rotate(45deg); }
+@media print {
+  .gantt-scroller { overflow: visible; }
+  .gantt-plot { min-width: 0; }
+  .gt-label, .gt-track, .gt-lane { break-inside: avoid; }
+  .gt-table-toggle { display: none !important; }
+  .gt-data-table table[hidden] { display: table !important; }
 }
 
 '@

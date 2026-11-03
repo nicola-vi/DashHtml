@@ -47,8 +47,6 @@ function Add-DhKeyValue {
         [bool]     $DefaultOpen = $true,
         [ValidateRange(0,12)]
         [int]      $GridSpan    = 0,
-        [string]   $NavGroup    = '',
-        [string]   $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 5) ----
         [string]   $NavPath     = '',
         [ValidateSet('','Exact','Subtree','Global')]
@@ -58,7 +56,6 @@ function Add-DhKeyValue {
     )
 
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhKeyValue'
     if (-not $Report.Contains('_DhNavSeq')) { $Report['_DhNavSeq'] = 0 }
     $navSeqNo = [int]$Report['_DhNavSeq']; $Report['_DhNavSeq'] = $navSeqNo + 1
@@ -85,8 +82,6 @@ function Add-DhKeyValue {
         # the exporter rebuilds the section from these.
         Items       = @($sections[0].Items)
         Columns     = $Columns
-        NavGroup    = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments = $navDecl.Path
         NavSeqNo    = $navSeqNo

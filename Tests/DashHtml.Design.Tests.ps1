@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS  Pester 5 test suite for the DashHtml.Design companion module.
 .DESCRIPTION
@@ -652,5 +652,77 @@ Describe 'DashHtml 2.6.0 Test-DhReport' {
     }
     It 'reports a missing file instead of throwing' {
         (Test-DhReport -Path (Join-Path $script:tdr 'nope.html') -PassThru).Severity | Should -Be 'error'
+    }
+}
+
+Describe 'DashHtml 3.0.0 upgrade, brand and views' {
+    BeforeAll {
+        $script:u3 = Join-Path ([IO.Path]::GetTempPath()) ('dhu3_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $script:u3 'scripts') -Force | Out-Null
+        $script:old = @'
+$r = New-DhDashboard -Title T
+Add-DhTable -Report $r -TableId 'vols' -Title 'Volumes' -Data $d -NavGroup 'Storage'
+Add-DhTable -Report $r -TableId 'luns' -Title 'LUNs' -Data $d `
+    -NavGroup 'Storage' `
+    -NavSubGroup 'Block/SAN' `
+    -PageSize 25
+Add-DhBarChart -Report $r -Id 'c1' -TableId 'vols' -Field 'Pool' -NavGroup "Storage" -NavSubGroup 'Capacity'
+Add-DhSummary -Report $r -Items @() -NavGroup:'Ops' -NavScope Exact
+Add-DhHtmlBlock -Report $r -Id 'h' -Content 'plain' -NavGroup $grp
+Add-DhBullet -Report $r -Id 'b' -Items @( @{ Label='x'; Value=1; Bands=@(@{Max=1;Class='cell-ok'}) } )
+Add-DhPieChart -Report $r -Id 'p' -TableId vols -Field F -NavGroup "O'Brien"
+'@
+    }
+    AfterAll { Remove-Item -LiteralPath $script:u3 -Recurse -Force -ErrorAction SilentlyContinue }
+
+    It 'Update-DhScript rewrites -NavGroup / -NavSubGroup and Bands, and leaves a variable to a human' {
+        $f = Join-Path $script:u3 'scripts/old.ps1'
+        Set-Content -LiteralPath $f -Value $script:old -Encoding utf8NoBOM
+        $found = @(Update-DhScript -Path $f -PassThru)
+        $found.Count | Should -Be 7
+        @($found | Where-Object { -not $_.Fixable }).Count | Should -Be 1
+        $null = Update-DhScript -Path $f -Apply -BackupPath (Join-Path $script:u3 'bk') -PassThru
+        $text = Get-Content -LiteralPath $f -Raw
+        $text | Should -Match "-TableId 'vols' -Title 'Volumes' -Data \`$d -NavPath 'Storage/vols'"
+        $text | Should -Match "-NavPath 'Storage/Block//SAN/luns' ``\r?\n    -PageSize 25"
+        $text | Should -Match "-NavPath 'Storage/Capacity' -NavScope Subtree"
+        $text | Should -Match "-NavPath 'Ops' -NavScope Exact"
+        $text | Should -Match "-NavPath 'O''Brien' -NavScope Subtree"
+        $text | Should -Match 'Thresholds=@\('
+        $text | Should -Not -Match 'NavSubGroup|Bands'
+        $err = $null; $null = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$null, [ref]$err); @($err).Count | Should -Be 0
+        $again = @(Update-DhScript -Path $f -PassThru)
+        $again.Count | Should -Be 1 -Because 'only the variable -NavGroup is left'
+        $again[0].Issue | Should -Match 'not a literal'
+        @(Get-ChildItem (Join-Path $script:u3 'bk')).Count | Should -Be 1
+    }
+    It 'Test-DhReport lists a leftover -NavGroup as ACTION' {
+        $f = Join-Path $script:u3 'left.ps1'
+        Set-Content -LiteralPath $f -Value "Add-DhTable -Report `$r -TableId 't' -Title 'T' -Data `$d -NavGroup 'G'" -Encoding utf8NoBOM
+        $r = @(Test-DhReport -Path $f -PassThru)
+        @($r | Where-Object { $_.Severity -eq 'ACTION' -and $_.Message -match 'NavGroup' }).Count | Should -Be 1
+    }
+    It 'brand colours, font and saved views survive the YAML round trip' {
+        $r = New-DhDashboard -Title 'B' -PrimaryColor '#0055A4' -SecondaryColor '#1D252D' -AccentColor '#C86E00' -FontFamily 'Inter' -WarningAction SilentlyContinue
+        Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([pscustomobject]@{ A = 1 }) -RememberViews
+        $yaml = ConvertTo-DhYaml -Report $r
+        $yaml | Should -Match 'primaryColor:'
+        $yaml | Should -Match 'fontFamily: Inter'
+        $yaml | Should -Match 'rememberViews: true'
+        $yf = Join-Path $script:u3 'brand.yaml'
+        Set-Content -LiteralPath $yf -Value $yaml -Encoding utf8NoBOM
+        $ps = ConvertFrom-DhYaml -Path $yf
+        $ps | Should -Match "-PrimaryColor '#0055A4'"
+        $ps | Should -Match "-SecondaryColor '#1D252D'"
+        $ps | Should -Match '-RememberViews'
+    }
+    It 'Test-DhReport reports a brand colour below the contrast minimum' {
+        $r = New-DhDashboard -Title 'B' -PrimaryColor '#FFE600' -WarningAction SilentlyContinue
+        $f = @($r | Test-DhReport -PassThru | Where-Object Check -eq 'Brand')
+        $f.Count | Should -BeGreaterThan 0
+        $f[0].Severity | Should -Be 'warning'
+    }
+    It 'knows the 3.0.0 runtime' {
+        & (Get-Module DashHtml.Design) { $script:DhRuntimeFixes.Keys } | Should -Contain '3.0.0'
     }
 }

@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     How the menu works: paths, scopes, labels, order, and where each element lands on the page.

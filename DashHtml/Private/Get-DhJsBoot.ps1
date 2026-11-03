@@ -85,6 +85,10 @@ function Get-DhJsBoot {
       } else if (block.blockType === 'rangebar' && block.mode === 'fromtable') {
         var rbT = blockRenderTarget(block);
         if (rbT.container) renderRangeBar(rbT.container, rbT.block);
+      } else if (block.blockType === 'gantt' && block.mode === 'fromtable') {
+        /* v3.1.0 - a table-fed Gantt chart needs its engine */
+        var gtT = blockRenderTarget(block);
+        if (gtT.container) renderGantt(gtT.container, gtT.block);
       } else if (block.blockType === 'treefilter') {
         /* v2.4.0 - needs the engine of the table it filters */
         var tfT = blockRenderTarget(block);

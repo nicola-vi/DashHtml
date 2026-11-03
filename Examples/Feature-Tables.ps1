@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Everything a table can do: cell types, formatting, colour rules, detail panel, links, big data.
@@ -16,7 +16,7 @@
             Tree filter              click an OU, the table shows only that OU and below
         Layout
             Column widths            columns fit their text; widths, minimums, a fixed look
-            Column picker            hidden by default, remembered per reader
+            Column picker            hidden by default, remembered per reader, saved views
     Since the last run       New / Changed / Removed rows against last run's data
             Large table              50,000 rows, drawn as you scroll
             Nothing found            an empty table that says the check passed
@@ -158,8 +158,8 @@ Add-DhTable -Report $report -TableId 'wide-auto' -Title 'Automatic widths' -NavP
 Add-DhTable -Report $report -TableId 'wide-fixed' -Title 'Fixed look (-ColumnFit Fixed)' -NavPath 'Layout/Column widths' -Data $wide -PageSize 6 -ColumnFit Fixed -Columns @(
     @{ Field = 'Account'; Label = 'Distinguished name' }, @{ Field = 'Description'; Label = 'Description' } )
 
-& $note 'n-picker' 'Layout/Column picker' 'The Columns button lists every column. A column with Hidden = $true starts unticked (here Ip, Cores and Owner); the button then says how many are hidden. With -RememberColumns the choice is kept for this reader in this browser and restored next time, even after the report is regenerated; Default columns in the picker puts the author''s choice back and forgets the saved one. Nothing is stored unless -RememberColumns is on.'
-Add-DhTable -Report $report -TableId 'picker' -Title 'Servers (try the Columns button)' -NavPath 'Layout/Column picker' -NavLabel 'Column picker' -Data $servers -PageSize 8 -RememberColumns -Columns @(
+& $note 'n-picker' 'Layout/Column picker' 'The Columns button lists every column. A column with Hidden = $true starts unticked (here Ip, Cores and Owner); the button then says how many are hidden. With -RememberColumns the choice is kept for this reader in this browser and restored next time, even after the report is regenerated; Default columns in the picker puts the author''s choice back and forgets the saved one. With -RememberViews the Views button saves the current columns, sort, page size and filter under a name, to apply again later. Nothing is stored unless these switches are on.'
+Add-DhTable -Report $report -TableId 'picker' -Title 'Servers (try the Columns button)' -NavPath 'Layout/Column picker' -NavLabel 'Column picker' -Data $servers -PageSize 8 -RememberColumns -RememberViews -Columns @(
     @{ Field = 'Name'; Label = 'Server'; PinFirst = $true }
     @{ Field = 'Site'; Label = 'Site' }
     @{ Field = 'Os'; Label = 'Operating system' }

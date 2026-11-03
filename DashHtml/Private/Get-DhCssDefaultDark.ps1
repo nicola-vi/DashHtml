@@ -8,6 +8,7 @@ function Get-DhCssDefaultDark {
   /* DefaultDark — Industrial dark, electric-cyan accents */
   --bg-page:          #0b0f14;
   --bg-header:        #152C32;
+  --bg-header-end:    #155465;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #111720;
   --bg-table:         #0f141b;
   --bg-row-alt:       #131922;
@@ -87,7 +88,7 @@ function Get-DhCssDefaultDark {
   --cell-ok-fg:      #00e676;  --cell-ok-bg:      rgba(0,230,118,0.08);
   --cell-warn-fg:    #ffc107;  --cell-warn-bg:    rgba(255,193,7,0.08);
   --cell-danger-fg:  #FF5873;  --cell-danger-bg:  rgba(255,77,106,0.10);
-  --cell-nodata-fg:  #8899aa;  --cell-nodata-bg:  rgba(136,153,170,0.10);
+  --cell-nodata-fg:  #8B9CAC;  --cell-nodata-bg:  rgba(136,153,170,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.08);
 
@@ -107,7 +108,7 @@ function Get-DhCssDefaultDark {
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #e2eaf4;
-  --header-fg-muted: #8899aa;
+  --header-fg-muted: #B4C2D0;
 }
 '@
 }

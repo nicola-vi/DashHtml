@@ -119,8 +119,6 @@ function Add-DhFindings {
         [bool]     $DefaultOpen = $true,    # collapsible body starts expanded
         [ValidateRange(0,12)]
         [int]      $GridSpan    = 0,        # columns (1-12) in the -GridSpan grid layout; 0 = default flow
-        [string]   $NavGroup    = '',
-        [string]   $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 5) ----
         [string]   $NavPath     = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -130,7 +128,6 @@ function Add-DhFindings {
     )
 
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhFindings'
     if (-not $Report.Contains('_DhNavSeq')) { $Report['_DhNavSeq'] = 0 }
     $navSeqNo = [int]$Report['_DhNavSeq']; $Report['_DhNavSeq'] = $navSeqNo + 1
@@ -247,8 +244,6 @@ function Add-DhFindings {
         Filterable       = $Filterable
         ExpandSeverity   = $expand
         MaxAffectedShown = $MaxAffectedShown
-        NavGroup         = $NavGroup
-        NavSubGroup      = $NavSubGroup
         NavPath          = $NavPath
         NavSegments      = $navDecl.Path
         NavSeqNo         = $navSeqNo

@@ -253,10 +253,15 @@ function Export-DhDashboard {
         }
         # v2.4.0 - column fit: auto is the default and emits nothing, so old tables export unchanged
         # v2.5.0 - RememberColumns: a stable key (report title, -GeneratedBy and table id) so the choice survives a regenerated report
-        if ($t.Contains('RememberColumns') -and $t.RememberColumns) {
+        # v3.0.0 - RememberViews: saved views under the same key, emitted as "views"
+        $remCols  = $t.Contains('RememberColumns') -and $t.RememberColumns
+        $remViews = $t.Contains('RememberViews') -and $t.RememberViews
+        if ($remCols -or $remViews) {
             $keySrc = "$($Report.Title)|$(if ($Report.Contains('GeneratedBy')) { $Report.GeneratedBy })|$($t.Id)"
             $sha = [System.Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($keySrc))
-            $detailJson += ",`"remember`":$(ConvertTo-DhJsonString (([BitConverter]::ToString($sha) -replace '-','').Substring(0,16).ToLowerInvariant()))"
+            $remKey = ConvertTo-DhJsonString (([BitConverter]::ToString($sha) -replace '-','').Substring(0,16).ToLowerInvariant())
+            if ($remCols)  { $detailJson += ",`"remember`":$remKey" }
+            if ($remViews) { $detailJson += ",`"views`":$remKey" }
         }
         # v2.5.2 - baseline markers (only when -Baseline was given): states by row index, old values of changed cells,
         # and the removed rows (declared columns only)
@@ -326,7 +331,7 @@ function Export-DhDashboard {
     # Keep this list in sync with the switch below.
     $knownBlockTypes = @('html','collapsible','filtercardgrid','barchart','heatmap','rangebar','tabs',
                          'topologymap','statusgrid','summarystrip','eventfeed','linechart','bullet','piechart',
-                         'findings','keyvalue','recordlist','treefilter','networkmap','treetable')
+                         'findings','keyvalue','recordlist','treefilter','networkmap','treetable','gantt')
     foreach ($msg in (Test-DhReportLinks -Report $Report -KnownBlockTypes $knownBlockTypes)) {
         Write-Warning "Export-DhDashboard: $msg"
     }
@@ -483,7 +488,7 @@ function Export-DhDashboard {
                     "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"rows`":[$rowsJson],`"columns`":[$columnsJson],`"cells`":[$cellsJson],`"rowLabel`":$(ConvertTo-DhJsonString $b.RowLabel),`"columnLabel`":$(ConvertTo-DhJsonString $b.ColumnLabel),`"cellSize`":$(ConvertTo-DhJsonString $b.CellSize),`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'summarystrip' {
-                    # v1.4.1 F-multi-summary — per-NavGroup KPI strip emitted as
+                    # v1.4.1 F-multi-summary — per-node KPI strip emitted as
                     # a regular block. The JS renderer reuses the same tile
                     # helpers as the top-of-page strip; only the host container
                     # differs (per-block instead of #report-summary).
@@ -615,14 +620,11 @@ function Export-DhDashboard {
                 }
                 'treetable' {
                     # v2.5.0 - Add-DhTreeTable. Flags, props and detail only when present; links as compact pairs.
-                    $ttRows = (@($b.Rows) | ForEach-Object {
-                        $tr = $_; $tx = ''
-                        if (@($tr.Flags).Count)      { $tx += ',"flags":[' + ((@($tr.Flags) | ForEach-Object { ConvertTo-DhJsonString $_ }) -join ',') + ']' }
-                        if ($tr.Properties.PSBase.Count) { $tx += ',"props":[' + ((@($tr.Properties.PSBase.Keys) | ForEach-Object { "{`"label`":$(ConvertTo-DhJsonString $_),`"value`":$(ConvertTo-DhJsonString $tr.Properties[$_])}" }) -join ',') + ']' }
-                        if ($tr.Detail)              { $tx += ',"detail":' + (ConvertTo-DhDetailJson $tr.Detail) }
-                        "{`"id`":$(ConvertTo-DhJsonString $tr.Id),`"parent`":$(ConvertTo-DhJsonString $tr.ParentId),`"type`":$(ConvertTo-DhJsonString $tr.Type),`"label`":$(ConvertTo-DhJsonString $tr.Label),`"status`":$(ConvertTo-DhJsonString $tr.Status)$tx}"
-                    }) -join ','
-                    $ttLinks = (@($b.Memberships) | ForEach-Object { "[$(ConvertTo-DhJsonString $_.GroupId),$(ConvertTo-DhJsonString $_.MemberId)]" }) -join ','
+                    # v3.0.0 - one StringBuilder and plain loops: a 50,000-row tree spent most of the
+                    # export in pipeline and function-call overhead. ConvertTo-DhJsonFast keeps the
+                    # escaper's rules (and output) and skips the call for plain text.
+                    $ttRows = ConvertTo-DhTreeTableRowsJson -Rows $b.Rows
+                    $ttLinks = ConvertTo-DhTreeTableLinksJson -Links $b.Memberships
                     "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"height`":$([int]$b.Height),`"openDepth`":$([int]$b.DefaultOpenDepth),`"maxPaths`":$([int]$b.MaxNestingPaths),`"rows`":[$ttRows],`"links`":[$ttLinks],`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
                 'networkmap' {
@@ -663,6 +665,10 @@ function Export-DhDashboard {
                     }) -join ','
                     "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),`"tableId`":$(ConvertTo-DhJsonString $b.TableId),`"pathField`":$(ConvertTo-DhJsonString $b.PathField),`"match`":$(ConvertTo-DhJsonString $b.Match),`"sep`":$(ConvertTo-DhJsonString $b.Separator),`"countFromTable`":$(([bool]$b.CountFromTable).ToString().ToLower()),`"height`":$([int]$b.Height),`"openDepth`":$([int]$b.DefaultOpenDepth),`"nodes`":[$tnJson],`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
                 }
+                'gantt' {
+                    # v3.1.0 - Add-DhGantt builds its own JSON (times already in seconds from the origin)
+                    "{`"blockType`":$bt,`"id`":$(ConvertTo-DhJsonString $b.Id),`"title`":$(ConvertTo-DhJsonString $b.Title),$($b.GanttJson),`"collapsible`":$bCollStr,`"defaultOpen`":$bDoStr}"
+                }
                 # An unknown BlockType emits nothing; Test-DhReportLinks above
                 # has already warned about it.
                 default { }
@@ -682,15 +688,11 @@ function Export-DhDashboard {
             if ($a.Action) {
                 $actionJson = "{`"label`":$(ConvertTo-DhJsonString $a.Action.Label),`"tableId`":$(ConvertTo-DhJsonString $a.Action.TableId),`"filter`":$(ConvertTo-DhJsonString $a.Action.Filter),`"url`":$(ConvertTo-DhJsonString $a.Action.Url)}"
             }
-            # v1.4.2+ — optional NavGroup / NavSubGroup so the banner can bind
-            # to a single panel rather than staying page-global.
-            $ngStr = if ($a.Contains('NavGroup')    -and $a.NavGroup)    { [string]$a.NavGroup }    else { '' }
-            $sgStr = if ($a.Contains('NavSubGroup') -and $a.NavSubGroup) { [string]$a.NavSubGroup } else { '' }
             # v1.5.1 — collapsible banner chrome
             $aCollStr  = if ($a.Contains('Collapsible')) { ([bool]$a.Collapsible).ToString().ToLower() } else { 'false' }
             $aDoStr    = if ($a.Contains('DefaultOpen')) { ([bool]$a.DefaultOpen).ToString().ToLower() } else { 'true'  }
             $aTitleStr = if ($a.Contains('Title') -and $a.Title) { [string]$a.Title } else { '' }
-            # The banner's menu path and scope (-NavPath, or -NavGroup/-NavSubGroup resolved to a path).
+            # The banner's menu path and scope (-NavPath).
             # Emitted only when the banner is bound to a path, so a global banner exports as before.
             $aNavJson = ''
             if ($a.Contains('NavSegments') -and @($a.NavSegments).Count -gt 0) {
@@ -698,7 +700,7 @@ function Export-DhDashboard {
                 $aScope = if ($a.Contains('NavScope') -and $a.NavScope) { ([string]$a.NavScope).ToLowerInvariant() } else { 'exact' }
                 $aNavJson = ",`"navPath`":[$aSegs],`"navScope`":$(ConvertTo-DhJsonString $aScope)"
             }
-            "{`"id`":$(ConvertTo-DhJsonString $a.Id),`"severity`":$(ConvertTo-DhJsonString $a.Severity),`"message`":$(ConvertTo-DhJsonString $a.Message),`"icon`":$(ConvertTo-DhJsonString $a.Icon),`"dismissible`":$dismissStr,`"action`":$actionJson,`"navGroup`":$(ConvertTo-DhJsonString $ngStr),`"navSubGroup`":$(ConvertTo-DhJsonString $sgStr),`"collapsible`":$aCollStr,`"defaultOpen`":$aDoStr,`"title`":$(ConvertTo-DhJsonString $aTitleStr)$aNavJson}"
+            "{`"id`":$(ConvertTo-DhJsonString $a.Id),`"severity`":$(ConvertTo-DhJsonString $a.Severity),`"message`":$(ConvertTo-DhJsonString $a.Message),`"icon`":$(ConvertTo-DhJsonString $a.Icon),`"dismissible`":$dismissStr,`"action`":$actionJson,`"collapsible`":$aCollStr,`"defaultOpen`":$aDoStr,`"title`":$(ConvertTo-DhJsonString $aTitleStr)$aNavJson}"
         }) -join ','
         $alertsConfigJson = "[$alertItems]"
     }
@@ -762,11 +764,26 @@ function Export-DhDashboard {
     $embeddedLibs    = if ($libMode -eq 'embed') { Get-DhEmbeddedExportLibraries } else { '' }
 
     # ---- Build theme style tag (light primary, dark alternate, always embedded) --
-    $primaryCss    = Get-DhThemeCss -Theme $theme
-    $alternateCss  = Get-DhThemeCss -Theme $alternateTheme
+    # v3.0.0 - the two theme tags carry only their :root tokens; the structural CSS
+    # is embedded once, after both, so the cascade is the same as when each theme
+    # carried its own copy (about 150 KB less per report).
+    $primaryCss    = Get-DhThemeCss -Theme $theme          -RootOnly
+    $alternateCss  = Get-DhThemeCss -Theme $alternateTheme -RootOnly
+    $baseCss       = Get-DhCssBase
+    # v3.0.0 - brand colours / font: an extra :root block after each theme's own,
+    # so the toggle swaps the branded light and dark variants together. Contrast
+    # warnings were raised by New-DhDashboard; here only the CSS is used.
+    $fontFaceTag   = ''
+    if ($Report.Contains('Brand') -and $Report.Brand) {
+        $primaryCss   += (ConvertTo-DhBrandCss -Brand $Report.Brand -Theme $theme).Css
+        $alternateCss += (ConvertTo-DhBrandCss -Brand $Report.Brand -Theme $alternateTheme).Css
+        $fontFace = Get-DhBrandFontFace -Brand $Report.Brand
+        if ($fontFace) { $fontFaceTag = "`n  <style id=`"dh-brand-font`">$fontFace</style>" }
+    }
     $themeStyleTag = @"
   <style id="theme-primary"   data-theme="$theme">$primaryCss</style>
   <style id="theme-alternate" data-theme="$alternateTheme" media="none">$alternateCss</style>
+  <style id="dh-base">$baseCss</style>$fontFaceTag
   <script>/* v2.1.4 - apply a saved theme before first paint (URL hash, then localStorage, then -ThemeMode). The runtime re-applies it and labels the toggle. */
   (function(){try{var m='',h=decodeURIComponent((location.hash||'').replace('#',''));if(h&&h.charAt(0)==='{'){var s=JSON.parse(h);if(s.theme==='light'||s.theme==='dark')m=s.theme;}if(!m){var l=window.localStorage?localStorage.getItem('dh-theme'):null;if(l==='light'||l==='dark')m=l;}if(!m){var d=document.documentElement.getAttribute('data-theme-mode');if(d==='dark')m='dark';else if(d==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)m='dark';}if(m==='dark'){document.getElementById('theme-primary').media='none';document.getElementById('theme-alternate').media='';}}catch(e){}})();</script>
 "@
@@ -776,7 +793,14 @@ function Export-DhDashboard {
     $logoHtml = if ($Report.LogoBase64) {
         "<img src=`"data:$logoMime;base64,$($Report.LogoBase64)`" class=`"report-logo`" alt=`"Logo`">"
     } else {
-        '<div class="report-logo-placeholder" title="No logo supplied"></div>'
+        ''   # 3.0.0: no logo, no box (the empty placeholder square is gone)
+    }
+    # 3.0.0: -HideGeneratedAt leaves the timestamp out (the print cover copies whatever is here)
+    $generatedHtml = if ($Report.Contains('HideGeneratedAt') -and $Report.HideGeneratedAt) { '' } else {
+        "<div class=`"header-meta`">
+      <span class=`"meta-label`">Generated</span>
+      <span class=`"meta-value`">$($Report.GeneratedAt)</span>
+    </div>"
     }
 
     # Nav logo suppressed by design
@@ -874,10 +898,6 @@ function Export-DhDashboard {
     if ($Report.Contains('Blocks') -and $Report.Blocks.Count -gt 0) {
         $blockSectionsHtml = ($Report.Blocks | ForEach-Object {
             $b          = $_
-            $bNg        = if ($b.NavGroup) { $b.NavGroup } else { '' }
-            $bNgAttr    = if ($bNg) { " data-navgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bNg))`"" } else { '' }
-            $bSg        = if ($b.Contains('NavSubGroup') -and $b.NavSubGroup) { $b.NavSubGroup } else { '' }
-            $bSgAttr    = if ($bSg) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($bSg))`"" } else { '' }
             # v2.0.0 - canonical nav attributes. The initial panel-active class is
             # stamped with the SAME predicate the runtime uses, so first paint and
             # first applyNav agree by construction.
@@ -887,7 +907,7 @@ function Export-DhDashboard {
                               -Label $(if ($b.Contains('NavLabel')) { [string]$b.NavLabel } else { '' })
             $bActive    = $bNav.Active
             $bSpanAttr  = if ($b.Contains('GridSpan') -and $b.GridSpan -ge 1 -and $b.GridSpan -le 12) { " style=`"grid-column:span $($b.GridSpan)`"" } else { '' }
-            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$bNgAttr$bSgAttr$($bNav.Attr)$bSpanAttr><div id=`"block-$($b.Id)`"></div></div>"
+            "<div class=`"block-section$bActive`" id=`"bsection-$($b.Id)`"$($bNav.Attr)$bSpanAttr><div id=`"block-$($b.Id)`"></div></div>"
         }) -join "`n"
     }
 
@@ -936,10 +956,7 @@ $themeStyleTag
         $infoFieldsHtml
       </div>
     </div>
-    <div class="header-meta">
-      <span class="meta-label">Generated</span>
-      <span class="meta-value">$($Report.GeneratedAt)</span>
-    </div>
+    $generatedHtml
   </header>
 
   <nav class="report-nav" id="report-nav" role="navigation" aria-label="Report sections" data-navlayout="$navLayout" data-navdepth="$navDepth"$(if ($Report.Contains('NavBadge') -and $Report.NavBadge) { ' data-navbadge="true"' })$navAllAttr>

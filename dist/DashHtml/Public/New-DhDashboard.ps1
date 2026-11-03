@@ -28,10 +28,13 @@ function New-DhDashboard {
         variant is the runtime-toggle alternate. Both are always embedded.
         Valid values (default: Default):
           Default  - System UI fonts.  Light: light grey + blue.   Dark: near-black + cyan.
-          Azure    - Segoe UI (system). Light: warm grey + Azure blue.  Dark: Office dark + Azure.
-          VMware   - Inter (Google).   Light: white/navy + VMware green. Dark: navy + VMware green.
+          Azure    - Segoe UI (system). Light: warm grey + Azure Blue, Dark Blue header.  Dark: Office dark + Azure.
+          VMware   - Inter if installed. Light: Broadcom teal-blue, black to teal-blue header with a
+                     Broadcom Red line. Dark: near-black + teal-blue.
           Grey     - System UI fonts.  Light: warm grey + steel.  Dark: dark neutral + muted grey.
-          Company  - Montserrat (Google). Light: white + Crimson. Dark: near-black + Crimson.
+          Company  - Montserrat if installed. Light: white + Crimson. Dark: near-black + Crimson.
+          Rag      - System UI fonts.  The Office/Excel RAG palette, graphite header.
+        Every family's header is a 120deg gradient between two of its own colours (3.0.0).
         Use  Get-DhTheme  to list families and inspect their CSS.
 
     .PARAMETER NavTitle
@@ -100,12 +103,50 @@ function New-DhDashboard {
         Off by default: without it the address holds what it held before. Unknown or vanished columns in
         a link are ignored and a page past the end shows the last page.
 
+    .PARAMETER HideGeneratedAt
+        v3.0.0. Leave the "Generated" date and time out of the header (and of the print cover).
+        Off by default: the timestamp shows, in the header font, at the right of the header.
+
     .PARAMETER StrictNav
         v2.5.0. At export, warn (never throw) about likely menu mistakes: sibling labels that clash,
         names that differ only in case or by one letter, a path that is not in -NavTree, a Subtree
         item with nothing below it, a -NavAllLabel that names no group.
+
+    .PARAMETER PrimaryColor
+        v3.0.0. The brand colour, as '#rrggbb' or '#rgb'. It replaces the theme's accent: links,
+        the selected menu item, chart series 1, row hover and selection tints. In light mode the
+        colour is used as given; text in that colour (menu, accent text) uses a shade of the same
+        hue that reaches 4.5:1 on every background of the theme, and dark mode uses a lighter
+        shade. Status colours (ok, warning, critical) never change. A pair that stays below the
+        WCAG minimum is a warning, never an error. Works with every -Theme.
+
+    .PARAMETER SecondaryColor
+        v3.0.0. The header band colour ('#rrggbb'), with black or white header text, whichever
+        reads better. Dark mode uses a deep tint of the same hue. Without it, a darker shade of
+        -PrimaryColor is used, so one colour rebrands the whole report. The header is a gradient
+        from this colour to a shade of -PrimaryColor that keeps the header text at 4.5:1.
+
+    .PARAMETER AccentColor
+        v3.0.0. A third brand colour ('#rrggbb'): the second chart series and the line under
+        the header.
+
+    .PARAMETER FontFamily
+        v3.0.0. The report font, put first in the theme's font stack (the theme's own fonts
+        stay as the fallback). Letters, digits, spaces and hyphens only. On its own it works
+        for readers who have the font installed; add -FontFile to embed it.
+
+    .PARAMETER FontFile
+        v3.0.0. A .woff2, .woff, .ttf or .otf file embedded in the report (base64), so the font
+        shows on every machine and offline. Needs -FontFamily. A warning above 1 MB: a font
+        file adds its full size to every report; prefer a subset .woff2.
+
     .EXAMPLE
         $report = New-DhDashboard -Title 'Infrastructure Dashboard' -Theme Azure
+
+    .EXAMPLE
+        # One brand colour and an embedded font on top of the Default theme
+        $report = New-DhDashboard -Title 'Infrastructure' -PrimaryColor '#0055A4' `
+                                  -FontFamily 'Inter' -FontFile .\fonts\Inter-subset.woff2
 
     .EXAMPLE
         $report = New-DhDashboard -Title 'My Dashboard' `
@@ -212,7 +253,25 @@ function New-DhDashboard {
 
         # ---- v2.6.0 ----
         # Keep each table's sort, page, page size and Change chip in the page address (a link opens the same view).
-        [switch]   $LinkState
+        [switch]   $LinkState,
+
+        # ---- v3.0.0 ----
+        # Leave the "Generated" timestamp out of the header.
+        [switch]   $HideGeneratedAt,
+
+        # ---- v3.0.0 brand ----
+        # Brand colours on top of any -Theme: Primary = accent, Secondary = header band (default: a
+        # darker Primary), Accent = chart series 2. Hex only, so nothing else can reach the CSS.
+        [ValidatePattern('^$|^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$')]
+        [string]   $PrimaryColor = '',
+        [ValidatePattern('^$|^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$')]
+        [string]   $SecondaryColor = '',
+        [ValidatePattern('^$|^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$')]
+        [string]   $AccentColor = '',
+        # The report font, first in the theme's stack; -FontFile embeds it (.woff2 / .woff / .ttf / .otf).
+        [ValidatePattern('^$|^[\w][\w \-]*$')]
+        [string]   $FontFamily = '',
+        [string]   $FontFile = ''
     )
 
     # Map theme family to internal light/dark CSS names
@@ -305,9 +364,47 @@ function New-DhDashboard {
         }
     }
 
+    # v3.0.0 - brand colours and font, stored only when used (a plain report is unchanged)
+    $brand = $null
+    if ($PrimaryColor -or $SecondaryColor -or $AccentColor -or $FontFamily -or $FontFile) {
+        if ($FontFile -and -not $FontFamily) {
+            throw "New-DhDashboard: -FontFile needs -FontFamily (the name the CSS uses for the embedded font)."
+        }
+        $brand = [ordered]@{
+            PrimaryColor   = $PrimaryColor
+            SecondaryColor = $SecondaryColor
+            AccentColor    = $AccentColor
+            FontFamily     = $FontFamily.Trim()
+            FontFile       = $FontFile
+            FontData       = ''
+            FontMime       = ''
+        }
+        if ($FontFile) {
+            $fontMimes = @{ '.woff2' = 'font/woff2'; '.woff' = 'font/woff'; '.ttf' = 'font/ttf'; '.otf' = 'font/otf' }
+            $fext = [System.IO.Path]::GetExtension($FontFile).ToLowerInvariant()
+            if (-not (Test-Path -LiteralPath $FontFile)) {
+                Write-Warning "New-DhDashboard: Font file not found at '$FontFile'. The font is used only where it is installed."
+            } elseif ($fext -notin $fontMimes.Keys) {
+                Write-Warning "New-DhDashboard: Unsupported font format '$fext'. Supported: .woff2 .woff .ttf .otf. Skipping the file."
+            } else {
+                $fbytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $FontFile).ProviderPath)
+                if ($fbytes.Length -gt 1MB) {
+                    Write-Warning "New-DhDashboard: -FontFile is $([math]::Round($fbytes.Length / 1MB, 1)) MB and is embedded in every report. A subset .woff2 is usually under 100 KB."
+                }
+                $brand.FontData = [System.Convert]::ToBase64String($fbytes)
+                $brand.FontMime = $fontMimes[$fext]
+                Write-Verbose "New-DhDashboard: Font embedded ($([math]::Round($fbytes.Length / 1KB, 1)) KB, $($brand.FontMime))."
+            }
+        }
+        # Contrast is checked now, against both variants of the chosen theme: a warning, never an error.
+        foreach ($variant in $lightInternal, $darkInternal) {
+            foreach ($w in (ConvertTo-DhBrandCss -Brand $brand -Theme $variant).Warnings) { Write-Warning "New-DhDashboard: $w" }
+        }
+    }
+
     Write-Verbose "New-DhDashboard: Theme='$Theme'  (light: $lightInternal / dark: $darkInternal)$(if ($autoRefreshSeconds) { ", AutoRefresh=${autoRefreshSeconds}s" })"
 
-    return [ordered]@{
+    $report = [ordered]@{
         Title          = $Title
         Subtitle       = $Subtitle
         LogoBase64     = $logoBase64
@@ -335,6 +432,9 @@ function New-DhDashboard {
         StrictNav      = [bool]$StrictNav                # v2.5.0
         NavOverflow    = $NavOverflow                    # v2.5.0
         LinkState      = [bool]$LinkState                # v2.6.0
+        HideGeneratedAt = [bool]$HideGeneratedAt         # v3.0.0
     }
+    if ($brand) { $report['Brand'] = $brand }        # v3.0.0, only when used
+    return $report
 }
 

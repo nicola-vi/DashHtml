@@ -42,8 +42,6 @@ function Add-DhEventFeed {
         Newest-first by Timestamp. Default $true. Set $false to show oldest
         events at the top (chronological reading order).
 
-    .PARAMETER NavGroup       Primary nav group label (enables two-tier nav).
-    .PARAMETER NavSubGroup    Optional second-level group under NavGroup.
 
     .EXAMPLE
         Add-DhEventFeed -Report $report -Id 'recent-events' `
@@ -88,8 +86,6 @@ function Add-DhEventFeed {
 
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
-        [string] $NavGroup    = '',
-        [string] $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -98,10 +94,8 @@ function Add-DhEventFeed {
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhEventFeed'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -153,8 +147,6 @@ function Add-DhEventFeed {
         MaxItems       = $MaxItems
         GroupBy        = $GroupBy.ToLowerInvariant()
         SortDescending = [bool]$SortDescending
-        NavGroup       = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

@@ -92,8 +92,6 @@ function Add-DhCollapsible {
         [string]   $CardWidth   = 'normal',  # card grid sizing: small=150-220, normal=200-320 (default), large=280-480, xlarge=360-640, auto=grow to fit
         [ValidateRange(0,12)]
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
-        [string] $NavGroup    = '',   # primary nav group label (enables two-tier nav)
-        [string]   $NavSubGroup = '',    # optional second-level group under NavGroup (enables three-tier nav)
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -102,10 +100,8 @@ function Add-DhCollapsible {
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhCollapsible'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -154,8 +150,7 @@ function Add-DhCollapsible {
     # Free-form Content only reaches innerHTML when there are no cards; encode it
     # per -AllowHtml. Empty content short-circuits (no warning, nothing to encode).
     $safeContent = if ([string]::IsNullOrEmpty($Content)) { $Content } else {
-        ConvertTo-DhSafeContent -Content $Content -AllowHtml $AllowHtml `
-            -Explicit $PSBoundParameters.ContainsKey('AllowHtml') -Context "Add-DhCollapsible '$Id' -Content"
+        ConvertTo-DhSafeContent -Content $Content -AllowHtml $AllowHtml
     }
 
     $Report.Blocks.Add([ordered]@{
@@ -168,8 +163,6 @@ function Add-DhCollapsible {
         Content     = $safeContent
         Badge       = @($normCards).Count
         CardWidth   = $CardWidth
-        NavGroup    = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

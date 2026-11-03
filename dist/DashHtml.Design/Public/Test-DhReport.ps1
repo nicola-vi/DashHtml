@@ -11,9 +11,10 @@ function Test-DhReport {
                                     -StrictNav lint, run even when -StrictNav is off), Size (estimated
                                     data size per table and tree table), Baseline (a table whose rows are
                                     nearly all New, or whose whole baseline was removed: probably a wrong
-                                    -KeyField).
-          .ps1 script               Script (the Update-DhScript audit: ACTION / advisory / info). The
-                                    script is parsed, never run.
+                                    -KeyField), Brand (3.0.0: brand colours that stay below the WCAG
+                                    contrast minimum in the light or dark variant).
+          .ps1 script               Script (the Update-DhScript audit: the 3.0.0 removals and the 2.0.0
+                                    -AllowHtml default, each an ACTION). The script is parsed, never run.
           .yaml / .yml / .json      Schema (the layout against Export-DhYamlSchema; each failing table,
                                     block or key is named), then Links and Menu are not available (the
                                     data is not in the layout).
@@ -69,7 +70,7 @@ function Test-DhReport {
 
     begin {
         $all = [System.Collections.Generic.List[object]]::new()
-        $dh = Get-Module DashHtml | Select-Object -Last 1
+        $dh = Get-Module DashHtml | Sort-Object Version | Select-Object -Last 1   # 3.0.0 - the newest loaded copy, not whichever loaded last
         if (-not $dh) { $dh = Import-Module DashHtml -PassThru -ErrorAction Stop }
     }
 
@@ -147,10 +148,19 @@ function Test-DhReportObject {
             $sizes.Add([pscustomobject]@{ Id = [string]$b.Id; Bytes = (& $estimate @($b.Rows)); Rows = @($b.Rows).Count })
         }
     }
-    $total = ($sizes | Measure-Object Bytes -Sum).Sum
+    $total = [long]0; foreach ($sz in $sizes) { $total += $sz.Bytes }   # 3.0.0 - Measure-Object returns nothing for a report without tables
     if ($total -gt [long]$SizeBudgetMB * 1MB) {
         $top = @($sizes | Sort-Object Bytes -Descending | Select-Object -First 3 | ForEach-Object { "'$($_.Id)' ($($_.Rows) rows, about $([math]::Round($_.Bytes / 1MB, 1)) MB)" }) -join ', '
         New-DhFinding 'Size' 'warning' $Target "The data is about $([math]::Round($total / 1MB, 1)) MB, over $SizeBudgetMB MB. Biggest: $top. Consider Export-DhDashboard -CompressData, fewer columns or a split report."
+    }
+
+    # Brand (3.0.0): the same contrast warnings New-DhDashboard printed, for both variants of the theme
+    if ($Report.Contains('Brand') -and $Report.Brand) {
+        foreach ($variant in @($Report.Theme, $Report.AlternateTheme) | Where-Object { $_ }) {
+            foreach ($m in @(& $DashHtml { param($b, $t) (ConvertTo-DhBrandCss -Brand $b -Theme $t).Warnings } $Report.Brand $variant)) {
+                New-DhFinding 'Brand' 'warning' $Target $m
+            }
+        }
     }
 
     # Baseline sanity: almost everything New, or the whole baseline Removed, usually means a wrong -KeyField
@@ -246,6 +256,8 @@ function Test-DhReportLayout {
 
 # Fixes by release, for "built with an older runtime". Newest first; only releases since 2.4.0.
 $script:DhRuntimeFixes = [ordered]@{
+    '3.1.0' = 'Gantt timelines (Add-DhGantt)'
+    '3.0.0' = 'the structural CSS embedded once (about 150 KB smaller), brand colours and font, saved table views'
     '2.7.0' = 'readable muted text in every theme, a branded header band in light and dark, no type below 11.5px, sentence-case titles, -Density'
     '2.6.0' = 'link columns with relative URLs and templates, windowed tree tables, compressed data, table state in the address'
     '2.5.4' = 'data fields named Keys, Values or Count were dropped'

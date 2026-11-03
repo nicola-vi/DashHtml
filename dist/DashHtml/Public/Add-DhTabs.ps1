@@ -5,7 +5,7 @@ function Add-DhTabs {
 
     .DESCRIPTION
         Renders a tab strip with one content pane per tab. Distinct from the
-        page-level NavGroup mechanism: NavGroup partitions the whole dashboard
+        page-level menu (-NavPath): the menu partitions the whole dashboard
         into named panels; Add-DhTabs creates a tabbed pivot inside a single
         block of the dashboard flow.
 
@@ -20,7 +20,7 @@ function Add-DhTabs {
 
         Free-form Content is the simplest path. To embed a richer block
         (sparkline table, status grid, etc.) inside a tab, the easiest pattern
-        is still to wrap the block in -NavGroup / -NavSubGroup and use the
+        is still to give the block its own -NavPath and use the
         page-level nav; Add-DhTabs is intentionally limited to inline HTML.
 
         SECURITY: per-tab Content is injected into the DOM via innerHTML.
@@ -48,12 +48,6 @@ function Add-DhTabs {
               Icon    = 'X'              # optional — glyph shown before the label
               Active  = $true            # optional — selects this tab on load (first by default)
           }
-
-    .PARAMETER NavGroup
-        Primary nav group label (enables two-tier nav).
-
-    .PARAMETER NavSubGroup
-        Optional second-level group under NavGroup (enables three-tier nav).
 
     .EXAMPLE
         Add-DhTabs -Report $report -Id 'auth-pivot' -Title 'Authentication detail' `
@@ -90,8 +84,6 @@ ntlm.fallback=disabled</pre>' }
 
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 
-        [string] $NavGroup    = '',
-        [string] $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -100,10 +92,8 @@ ntlm.fallback=disabled</pre>' }
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhTabs'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -123,7 +113,6 @@ ntlm.fallback=disabled</pre>' }
         throw "Add-DhTabs: -Tabs must contain at least one tab."
     }
 
-    $allowHtmlExplicit = $PSBoundParameters.ContainsKey('AllowHtml')
     # @(...) so a single tab still yields an array — otherwise $normTabs[0] below
     # indexes a scalar hashtable and throws (a single-tab block is valid).
     $normTabs = @(foreach ($t in $Tabs) {
@@ -137,10 +126,8 @@ ntlm.fallback=disabled</pre>' }
         }
         @{
             Title   = [string]$t['Title']
-            # v1.6.0 — apply the -AllowHtml policy per tab. Context names the tab
-            # so the deprecation warning points at the offending content.
-            Content = ConvertTo-DhSafeContent -Content ([string]$t['Content']) -AllowHtml $AllowHtml `
-                        -Explicit $allowHtmlExplicit -Context "Add-DhTabs '$Id' tab '$([string]$t['Title'])' Content"
+            # v1.6.0 — apply the -AllowHtml policy per tab.
+            Content = ConvertTo-DhSafeContent -Content ([string]$t['Content']) -AllowHtml $AllowHtml
             Icon    = if ($t.Contains('Icon')   -and $null -ne $t['Icon'])   { [string]$t['Icon'] }   else { '' }
             Active  = if ($t.Contains('Active') -and $null -ne $t['Active']) { [bool]$t['Active'] }   else { $false }
         }
@@ -163,8 +150,6 @@ ntlm.fallback=disabled</pre>' }
         Id          = $Id
         Title       = $Title
         Tabs        = @($normTabs)
-        NavGroup    = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

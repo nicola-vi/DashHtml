@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     The building blocks of a page: header, banners, notes, collapsibles, tabs, events, grid layout, print.

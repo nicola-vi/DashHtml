@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Build-DhReference.ps1">
-<title>DashHtml v2.7.0 — PowerShell Module Reference</title>
+<title>DashHtml v3.1.0 — PowerShell Module Reference</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -275,7 +275,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
       <div class="logo-badge">D</div>
       <span class="sidebar-title">DashHtml</span>
     </div>
-    <span class="sidebar-version">v2.7.0 · PS 7.0+</span>
+    <span class="sidebar-version">v3.1.0 · PS 7.0+</span>
   </div>
   <div class="nav-section-label">Overview</div>
   <a class="nav-item" href="#overview"><span class="nav-dot"></span>Getting started</a>
@@ -307,6 +307,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
   <a class="nav-item" href="#Add-DhLineChart"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhLineChart <span class="nav-tag">CHART</span></a>
   <a class="nav-item" href="#Add-DhBullet"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhBullet <span class="nav-tag">BULLET</span></a>
   <a class="nav-item" href="#Add-DhRangeBar"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhRangeBar <span class="nav-tag">RANGE</span></a>
+  <a class="nav-item" href="#Add-DhGantt"><span class="nav-dot" style="background:#d2a8ff"></span>Add-DhGantt <span class="nav-tag">GANTT</span></a>
   <div class="nav-section-label">Linking</div>
   <a class="nav-item" href="#Add-DhGlobalFilter"><span class="nav-dot" style="background:#3fb950"></span>Add-DhGlobalFilter <span class="nav-tag">GLOBAL</span></a>
   <a class="nav-item" href="#Set-DhTableLink"><span class="nav-dot" style="background:#3fb950"></span>Set-DhTableLink <span class="nav-tag">LINK</span></a>
@@ -328,7 +329,7 @@ code { font-family: var(--font-mono); font-size: 12px; background: var(--bg3); c
     <p class="page-desc">Generate interactive, self-contained HTML dashboards from PowerShell — sortable tables, KPI tiles (with sparklines, deltas, big-number and gauge styles), line / area / pie / bullet / stacked-bar charts, RAG status matrix, event feeds, alert banners, filter cards, collapsible sections, drill-down linking, and client-side CSV / XLSX / PDF export. Six theme families (including the v1.4 Rag family with the Office/Excel palette), embedded light/dark variants, no external dependencies at viewing time.</p>
     <div class="module-badges">
       <span class="badge badge-blue">PowerShell 7.0+</span>
-      <span class="badge badge-green">27 exported functions</span>
+      <span class="badge badge-green">28 exported functions</span>
       <span class="badge badge-purple">6 theme families</span>
       <span class="badge badge-orange">MIT License</span>
     </div>
@@ -371,6 +372,9 @@ optional target / threshold annotation.</div>
       <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhRangeBar</div>
       <div class="qr-cmd-desc">Add a range-gradient bar chart - min / avg / max per category, normalised
 onto a shared 0-100 axis, coloured by position on that axis.</div>
+    </a>    <a class="qr-card" href="#Add-DhGantt">
+      <div class="qr-cmd-name" style="color:#d2a8ff">Add-DhGantt</div>
+      <div class="qr-cmd-desc">Add a Gantt timeline - one bar per task from Start to End on a shared time axis (v3.1.0).</div>
     </a>    <a class="qr-card" href="#Add-DhFindings">
       <div class="qr-cmd-name" style="color:#ff7b72">Add-DhFindings</div>
       <div class="qr-cmd-desc">Add a list of assessment findings - severity, description, recommendation,
@@ -485,7 +489,13 @@ at runtime without any server round-trip.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-NavTree</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-StrictNav</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavOverflow</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-LinkState</span></span>]</div>
+   [<span class='hl-opt'><span class='hl-param'>-LinkState</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-HideGeneratedAt</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-PrimaryColor</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-SecondaryColor</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-AccentColor</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-FontFamily</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-FontFile</span> <span class='hl-type'>&lt;String&gt;</span></span>]</div>
 
           <div class="syntax-label">Parameters</div>
       <table class="params-table">
@@ -518,10 +528,13 @@ Accepted formats: .jpg .jpeg .png .gif .webp</p><span class='param-default'>defa
 variant is the runtime-toggle alternate. Both are always embedded.
 Valid values (default: Default):
   Default  - System UI fonts.  Light: light grey + blue.   Dark: near-black + cyan.
-  Azure    - Segoe UI (system). Light: warm grey + Azure blue.  Dark: Office dark + Azure.
-  VMware   - Inter (Google).   Light: white/navy + VMware green. Dark: navy + VMware green.
+  Azure    - Segoe UI (system). Light: warm grey + Azure Blue, Dark Blue header.  Dark: Office dark + Azure.
+  VMware   - Inter if installed. Light: Broadcom teal-blue, black to teal-blue header with a
+             Broadcom Red line. Dark: near-black + teal-blue.
   Grey     - System UI fonts.  Light: warm grey + steel.  Dark: dark neutral + muted grey.
-  Company  - Montserrat (Google). Light: white + Crimson. Dark: near-black + Crimson.
+  Company  - Montserrat if installed. Light: white + Crimson. Dark: near-black + Crimson.
+  Rag      - System UI fonts.  The Office/Excel RAG palette, graphite header.
+Every family&#39;s header is a 120deg gradient between two of its own colours (3.0.0).
 Use  Get-DhTheme  to list families and inspect their CSS.</p><span class='param-default'>default: &#39;Default&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavTitle</span></td>
@@ -646,6 +659,50 @@ earlier versions. A short menu looks the same either way.</p><span class='param-
 menu path and the text filters, which are always kept), so a copied link opens the same view.
 Off by default: without it the address holds what it held before. Unknown or vanished columns in
 a link are ignored and a page past the end shows the last page.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-HideGeneratedAt</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. Leave the &quot;Generated&quot; date and time out of the header (and of the print cover).
+Off by default: the timestamp shows, in the header font, at the right of the header.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-PrimaryColor</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. The brand colour, as &#39;#rrggbb&#39; or &#39;#rgb&#39;. It replaces the theme&#39;s accent: links,
+the selected menu item, chart series 1, row hover and selection tints. In light mode the
+colour is used as given; text in that colour (menu, accent text) uses a shade of the same
+hue that reaches 4.5:1 on every background of the theme, and dark mode uses a lighter
+shade. Status colours (ok, warning, critical) never change. A pair that stays below the
+WCAG minimum is a warning, never an error. Works with every -Theme.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SecondaryColor</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. The header band colour (&#39;#rrggbb&#39;), with black or white header text, whichever
+reads better. Dark mode uses a deep tint of the same hue. Without it, a darker shade of
+-PrimaryColor is used, so one colour rebrands the whole report. The header is a gradient
+from this colour to a shade of -PrimaryColor that keeps the header text at 4.5:1.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-AccentColor</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. A third brand colour (&#39;#rrggbb&#39;): the second chart series and the line under
+the header.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-FontFamily</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. The report font, put first in the theme&#39;s font stack (the theme&#39;s own fonts
+stay as the fallback). Letters, digits, spaces and hyphens only. On its own it works
+for readers who have the font installed; add -FontFile to embed it.</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-FontFile</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. A .woff2, .woff, .ttf or .otf file embedded in the report (base64), so the font
+shows on every machine and offline. Needs -FontFamily. A warning above 1 MB: a font
+file adds its full size to every report; prefer a subset .woff2.</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>
         </tbody>
       </table>
@@ -660,7 +717,15 @@ a link are ignored and a page past the end shows the last page.</p></td>
       </div>      <div class="example-block">
         <div class="example-header">
           <span class="example-label">EXAMPLE 2</span>
-          <span class="example-title">Example 2</span>
+          <span class="example-title">One brand colour and an embedded font on top of the Default theme</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">$report = New-DhDashboard -Title &#39;Infrastructure&#39; -PrimaryColor &#39;#0055A4&#39; `
+                          -FontFamily &#39;Inter&#39; -FontFile .\fonts\Inter-subset.woff2</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Example 3</span>
           <button class="copy-btn" title="Copy to clipboard">Copy</button>
         </div>
         <div class="example-code">$report = New-DhDashboard -Title &#39;My Dashboard&#39; `
@@ -892,6 +957,7 @@ $css.DarkCss    # CSS for the dark variant</div>
    [<span class='hl-opt'><span class='hl-param'>-ColumnFit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-ColumnMaxWidth</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-RememberColumns</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-RememberViews</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Baseline</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-BaselinePath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-KeyField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -905,8 +971,6 @@ $css.DarkCss    # CSS for the dark variant</div>
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Icon</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -1062,6 +1126,16 @@ matched by field name, so a column added later keeps its default. A Default colu
 the picker clears the choice. Off by default; nothing is stored unless it is on.
 A column with Hidden = $true starts unticked (see the Columns key list).</p></td>
         </tr>        <tr>
+          <td><span class="param-name">-RememberViews</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>v3.0.0. A Views menu next to Columns: the reader saves the current columns, sort, page size,
+text filter and Change chip under a name, and applies or deletes saved views later. Kept per
+viewer in the browser&#39;s local storage, under the same stable key as -RememberColumns (title,
+-GeneratedBy, table id), so views survive a regenerated report. Columns and sort fields are
+matched by name; one that no longer exists is skipped. At most 20 views per table. Default
+view returns to the author&#39;s columns, sort and page size. Off by default.</p></td>
+        </tr>        <tr>
           <td><span class="param-name">-Baseline</span></td>
           <td><span class="param-type">&lt;Object[]&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -1148,20 +1222,10 @@ is shown under it.</p><span class='param-default'>default: &#39;&#39;</span></td
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>v1.5.1 — optional emoji / unicode glyph shown in the collapsible header</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 — columns (1-12) to span in a -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>primary nav group label (enables two-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>optional second-level group under NavGroup (enables three-tier nav)
+          <td class="param-desc"><p>v1.10.0 — columns (1-12) to span in a -report-grid layout; 0 = default flow
 ---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
@@ -1224,11 +1288,11 @@ Add-DhTable -Report $report -TableId &#39;servers&#39; -Title &#39;Servers&#39; 
       </div>      <div class="example-block">
         <div class="example-header">
           <span class="example-label">EXAMPLE 3</span>
-          <span class="example-title">Table in a two-tier navigation group with a pie chart</span>
+          <span class="example-title">Table under a two-level menu node, with a pie chart</span>
           <button class="copy-btn" title="Copy to clipboard">Copy</button>
         </div>
         <div class="example-code">Add-DhTable -Report $report -TableId &#39;vms&#39; -Title &#39;Virtual Machines&#39; -Data $vms `
-    -NavGroup &#39;Azure&#39; `
+    -NavPath &#39;Azure/vms&#39; -NavLabel &#39;Virtual Machines&#39; `
     -Charts @( @{ Title=&#39;VMs by Status&#39;; Field=&#39;Status&#39;; Type=&#39;pie&#39; } )</div>
       </div>
   </section>
@@ -1262,8 +1326,6 @@ no header.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Icon</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -1349,25 +1411,13 @@ title. Only used when -Collapsible is $true.</p><span class='param-default'>defa
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>Start expanded (default $true). Only used when -Collapsible is $true.</p><span class='param-default'>default: $true</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v1.4.1 — per-NavGroup summary ----
-When -NavGroup is set, the strip lives inside the per-panel block
-flow (hidden / shown by the existing two-tier nav routing) rather
-than at the top of the page. Each NavGroup can have its own strip
-with its own tiles. Without -NavGroup, the legacy top-of-page
-singleton behaviour is preserved.</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+          <td class="param-desc"><p>With -NavPath the strip lives in the block flow of that menu node
+(shown and hidden with the rest of the node); each node can have its
+own strip. Without it, the strip is the single one at the top of the page.
+---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -1388,8 +1438,8 @@ singleton behaviour is preserved.</p><span class='param-default'>default: &#39;&
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>explicit sibling ordering; 0 = declaration order
-Block Id used when -NavGroup is set (auto-derived from the group name
-when omitted). Ignored when there&#39;s no NavGroup.</p><span class='param-default'>default: &#39;&#39;</span></td>
+Block Id used when -NavPath is set (derived from the path when
+omitted). Ignored for the top-of-page strip.</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>
         </tbody>
       </table>
@@ -1472,8 +1522,6 @@ current condition; an event feed lists a chronological audit trail.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -1563,23 +1611,12 @@ original flat banner strip.</p><span class='param-default'>default: $true</span>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.4.2+ — optional NavGroup binding. When set, the banner is visible
-only while the matching nav group (and optional subgroup) is active.
-Without these, the banner stays page-global (visible everywhere) as
-in v1.4.x — full backward compatibility.</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+          <td class="param-desc"><p>Optional menu binding: with -NavPath the banner is visible only while
+that menu node is selected; without it the banner is page-global.
+---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -1674,8 +1711,6 @@ re-calculated at page load from the table&#39;s full dataset.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -1792,20 +1827,10 @@ that are not listed keep the default colour. Ignored on a stacked chart.</p><spa
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>primary nav group label (enables two-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>optional second-level group under NavGroup (enables three-tier nav)
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 ---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
@@ -1918,8 +1943,6 @@ chart instead.&quot; Use -TopN to cap segments or switch to Add-DhBarChart.</p><
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -2012,20 +2035,11 @@ Ignored when -Style is &#39;pie&#39;.</p><span class='param-default'>default: $t
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Primary nav group label (enables two-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Optional second-level group under NavGroup (enables three-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
+---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -2124,8 +2138,6 @@ Use `-TargetLine` to draw a dashed horizontal reference at a Y value
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -2232,16 +2244,6 @@ Defaults to $true.</p><span class='param-default'>default: $true</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -2328,8 +2330,6 @@ actual-vs-SLA detail (latency vs target, headroom vs minimum, etc.).</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -2375,13 +2375,14 @@ Rag = @{
     Amber = @{ Min = 50; Max = 80 }
     Red   = @{ Min = 80 }
     NoData = $false
-</pre><p>}</p><pre class="desc-code"># OR legacy array shape (also accepted under alias &#39;Bands&#39;):
+</pre><p>}</p><pre class="desc-code"># OR the array shape:
 Thresholds = @(
     @{           Max = 50;  Class = &#39;cell-ok&#39;     }
     @{ Min = 50; Max = 80;  Class = &#39;cell-warn&#39;   }
     @{ Min = 80;             Class = &#39;cell-danger&#39; }
 </pre><p>)
-  }</p><p>When both Rag and Thresholds (or Bands) are supplied, Rag wins.</p></td>
+  }</p><p>When both Rag and Thresholds are supplied, Rag wins. The 1.x alias &#39;Bands&#39;
+was removed in 3.0.0 (an item that still uses it throws, naming Thresholds).</p></td>
         </tr>        <tr>
           <td><span class="param-name">-Collapsible</span></td>
           <td><span class="param-type">&lt;Boolean&gt;</span></td>
@@ -2398,20 +2399,11 @@ Thresholds = @(
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Primary nav group label (enables two-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Optional second-level group under NavGroup (enables three-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
+---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -2513,8 +2505,6 @@ follows whichever theme is active.</p><p>Two ways to supply data, mutually exclu
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -2633,20 +2623,11 @@ hatch, so every number is reachable without hovering.</p></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
+---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -2700,6 +2681,275 @@ explicit sibling ordering; 0 = declaration order</p><span class='param-default'>
       </div>
   </section>
   <hr class="section-rule">
+  <!-- ═══ Add-DhGantt ═══ -->
+  <section class="cmd-section" id="Add-DhGantt">
+    <div class="cmd-header">
+      <div class="cmd-icon" style="background:color-mix(in srgb,#d2a8ff 15%,var(--bg3))">
+        <span style="color:#d2a8ff;font-size:11px;font-weight:700;font-family:var(--font-mono)">GANTT</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cmd-name" style="color:#d2a8ff">Add-DhGantt</div>
+        <div class="cmd-synopsis">Add a Gantt timeline - one bar per task from Start to End on a shared time axis (v3.1.0).</div>
+      </div>
+      <span class="cmd-tag badge-purple">GANTT</span>
+    </div>
+
+    <div class='desc-block'><p>Rows of start/end bars, grouped into lanes, coloured by status or category, with
+milestones, critical-path marks, vertical marker lines and shaded bands. The axis
+runs from seconds to years: backup and job windows, patch and migration waves,
+certificate and contract validity, boot order, project plans.</p><p>Two ways to supply data, mutually exclusive:</p><p>-Items     explicit tasks (static)
+  -TableId   one bar per row of a table already added to the report. The chart
+             follows the table&#39;s filters, like a table-fed bar chart.</p><p>Time rule: the browser never parses a date. Every Start / End / marker / band is
+turned into seconds from an origin here, in PowerShell, and the page draws the
+wall clock those values carry, whatever the reader&#39;s time zone. A [DateTimeOffset]
+shows its own clock (.DateTime); a [datetime] is taken as given (its Kind is not
+converted). A bar across a daylight-saving change is placed by wall clock.</p></div>
+
+    <div class="syntax-label">Syntax</div>
+    <div class="syntax-block"><span class='hl-cmd'>Add-DhGantt</span>
+    <span class='hl-param'>-Report</span> <span class='hl-type'>&lt;OrderedDictionary&gt;</span>
+    <span class='hl-param'>-Id</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Title</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-Items</span> <span class='hl-type'>&lt;Object[]&gt;</span>
+    <span class='hl-param'>-TableId</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-LabelField</span> <span class='hl-type'>&lt;String&gt;</span>
+    <span class='hl-param'>-StartField</span> <span class='hl-type'>&lt;String&gt;</span>
+   [<span class='hl-opt'><span class='hl-param'>-EndField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GroupField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-RowField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-StatusField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-CategoryField</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Origin</span> <span class='hl-type'>&lt;Object&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-AxisFormat</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Unit</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Markers</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Bands</span> <span class='hl-type'>&lt;Object[]&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-SortBy</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowDuration</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-ShowDataTable</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-MaxItems</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Legend</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
+   [<span class='hl-opt'><span class='hl-param'>-NavOrder</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]</div>
+
+          <div class="syntax-label">Parameters</div>
+      <table class="params-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th>Required</th><th>Description</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+          <td><span class="param-name">-Report</span></td>
+          <td><span class="param-type">&lt;OrderedDictionary&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Dashboard object from New-DhDashboard.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Id</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Unique identifier (alphanumeric, dash, underscore).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Title</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Block heading.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Items</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Tasks. Array of hashtables:</p><p>@{</p><pre class="desc-code">Label     = &#39;Restore database&#39;      # required: the bar (and row) text
+Start     = [datetime] | &#39;2026-11-03 22:00&#39; | 0      # required
+End       = [datetime] | &#39;...&#39; | 446                 # missing: a milestone (diamond)
+Id        = &#39;db&#39;                    # unique; needed by DependsOn
+Group     = &#39;Applications&#39;          # lane header
+Row       = &#39;srv-db01&#39;              # items with the same Row share a line
+Status    = &#39;ok&#39;                    # ok | warn | danger | info | nodata (and the usual aliases)
+Category  = &#39;Full backup&#39;           # colour from the chart palette, with a legend (ignored with Status)
+Critical  = $true                   # marked as critical path
+Text      = &#39;7m 26s&#39;                # replaces the automatic duration text
+Tooltip   = &#39;extra line&#39;
+DependsOn = @(&#39;net&#39;)                # Ids, shown as &quot;after: ...&quot;
+Detail    = &lt;drawer spec&gt;           # text, a section, sections, or @{ Title; Subtitle; Sections }
+LinkTableId = &#39;jobs&#39;; LinkFilter = &#39;srv-db01&#39;
+</pre><p>}</p><p>Start and End are all dates (a [datetime], a [DateTimeOffset] or an invariant date
+string such as &#39;2026-11-03 22:00&#39; or &#39;2026-11-03T22:00:00&#39;) or all numbers (elapsed
+-Unit). A string that reads as a number is a number. Mixing the two throws.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-TableId</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Source table (add it first). One bar per row; rows whose start does not read as a
+date or number are left out and counted in a note under the chart.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-LabelField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Column with the bar text.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-StartField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-yes">required</span></td>
+          <td class="param-desc"><p>Column with the start.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-EndField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Column with the end. Empty or missing: the row is a milestone.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GroupField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Column whose value is the lane.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-RowField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Column whose value is the row: bars with the same value share a line (for example
+every job of one backup client).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-StatusField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Column with ok / warn / danger / info / nodata (or the usual aliases).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-CategoryField</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Column whose value picks the bar colour from the chart palette.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Origin</span></td>
+          <td><span class="param-type">&lt;Object&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Zero of the elapsed axis. &#39;first&#39; (default): the earliest start. A date: the axis
+clock starts there, and numeric items become offsets from it (so they can show a
+clock axis too).</p><span class='param-default'>default: &#39;first&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-AxisFormat</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Auto (default): Clock below two days of span, Date above, Elapsed for numbers
+without a date -Origin. Clock and Date need dates or a date -Origin.</p><span class='param-default'>default: &#39;Auto&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Unit</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Unit of numeric Start / End / markers: s (default), min, h or d.</p><span class='param-default'>default: &#39;s&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Markers</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Vertical lines: @(@{ At = &lt;date or number&gt;; Label = &#39;RTO target&#39;; Status = &#39;warn&#39; }).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Bands</span></td>
+          <td><span class="param-type">&lt;Object[]&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Shaded windows: @(@{ From = ...; To = ...; Label = &#39;Backup window&#39; }).</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-SortBy</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>None (declaration / table order, default), Start, End, Duration or Label. Rows are
+sorted inside their lane.</p><span class='param-default'>default: &#39;None&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowDuration</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Show the duration (or Text) next to each bar. Default $true.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-ShowDataTable</span></td>
+          <td><span class="param-type">&lt;switch&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>A &quot;Show data table&quot; toggle under the chart: every task with start, end, duration and
+status. The accessible and printable alternative.</p></td>
+        </tr>        <tr>
+          <td><span class="param-name">-MaxItems</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Bars drawn at most (default 500). Mode A warns above it and draws the first ones;
+the page says how many were left out. Mode B draws the first -MaxItems filtered rows.</p><span class='param-default'>default: 500</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Legend</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Show the legend (statuses, categories, critical path, milestone). Default $true.</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-Collapsible</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-DefaultOpen</span></td>
+          <td><span class="param-type">&lt;Boolean&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>wrap the block in a collapsible header (chevron + click-to-toggle)</p><span class='param-default'>default: $true</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-GridSpan</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavPath</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavScope</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>&#39;A/B/C&#39; - where this item lives. &#39;//&#39; escapes a literal &#39;/&#39;</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavLabel</span></td>
+          <td><span class="param-type">&lt;String&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>Exact (default) | Subtree (this node and below) | Global (everywhere)</p><span class='param-default'>default: &#39;&#39;</span></td>
+        </tr>        <tr>
+          <td><span class="param-name">-NavOrder</span></td>
+          <td><span class="param-type">&lt;Int32&gt;</span></td>
+          <td><span class="param-req req-no">optional</span></td>
+          <td class="param-desc"><p>display text for this node, decoupled from the path key
+explicit sibling ordering; 0 = declaration order</p><span class='param-default'>default: 0</span></td>
+        </tr>
+        </tbody>
+      </table>
+          <div class="syntax-label">Examples</div>
+      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 1</span>
+          <span class="example-title">Steps of a recovery test on a clock axis, with a target line</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhGantt -Report $report -Id &#39;steps&#39; -Title &#39;Recovery steps&#39; -Items @(
+    @{ Label = &#39;Storage&#39;;      Start = &#39;2026-11-03 07:19:02&#39;; End = &#39;2026-11-03 07:23:31&#39;; Status = &#39;ok&#39; }
+    @{ Label = &#39;Compute&#39;;      Start = &#39;2026-11-03 07:23:32&#39;; End = &#39;2026-11-03 08:15:06&#39;; Status = &#39;ok&#39;; Critical = $true }
+    @{ Label = &#39;Applications&#39;; Start = &#39;2026-11-03 08:15:06&#39;; End = &#39;2026-11-03 08:32:48&#39;; Status = &#39;warn&#39; }
+) -Markers @(@{ At = &#39;2026-11-03 08:30&#39;; Label = &#39;RTO target&#39;; Status = &#39;warn&#39; })</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 2</span>
+          <span class="example-title">Nightly backup jobs from a table, one line per client, with the backup window</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhGantt -Report $report -Id &#39;jobs-g&#39; -Title &#39;Last night&#39; -TableId &#39;jobs&#39; `
+    -LabelField &#39;Job&#39; -StartField &#39;Started&#39; -EndField &#39;Ended&#39; -RowField &#39;Client&#39; `
+    -StatusField &#39;Result&#39; -Bands @(@{ From = $night; To = $night.AddHours(8); Label = &#39;Backup window&#39; })</div>
+      </div>      <div class="example-block">
+        <div class="example-header">
+          <span class="example-label">EXAMPLE 3</span>
+          <span class="example-title">Elapsed seconds from a common origin</span>
+          <button class="copy-btn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div class="example-code">Add-DhGantt -Report $report -Id &#39;boot&#39; -Title &#39;Start order&#39; -Unit s -Items @(
+    @{ Label = &#39;Database&#39;; Start = 0;   End = 446; Critical = $true; Id = &#39;db&#39; }
+    @{ Label = &#39;Web&#39;;      Start = 451; End = 573; DependsOn = &#39;db&#39; }
+)</div>
+      </div>
+  </section>
+  <hr class="section-rule">
   <!-- ═══ Add-DhFindings ═══ -->
   <section class="cmd-section" id="Add-DhFindings">
     <div class="cmd-header">
@@ -2744,8 +2994,6 @@ comes from collected data.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -2874,20 +3122,11 @@ phone the detail shows under the list.</p><span class='param-default'>default: &
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>collapsible body starts expanded</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>columns (1-12) in the -GridSpan grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>---- v2.0.0 navigation (see readme-dev.md section 5) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
+          <td class="param-desc"><p>columns (1-12) in the -GridSpan grid layout; 0 = default flow
+---- v2.0.0 navigation (see readme-dev.md section 5) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -2957,8 +3196,6 @@ a dash.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -3011,16 +3248,6 @@ Label is required. Status is optional (&#39;Class&#39; is accepted as a synonym)
           <td><span class="param-type">&lt;Int32&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 0</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -3093,8 +3320,6 @@ is shown expanded.</p><p>All text is HTML-encoded (there is no -AllowHtml).</p><
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -3166,16 +3391,6 @@ Section kinds: kv, bars, statusList, checks, table, text, links.</p></td>
           <td><span class="param-type">&lt;Int32&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 0</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -3258,8 +3473,6 @@ matches &#39;HQ2&#39;:
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -3355,16 +3568,6 @@ ignore the table&#39;s other filters.</p></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -3449,8 +3652,6 @@ nearest Target node, and download the map as SVG.</p><p>All text is HTML-encoded
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -3556,16 +3757,6 @@ Parent nests a group inside another.</p></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -3652,8 +3843,6 @@ visible rows; the Members and Member of tabs save their list.</p><p>All text is 
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -3732,16 +3921,6 @@ names any that is not).</p></td>
           <td><span class="param-type">&lt;Int32&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: 0</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -3822,8 +4001,6 @@ missing cells render as a faint neutral state.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -3926,16 +4103,6 @@ throws to protect against accidental 10k-cell matrices from broad
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -4026,8 +4193,6 @@ carry a numeric value mapped to a colour gradient).</p><p>Two colour scales:
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -4137,16 +4302,6 @@ than StatusGrids since cells are smaller). Throws above this.</p><span class='pa
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -4225,8 +4380,6 @@ tree that handles realistic IT hierarchies (≲ 50 nodes well).</p><p>Cycles are
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -4328,16 +4481,6 @@ scale-to-fit rendering (no toolbar, no collapse).</p><span class='param-default'
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -4415,8 +4558,6 @@ a log query).</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -4490,16 +4631,6 @@ events at the top (chronological reading order).</p><span class='param-default'>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><em style="color:var(--text3)">No description.</em><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
@@ -4566,7 +4697,7 @@ explicit sibling ordering; 0 = declaration order</p><span class='param-default'>
     </div>
 
     <div class='desc-block'><p>Renders a tab strip with one content pane per tab. Distinct from the
-page-level NavGroup mechanism: NavGroup partitions the whole dashboard
+page-level menu (-NavPath): the menu partitions the whole dashboard
 into named panels; Add-DhTabs creates a tabbed pivot inside a single
 block of the dashboard flow.</p><p>Use it for &quot;summary / details / settings&quot; style pivots — when several
 related views share the same surface area and the user toggles between
@@ -4575,7 +4706,7 @@ them locally without navigating away from the current panel.</p><p>Each tab is a
   - Content — free-form HTML rendered inside the tab pane, OR
   - HtmlBlockId — an Id of an Add-DhHtmlBlock previously declared</p><p>Free-form Content is the simplest path. To embed a richer block
 (sparkline table, status grid, etc.) inside a tab, the easiest pattern
-is still to wrap the block in -NavGroup / -NavSubGroup and use the
+is still to give the block its own -NavPath and use the
 page-level nav; Add-DhTabs is intentionally limited to inline HTML.</p><p>SECURITY: per-tab Content is injected into the DOM via innerHTML.
 Never pass untrusted external data (AD attributes, ticket titles, log
 lines, anything supplied by an actor outside your trust boundary) into
@@ -4594,8 +4725,6 @@ Add-DhHtmlBlock, Add-DhAlertBanner -Message, and Add-DhCollapsible
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -4655,16 +4784,6 @@ in this block. v2.0.0: the default is now $false (encoded). Pass
           <td><span class="param-type">&lt;Int32&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Primary nav group label (enables two-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>Optional second-level group under NavGroup (enables three-tier nav).</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
@@ -4742,8 +4861,6 @@ differ from the raw field values.</p><p>Use -MultiFilter to allow more than one 
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -4817,20 +4934,10 @@ Icon     = &#39;X&#39;                   # optional
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>primary nav group label (enables two-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>optional second-level group under NavGroup (enables three-tier nav)
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 ---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
@@ -4913,8 +5020,6 @@ other block elements.</p></div>
    [<span class='hl-opt'><span class='hl-param'>-Collapsible</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-DefaultOpen</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -4982,20 +5087,10 @@ instead of injected as raw markup. v2.0.0: the default is now $false
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>whether the collapsible body starts expanded (only used when -Collapsible is $true)</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>primary nav group label (enables two-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>optional second-level group under NavGroup (enables three-tier nav)
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 ---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
@@ -5084,8 +5179,6 @@ count badge. The body expands or collapses when the header is clicked.</p><p>Two
    [<span class='hl-opt'><span class='hl-param'>-AllowHtml</span> <span class='hl-type'>&lt;Boolean&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-CardWidth</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-GridSpan</span> <span class='hl-type'>&lt;Int32&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
-   [<span class='hl-opt'><span class='hl-param'>-NavSubGroup</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavPath</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavScope</span> <span class='hl-type'>&lt;String&gt;</span></span>]
    [<span class='hl-opt'><span class='hl-param'>-NavLabel</span> <span class='hl-type'>&lt;String&gt;</span></span>]
@@ -5164,20 +5257,10 @@ for intentional raw markup.</p><span class='param-default'>default: $false</span
           <td><span class="param-req req-no">optional</span></td>
           <td class="param-desc"><p>card grid sizing: small=150-220, normal=200-320 (default), large=280-480, xlarge=360-640, auto=grow to fit</p><span class='param-default'>default: 0</span></td>
         </tr>        <tr>
-          <td><span class="param-name">-NavGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
-          <td><span class="param-name">-NavSubGroup</span></td>
-          <td><span class="param-type">&lt;String&gt;</span></td>
-          <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>primary nav group label (enables two-tier nav)</p><span class='param-default'>default: &#39;&#39;</span></td>
-        </tr>        <tr>
           <td><span class="param-name">-NavPath</span></td>
           <td><span class="param-type">&lt;String&gt;</span></td>
           <td><span class="param-req req-no">optional</span></td>
-          <td class="param-desc"><p>optional second-level group under NavGroup (enables three-tier nav)
+          <td class="param-desc"><p>v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
 ---- v2.0.0 navigation (see readme-dev.md section 15) ----</p><span class='param-default'>default: &#39;&#39;</span></td>
         </tr>        <tr>
           <td><span class="param-name">-NavScope</span></td>
@@ -5499,10 +5582,10 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
       <thead><tr><th>Family</th><th>Light variant</th><th>Dark variant</th><th>Font</th></tr></thead>
       <tbody>
         <tr><td><span class="param-name">Default</span></td><td class="param-desc"><p>Light grey + blue</p></td><td class="param-desc"><p>Near-black + cyan</p></td><td><span class="param-type">System UI</span></td></tr>
-        <tr><td><span class="param-name">Azure</span></td><td class="param-desc"><p>Warm grey + Azure blue</p></td><td class="param-desc"><p>Office dark + Azure</p></td><td><span class="param-type">Segoe UI</span></td></tr>
-        <tr><td><span class="param-name">VMware</span></td><td class="param-desc"><p>White/navy + VMware green</p></td><td class="param-desc"><p>Navy + VMware green</p></td><td><span class="param-type">Inter (Google)</span></td></tr>
+        <tr><td><span class="param-name">Azure</span></td><td class="param-desc"><p>Warm grey + Azure Blue, Dark Blue header</p></td><td class="param-desc"><p>Office dark + Azure</p></td><td><span class="param-type">Segoe UI</span></td></tr>
+        <tr><td><span class="param-name">VMware</span></td><td class="param-desc"><p>Broadcom teal-blue, black to teal-blue header, red line</p></td><td class="param-desc"><p>Near-black + teal-blue</p></td><td><span class="param-type">Inter if installed</span></td></tr>
         <tr><td><span class="param-name">Grey</span></td><td class="param-desc"><p>Warm grey + steel</p></td><td class="param-desc"><p>Dark neutral + muted grey</p></td><td><span class="param-type">System UI</span></td></tr>
-        <tr><td><span class="param-name">Company</span></td><td class="param-desc"><p>White + Crimson</p></td><td class="param-desc"><p>Near-black + Crimson</p></td><td><span class="param-type">Montserrat (Google)</span></td></tr>
+        <tr><td><span class="param-name">Company</span></td><td class="param-desc"><p>White + Crimson</p></td><td class="param-desc"><p>Near-black + Crimson</p></td><td><span class="param-type">Montserrat if installed</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -5532,8 +5615,8 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
 <li><strong>Clickable filter cards</strong> — single or multi-select, instant table filtering</li>
 <li><strong>Collapsible sections</strong> — key-value card grids or free-form HTML</li>
 <li><strong>Master-detail table linking</strong> — clicking a row filters a child table</li>
-<li><strong>Two-tier (or three-tier) navigation</strong> — flat nav, grouped primary-tabs + subnav strip, optional subgroup pills</li>
-<li><strong>Per-NavGroup summary strips and alert banners</strong> — each panel gets its own KPI hero row and banner set</li>
+<li><strong>Menus of any depth</strong> — <code>-NavPath 'Storage/Capacity'</code> puts an item on a menu node; strips up to three levels, a sidebar from four</li>
+<li><strong>Per-node summary strips and alert banners</strong> — each menu node can have its own KPI row and banners</li>
 <li><strong>Auto-refresh</strong> — <code>New-DhDashboard -AutoRefresh '30s' / '5m' / '1h'</code> for wall-display ops dashboards</li>
 <li><strong>Assessment reports (2.2+)</strong> — <code>Add-DhFindings</code> (severity, description, recommendation, affected objects, &quot;show in table&quot;, reference links), a full-width <strong>verdict</strong> tile, and bar charts that <strong>measure a value</strong> (sum / average / min / max) instead of counting rows</li>
 <li><strong>Detail panels and record lists (2.3+)</strong> — click a table row, a status-grid cell or a finding to read its detail in a side panel (<code>Add-DhTable -DetailDrawer</code>); <code>Add-DhKeyValue</code> property tiles; <code>Add-DhRecordList</code> rows that expand to tiles, tables, bars and check lists</li>
@@ -5542,6 +5625,7 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
 <li><strong>Network maps (2.4+)</strong> — <code>Add-DhNetworkMap</code>: nodes joined by links in grouped boxes or Tier 0/1/2 lanes, deterministic layout, filters, node search, shortest-path trace to a target, SVG download</li>
 <li><strong>OU tree filter (2.4+)</strong> — <code>Add-DhTreeFilter</code>: click an OU, the linked table shows only that OU and below</li>
 <li><strong>Directory explorer (2.5+)</strong> — <code>Add-DhTreeTable</code>: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting; windowed above 2,000 rows so 50,000 objects stay quick, with CSV of the visible rows and member lists (2.6+)</li>
+<li><strong>Gantt timelines (3.1+)</strong> — <code>Add-DhGantt</code>: start/end bars on a time axis from seconds to years, lanes, rows shared by several bars (overlaps packed into sub-lines), milestones, critical path, marker lines and shaded windows; from a list or one bar per table row (it follows the table filter). Backup windows, patch and migration waves, certificate validity, start order</li>
 <li><strong>One check command (2.6+)</strong> — <code>Test-DhReport</code> (DashHtml.Design) runs the link, menu, size, baseline, script-audit and schema checks on a report, a script, a layout or a built HTML file</li>
 <li><strong>Big reports (2.6+)</strong> — <code>Export-DhDashboard -CompressData</code> (gzip, about 7 times smaller for a 50,000-row table) and a size warning (<code>-SizeBudgetMB</code>)</li>
 <li><strong>Search and menu badges (2.4+)</strong> — <code>New-DhDashboard -Search</code> (pages, findings, table rows; press <code>/</code>) and <code>-NavBadge</code> (worst finding severity on each menu item)</li>
@@ -5550,12 +5634,14 @@ Set-DhTableLink -Report $report -MasterTableId &#39;categories&#39; -DetailTable
 <li><strong>Client-side export</strong> — CSV (built in, works offline), XLSX and PDF. The XLSX/PDF libraries load from cdnjs on first click, or are embedded for air-gapped readers (<code>Export-DhDashboard -ExportLibraries Cdn|Embed|None</code>, 2.2+)</li>
 <li><strong>Light/dark theme toggle</strong> — both variants embedded, switchable at runtime; the reader's choice is remembered (2.1.4+), and <code>New-DhDashboard -ThemeMode Light|Dark|Auto</code> sets the default (2.2+)</li>
 <li><strong>Six theme families</strong> — Default, Azure, VMware, Grey, Company, Rag (the v1.4 family using the Office/Excel-compatible RAG palette)</li>
+<li><strong>Your brand on any theme (3.0+)</strong> — <code>New-DhDashboard -PrimaryColor '#0055A4'</code> (plus <code>-SecondaryColor</code>, <code>-AccentColor</code>, <code>-FontFamily</code>, <code>-FontFile</code>): contrast-safe in light and dark, the font embedded for offline readers</li>
+<li><strong>Saved views (3.0+)</strong> — <code>Add-DhTable -RememberViews</code>: readers save columns, sort, page size and filter under a name</li>
 <li><strong>Column features</strong> — progress bars, badges, link cells (2.2+), threshold colouring (unified <code>-Rag</code> parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells</li>
 </ul>
 <hr />
 <h2 id="requirements">Requirements</h2>
 <ul>
-<li>PowerShell 7.0 or later</li>
+<li>PowerShell 7.4 or later</li>
 </ul>
 <hr />
 <h2 id="installation">Installation</h2>
@@ -5651,7 +5737,7 @@ Add-DhFilterCard -Report $report -Id 'region-fc' -TargetTableId 'items' -FilterF
 Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
 </div></div>
 <h3 id="tip-visual-position-vs.declaration-order">Tip: visual position vs. declaration order</h3>
-<p>When using <code>-NavGroup</code>, a filter card or bar chart will still render <strong>above</strong> its table in the UI even if the table was declared first — the layout engine groups related blocks visually. So you can keep the safe declaration order (tables first) without sacrificing the desired on-screen layout.</p>
+<p>On a menu node (<code>-NavPath</code>), a filter card or bar chart still renders <strong>above</strong> its table in the UI even if the table was declared first — the layout engine groups related blocks visually. So you can keep the safe declaration order (tables first) without sacrificing the desired on-screen layout.</p>
 <hr />
 <h2 id="cmdlet-reference">Cmdlet reference</h2>
 <table>
@@ -5735,6 +5821,10 @@ Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
 <td>Add min / avg / max range bars on a shared 0–100 axis</td>
 </tr>
 <tr>
+<td><code>Add-DhGantt</code> <em>(v3.1)</em></td>
+<td>Add a Gantt timeline: start/end bars, lanes, milestones, critical path, markers and bands, from a list or a table</td>
+</tr>
+<tr>
 <td><code>Add-DhFindings</code> <em>(v2.2)</em></td>
 <td>Add assessment findings: severity, description, recommendation, affected objects, references (v2.3: split layout, facts, evidence, change markers)</td>
 </tr>
@@ -5791,46 +5881,54 @@ Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
 <td><code>Default</code></td>
 <td>Light grey page + blue</td>
 <td>Near-black + cyan</td>
-<td><code>#005F8A</code> / deep blue</td>
+<td><code>#003B56</code> to <code>#0075A1</code> / deep blue</td>
 <td>Segoe UI (system)</td>
 </tr>
 <tr>
 <td><code>Azure</code></td>
-<td>Warm grey page + Azure blue</td>
+<td>Warm grey page + Azure Blue <code>#0078D4</code></td>
 <td>Office dark + Azure</td>
-<td><code>#106EBE</code> / deep blue</td>
+<td><code>#104581</code> to <code>#006FC5</code>, Light Blue line / deep blue</td>
 <td>Segoe UI (system)</td>
 </tr>
 <tr>
 <td><code>VMware</code></td>
-<td>White page + VMware green</td>
-<td>Navy + VMware green</td>
-<td><code>#007D63</code> / deep green</td>
+<td>Light page + Broadcom teal-blue <code>#015C89</code></td>
+<td>Near-black + teal-blue</td>
+<td><code>#000000</code> to <code>#015C89</code>, Broadcom Red line / deep teal-blue</td>
 <td>Inter if installed, else Segoe UI</td>
 </tr>
 <tr>
 <td><code>Grey</code></td>
 <td>Warm grey page + steel</td>
 <td>Dark neutral + muted grey</td>
-<td><code>#37474F</code> / slate</td>
+<td><code>#222C31</code> to <code>#546E7A</code> / slate</td>
 <td>Segoe UI (system)</td>
 </tr>
 <tr>
 <td><code>Company</code></td>
 <td>White page + Crimson</td>
 <td>Near-black + Crimson</td>
-<td><code>#8C0031</code> / deep crimson</td>
+<td><code>#57001E</code> to <code>#BE0036</code> / deep crimson</td>
 <td>Montserrat if installed, else Segoe UI</td>
 </tr>
 <tr>
 <td><code>Rag</code> <em>(v1.4+)</em></td>
 <td>Spec-exact Office/Excel RAG palette on white</td>
 <td>Office dark-mode RAG companions on near-black</td>
-<td><code>#404040</code> / graphite</td>
+<td><code>#262626</code> to <code>#595959</code> / graphite</td>
 <td>Segoe UI (system)</td>
 </tr>
 </tbody>
 </table>
+<p><strong>3.0.0: the header is a gradient.</strong> Every family draws its header as a 120-degree gradient
+from <code>--bg-header</code> to <code>--bg-header-end</code>, and the line under it uses <code>--header-line</code> (Azure
+Light Blue, Broadcom Red in VMware, the accent elsewhere). The header text clears 4.5:1 on
+both ends and the band stays at least 1.30 from the page, in light and dark mode. Azure and
+VMware follow the vendors' current colour roles: Azure Blue / Dark Blue / Light Blue, and
+VMware by Broadcom teal-blue with Broadcom Red only as a line, never as a status colour, so
+the danger red keeps its meaning. A brand report (<code>-SecondaryColor</code>, <code>-PrimaryColor</code>) gets a
+gradient too, computed the same way.</p>
 <p><strong>v2.7.0 — every family now has a coloured header band in both light and dark mode.</strong>
 Before 2.7.0 three families had a white band and, in dark mode, all six collapsed to a
 near-black band that was the same colour as the page (in <code>Grey</code> and <code>Azure</code>, exactly the
@@ -5992,6 +6090,25 @@ values, mostly on 12px text. Caps now appear on 8 rules — column headers, the 
 label and the two status pills — and tracking is three tokens: <code>--track-tight</code>,
 <code>--track-none</code>, <code>--track-label</code>. Block titles are sentence case.</li>
 </ul>
+<h3 id="your-brand-on-any-theme-primarycolor-secondarycolor-accentcolor-fontfamily-3.0">Your brand on any theme: <code>-PrimaryColor</code>, <code>-SecondaryColor</code>, <code>-AccentColor</code>, <code>-FontFamily</code> (3.0+)</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$brand = @{
+    PrimaryColor   = '#0055A4'                      # accent, links, selected menu item, chart series 1, row hover
+    SecondaryColor = '#1D252D'                      # header band (default: a darker shade of the primary)
+    AccentColor    = '#C86E00'                      # chart series 2
+    FontFamily     = 'Inter'
+    FontFile       = '.\fonts\Inter-subset.woff2'   # embedded, so it shows offline
+}
+$report = New-DhDashboard -Title 'Estate review' -Theme Default @brand
+</div></div>
+<ul>
+<li><strong>One colour is enough.</strong> Without <code>-SecondaryColor</code> the header band is a darker shade of <code>-PrimaryColor</code>.</li>
+<li><strong>Light and dark.</strong> Light mode uses the colour as given. Text drawn in that colour (the selected menu item, accent text) uses a shade of the same hue that reaches 4.5:1 on every background the theme defines; dark mode uses lighter shades and a deep tint for the band. The theme toggle swaps both.</li>
+<li><strong>Severity never changes.</strong> Ok, warning, critical and no-data colours, the RAG and the range ramps stay the theme's, so a red cell means the same in every brand.</li>
+<li><strong>Contrast warnings, not errors.</strong> A colour that cannot reach the WCAG minimum (yellow as a link colour, say) prints a warning when the report is built, naming the pair and the ratio; <code>Test-DhReport</code> lists the same as Brand findings.</li>
+<li><strong>Fonts.</strong> <code>-FontFamily</code> goes first in the theme's font stack, with the theme's fonts behind it, so a reader without the font still gets a good one. <code>-FontFile</code> (<code>.woff2</code>, <code>.woff</code>, <code>.ttf</code>, <code>.otf</code>) embeds it as base64; a subset <code>.woff2</code> is usually under 100 KB, and a file over 1 MB prints a warning because it is added to every report. Check the font's licence allows embedding.</li>
+<li><strong>Safe by construction.</strong> Colours are hex only and the font name is letters, digits, spaces and hyphens, so nothing else can reach the CSS. A report without these parameters exports exactly as before.</li>
+</ul>
+<p>Try it: <code>.\Examples\Feature-Branding.ps1 -PrimaryColor '#C8102E' -OpenInBrowser</code>.</p>
 <hr />
 <h2 id="tables">Tables</h2>
 <h3 id="basic-table">Basic table</h3>
@@ -6066,6 +6183,10 @@ Add-DhTable -Report $report -TableId 'old' -Title 'As before 2.4' -Data $rows -C
 <li><strong><code>-RememberColumns</code></strong> (opt-in): the reader's ticks are kept per viewer in the browser's local storage and restored on the next visit, also after the report is regenerated (the key comes from the report title, <code>-GeneratedBy</code> and the table id). Columns are matched by field name, so a column added later keeps its default. <strong>Default columns</strong> in the picker puts your choice back and forgets the saved one. Nothing is stored unless the switch is on, and a blocked storage (private window) just means no memory.</li>
 <li>A hidden or unticked column is left out of CSV, Excel and PDF exports, as an unticked column always was.</li>
 </ul>
+<h3 id="saved-views-3.0">Saved views (3.0+)</h3>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $rows -RememberViews
+</div></div>
+<p>A <strong>Views</strong> button next to Columns. The reader names the current view (columns, sort, page size, text filter and the Change chip) and applies or deletes it later; <strong>Default view</strong> goes back to your columns, sort and page size with no filter. Views are kept per viewer in the browser's local storage under the same key as <code>-RememberColumns</code> (report title, <code>-GeneratedBy</code> and table id), so they survive a regenerated report. Columns and sort fields are matched by name: a view saved before a column was renamed or removed applies what it still can. At most 20 views per table; a private window that blocks storage says so instead of failing. Nothing is stored unless the switch is on.</p>
 <h3 id="what-changed-since-the-last-run-2.5.2">What changed since the last run (2.5.2+)</h3>
 <p>A report that runs on a schedule can mark its rows against the previous run:</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$last = Import-Clixml .\servers-last-run.xml           # whatever you saved at the end of the previous run
@@ -6183,35 +6304,35 @@ Add-DhAlertBanner -Report $report -Id 'maint' -Severity 'info' `
     @{ Label='Active';  Value=231; Class='cell-ok' }
 )
 </div></div>
-<h3 id="per-navgroup-summary-strips-v1.4.1">Per-NavGroup summary strips (v1.4.1+)</h3>
-<p>Pass <code>-NavGroup</code> (and optionally <code>-NavSubGroup</code>) to scope a summary to a single nav panel. Each panel in a two-tier nav can have its own KPI hero row, and these coexist with the unscoped global summary at the top of the page.</p>
-<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Global summary — no NavGroup, visible on every panel
+<h3 id="per-node-summary-strips-v1.4.1-navpath-since-3.0">Per-node summary strips (v1.4.1+, <code>-NavPath</code> since 3.0)</h3>
+<p>Pass <code>-NavPath</code> to scope a summary to one menu node (<code>-NavScope Subtree</code> to show it on the node and everything below). Each node can have its own KPI row, and these coexist with the unscoped global summary at the top of the page.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Global summary — no -NavPath, visible on every view
 Add-DhSummary -Report $report -Title 'Overall health' -Items @(
     @{ Style='bignumber'; Label='SLA (30d)'; Value='99.96%'; Class='cell-ok' }
     @{ Label='Open incidents'; Value=4; Previous=7; TrendIsGood=$true }
 )
 
-# Identity-panel summary — visible only when the 'Identity' tab is active
-Add-DhSummary -Report $report -NavGroup 'Identity' -Title 'Identity KPIs' -Items @(
+# Identity summary — on the 'Identity' node and every view below it
+Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Title 'Identity KPIs' -Items @(
     @{ Label='Active users';  Value=231 }
     @{ Label='Failed logons'; Value=842; Previous=920; TrendIsGood=$true }
 )
 
 # Infrastructure-panel summary — different metrics for a different panel
-Add-DhSummary -Report $report -NavGroup 'Infrastructure' -Title 'Cluster KPIs' -Items @(
+Add-DhSummary -Report $report -NavPath 'Infrastructure' -NavScope Subtree -Title 'Cluster KPIs' -Items @(
     @{ Style='gauge'; Label='Cluster CPU'; Value=68; Max=100; Unit='%'
        Rag=@{ Green=@{Max=70}; Amber=@{Min=70;Max=90}; Red=@{Min=90} } }
     @{ Label='Active alarms'; Value=3; Previous=1; TrendIsGood=$false }
 )
 
-# Add the rest of each panel's content with -NavGroup matching the strip
-Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
-Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
+# The rest of each node's content, under the same path
+Add-DhTable      -Report $report -TableId 'users'      ... -NavPath 'Identity/users'
+Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavPath 'Infrastructure' -NavScope Subtree
 </div></div>
 <p>Full runnable example: <a href="Examples/Feature-KpiTiles.ps1"><code>Examples/Feature-KpiTiles.ps1</code></a> (strips) and <a href="Examples/Feature-Navigation.ps1"><code>Examples/Feature-Navigation.ps1</code></a>.</p>
-<p>NavGroup-specific keys:</p>
+<p>Keys of a per-node strip:</p>
 <ul>
-<li><code>-Id</code> — explicit block Id; auto-derived by slugifying <code>NavGroup</code> (+ optional <code>NavSubGroup</code>) when omitted, e.g. <code>My Group</code> → <code>summary-my-group</code>. Duplicate Ids throw.</li>
+<li><code>-Id</code> — explicit block Id; derived by slugifying the path when omitted, e.g. <code>My Group/Prod</code> → <code>summary-my-group-prod</code>. Duplicate Ids throw.</li>
 </ul>
 <h3 id="tile-styles-v1.4">Tile styles (v1.4+)</h3>
 <p>By default each item renders as the compact tile that has shipped since 1.3.x. Pass <code>Style='bignumber'</code>, <code>Style='gauge'</code> or (2.2+) <code>Style='verdict'</code> to switch to one of the other variants for hero metrics, threshold visualisations or an overall assessment.</p>
@@ -6362,7 +6483,7 @@ Add-DhAlertBanner -Report $report -Id 'release-notes' `
 <ul>
 <li><code>-Dismissible</code> adds a close (×) button. The dismissal is remembered in the URL hash so a page reload keeps the banner hidden; opening the report in a new browser session restores it.</li>
 <li><code>-Action</code> adds a button that either navigates to a registered table (with optional <code>Filter</code> text pre-applied) or opens an external <code>Url</code>. Provide one of <code>TableId</code> or <code>Url</code>, not both.</li>
-<li><code>-NavGroup</code> / <code>-NavSubGroup</code> <em>(v1.4.2+)</em> bind the banner to a single nav panel, so it appears only when that panel is active. Without these params, the banner stays page-global (visible on every panel) — the legacy behaviour.</li>
+<li><code>-NavPath</code> / <code>-NavScope</code> bind the banner to a menu node, so it appears only when that node is selected (<code>Subtree</code>: also below it). Without them the banner is page-global (visible on every view).</li>
 <li>The <code>-Message</code> may contain inline HTML — useful for embedding a short link inside the prose.</li>
 <li>Severity maps to the existing <code>cell-ok</code> / <code>cell-warn</code> / <code>cell-danger</code> palette, so the colours follow the active theme.</li>
 <li>Distinct from <code>Add-DhCollapsible</code> or <code>Add-DhHtmlBlock</code>: an alert banner sits <strong>above</strong> the summary and is meant for transient, high-visibility conditions.</li>
@@ -6639,7 +6760,7 @@ Add-DhTopologyMap -Report $report -Id 'farm-topology' -Title 'Farm Topology' `
 <p>Pass <code>-Interactive:$false</code> for the static scale-to-fit rendering (no toolbar, no collapse) — useful for print or when embedding a small fixed tree.</p>
 <hr />
 <h2 id="tabs-v1.5">Tabs (v1.5+)</h2>
-<p>Inline tabbed content block — a <strong>local</strong> pivot within one section of the dashboard flow. Distinct from <code>-NavGroup</code> which partitions the <strong>whole page</strong>. Use tabs when several views of the same scope (Overview / Detail / Raw payload) belong together but only one should be visible at a time.</p>
+<p>Inline tabbed content block — a <strong>local</strong> pivot within one section of the dashboard flow. Distinct from the menu (<code>-NavPath</code>), which partitions the <strong>whole page</strong>. Use tabs when several views of the same scope (Overview / Detail / Raw payload) belong together but only one should be visible at a time.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhTabs -Report $report -Id 'fleet-views' -Title 'Fleet — Views' -Tabs @(
     @{ Title='Overview';    Icon='O'; Content='&lt;p&gt;The fleet runs 10 servers …&lt;/p&gt;'; Active=$true }
     @{ Title='Per-host';    Icon='H'; Content='&lt;table&gt;…&lt;/table&gt;' }
@@ -6721,7 +6842,7 @@ Add-DhBullet -Report $report -Id 'auth-latency' -Title 'LDAP Bind Time' -Items @
 <li><code>Unit</code> — optional suffix in the readout (<code>'ms'</code>, <code>'%'</code>, …)</li>
 <li><code>Class</code> — optional value-bar colour override (<code>'cell-ok'</code> / <code>'cell-warn'</code> / <code>'cell-danger'</code> / <code>'cell-nodata'</code>). Wins over the auto threshold match.</li>
 <li><code>Rag</code> — preferred way to declare the bands (see <a href="#unified--rag-parameter-v14">Unified <code>-Rag</code> parameter</a>).</li>
-<li><code>Bands</code> / <code>Thresholds</code> — legacy array shape <code>@(@{Min;Max;Class})</code>; <code>Bands</code> is an alias for <code>Thresholds</code>. <code>Rag</code> wins when both are supplied.</li>
+<li><code>Thresholds</code> — the array shape <code>@(@{Min;Max;Class})</code>. <code>Rag</code> wins when both are supplied. The 1.x alias <code>Bands</code> was removed in 3.0.0 (it throws; <code>Update-DhScript -Apply</code> renames it).</li>
 </ul>
 <hr />
 <h2 id="range-bars-2.1">Range bars (2.1+)</h2>
@@ -6808,6 +6929,30 @@ Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
 <p><code>Add-DhRangeBar</code> is the only one whose bar floats, and the only one whose colour encodes position rather than category or state.</p>
 <p>Full runnable example: <a href="Examples/Feature-Charts.ps1"><code>Examples/Feature-Charts.ps1</code></a>: every chart type side by side, with guidance on which to pick.</p>
 <hr />
+<h2 id="gantt-timelines-3.1">Gantt timelines (3.1+)</h2>
+<p><code>Add-DhGantt</code> draws one bar per task from <code>Start</code> to <code>End</code> on a shared time axis. The axis runs from seconds to years, so the same block serves a recovery test, last night's backup jobs, patch and migration waves, and certificate or contract validity.</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'># Steps on a clock axis, with a target line and a milestone
+Add-DhGantt -Report $report -Id 'steps' -Title 'Recovery steps' -ShowDataTable -Items @(
+    @{ Id = 'st'; Label = 'Storage';      Start = '2026-06-13 06:10'; End = '2026-06-13 06:14:29'; Status = 'ok' }
+    @{ Id = 'cp'; Label = 'Compute';      Start = '2026-06-13 06:14:30'; End = '2026-06-13 07:06:04'; Status = 'ok'; Critical = $true; DependsOn = 'st' }
+    @{ Id = 'ap'; Label = 'Applications'; Start = '2026-06-13 07:06:04'; End = '2026-06-13 07:23:46'; Status = 'warn'; DependsOn = 'cp' }
+    @{ Label = 'Sign-off'; Start = '2026-06-13 07:25' }                        # no End: a milestone
+) -Markers @(@{ At = '2026-06-13 07:40'; Label = 'RTO target'; Status = 'warn' })
+
+# One bar per row of a table, one line per client; the chart follows the table filter
+Add-DhGantt -Report $report -Id 'night' -Title 'Last night' -TableId 'jobs' `
+    -LabelField 'Job' -StartField 'Started' -EndField 'Ended' -RowField 'Client' -StatusField 'Result' `
+    -Bands @(@{ From = $night; To = $night.AddHours(8); Label = 'Backup window' })
+</div></div>
+<ul>
+<li><strong>Items:</strong> <code>Label</code> and <code>Start</code> are required. Optional: <code>End</code> (none = a milestone), <code>Group</code> (lane), <code>Row</code> (items with the same <code>Row</code> share a line; overlapping bars are packed into sub-lines), <code>Status</code> (<code>ok</code> / <code>warn</code> / <code>danger</code> / <code>info</code> / <code>nodata</code>), <code>Category</code> (a palette colour with a legend), <code>Critical</code>, <code>Text</code>, <code>Tooltip</code>, <code>Id</code> + <code>DependsOn</code> (&quot;after: …&quot; in the tooltip), <code>Detail</code> (the side panel), <code>LinkTableId</code> / <code>LinkFilter</code>.</li>
+<li><strong>Times:</strong> all dates (<code>[datetime]</code>, <code>[DateTimeOffset]</code> or an invariant string such as <code>'2026-06-13 06:10'</code>) or all numbers (elapsed, in <code>-Unit</code> s / min / h / d). <code>-Origin</code> sets the zero of the axis (default: the earliest start); a date <code>-Origin</code> gives numbers a clock. <code>-AxisFormat Auto</code> picks a clock below two days, dates above, elapsed for numbers.</li>
+<li><strong>The browser never parses a date.</strong> Every time is turned into seconds from the origin in PowerShell, and the page shows the wall clock the value carries: the reader's time zone cannot move a bar. A bar across a daylight-saving change is placed by wall clock.</li>
+<li><strong>Table mode</strong> (<code>-TableId</code>, <code>-LabelField</code>, <code>-StartField</code>, optional <code>-EndField</code>, <code>-GroupField</code>, <code>-RowField</code>, <code>-StatusField</code>, <code>-CategoryField</code>): a row whose start does not read as a date or number is left out with a warning, and a note under the chart. Clicking a bar filters the table on its label.</li>
+<li><code>-Markers</code> (vertical lines), <code>-Bands</code> (shaded windows), <code>-SortBy Start|End|Duration|Label</code> inside each lane, <code>-ShowDuration $false</code>, <code>-ShowDataTable</code> (the printable, screen-reader-friendly list), <code>-MaxItems</code> (default 500).</li>
+</ul>
+<p>Full runnable example: <a href="Examples/Feature-Gantt.ps1"><code>Examples/Feature-Gantt.ps1</code></a>: a recovery test, nightly backups and certificate validity.</p>
+<hr />
 <h2 id="findings-2.2">Findings (2.2+)</h2>
 <p><code>Add-DhFindings</code> is the block an audit or assessment report is built around. Each finding is one row: a severity badge, the title, an area and the affected count. Expanding the row shows:</p>
 <ul>
@@ -6848,9 +6993,7 @@ Add-DhRangeBar -Report $report -Id 'cluster-load' -Title 'Cluster load range' `
 </div></div>
 <ul>
 <li><strong>Facts</strong> are label/value tiles. <strong>Evidence</strong> is one row per object (Object required; Value, Status, Note optional, a column appears only when some row uses it), capped by <code>-MaxEvidenceShown</code> (default 50, then &quot;+N more&quot;; <code>AffectedTableId</code> still jumps to the full table).</li>
-<li><strong>Change</strong> is
-ew, worse, etter or
-esolved: a badge and a filter chip. Your script compares with the previous run; DashHtml only shows the result.</li>
+<li><strong>Change</strong> is <code>new</code>, <code>worse</code>, <code>better</code> or <code>resolved</code>: a badge and a filter chip. Your script compares with the previous run; DashHtml only shows the result.</li>
 <li><strong>Detail</strong> opens in the side panel (see below). It takes text, one section, an array of sections or <code>@{ Title; Subtitle; Sections }</code>.</li>
 <li><strong><code>-AllClearText 'No stale objects found.'</code></strong> shows a check mark and the sentence when the block has no findings (also on <code>Add-DhTable</code> for an empty <code>-Data</code>), so a passed check is visible.</li>
 </ul>
@@ -6967,7 +7110,7 @@ Export-DhDashboard -Report $r -OutputPath .\ad.html -SizeBudgetMB 30     # warn 
 <li>with <code>New-DhDashboard -PrintCover</code>, a cover page first: title, subtitle, logo, info fields and the verdict tile.</li>
 </ul>
 <p>Pipelines that render PDFs with a headless browser (<code>msedge --headless --print-to-pdf=...</code>) get the same layout: headless Edge runs the same print handlers.</p>
-<hr />
+<h2 id="a-network-map-prints-at-the-proportions-of-its-drawing-3.0-so-a-small-map-no-longer-sits-in-a-tall-empty-frame.to-check-page-breaks-by-eye-toolstest-dhprint.ps1-png-prints-each-report-to-pdf-renders-every-page-to-a-png-and-writes-review.html-with-all-of-them-side-by-side-headless-edge-or-chrome-pdf.js-is-vendored-in-toolsvendor-and-hash-checked.in-those-pngs-gradients-show-as-hot-pink-pdf.js-cannot-draw-the-soft-masked-shadings-chromium-writes-the-pdf-itself-is-fine">A network map prints at the proportions of its drawing (3.0+), so a small map no longer sits in a tall empty frame. To check page breaks by eye, <code>Tools\Test-DhPrint.ps1 -Png</code> prints each report to PDF, renders every page to a PNG and writes <code>review.html</code> with all of them side by side (headless Edge or Chrome; pdf.js is vendored in <code>Tools\vendor</code> and hash-checked). In those PNGs, gradients show as hot pink: pdf.js cannot draw the soft-masked shadings Chromium writes; the PDF itself is fine.</h2>
 <h2 id="offline-export-exportlibraries-2.2">Offline export: <code>-ExportLibraries</code> (2.2+)</h2>
 <p>CSV export is built in. XLSX and PDF need three JavaScript libraries (SheetJS, jsPDF, jsPDF-AutoTable). <code>Export-DhDashboard -ExportLibraries</code> decides how they reach the reader:</p>
 <table>
@@ -7105,7 +7248,7 @@ Add-DhAlertBanner -Report $r -Id 'a1' -NavScope Global                     # eve
 </tr>
 </tbody>
 </table>
-<p>Combining <code>-NavPath</code> with <code>-NavGroup</code>/<code>-NavSubGroup</code> on one call is a hard error.</p>
+<p>The 1.x <code>-NavGroup</code> / <code>-NavSubGroup</code> parameters were removed in 3.0.0; see <a href="#upgrading-to-30">Upgrading to 3.0</a>.</p>
 <h3 id="layout">Layout</h3>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>New-DhDashboard -Title 'Net' -NavLayout Auto -NavMaxDepth 4
 </div></div>
@@ -7128,41 +7271,60 @@ Add-DhAlertBanner -Report $r -Id 'a1' -NavScope Global                     # eve
 <li><strong>Keyboard.</strong> One tab stop per strip; Left, Right, Home, End move along it; the More menu opens with Down or Enter and closes with Escape; the sidebar rail takes Up, Down, Left (to the parent) and Right (open or step in). Focus stays on the same item when the menu is rebuilt.</li>
 </ul>
 <p><code>Examples/Feature-Navigation.ps1</code> shows the All view and the skeleton.</p>
-<h3 id="upgrading-from-1.x">Upgrading from 1.x</h3>
-<p><code>-NavGroup</code> / <code>-NavSubGroup</code> <strong>keep working</strong> and map onto the new model — no edit required. See <strong><a href="MIGRATION-v2.md">MIGRATION-v2.md</a></strong>, and run:</p>
-<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Update-DhScript -Path .\YourScripts        # report only
+<h3 id="upgrading-to-3.0">Upgrading to 3.0</h3>
+<p>3.0.0 removed the 1.x <code>-NavGroup</code> / <code>-NavSubGroup</code> parameters (a call that still passes them fails with &quot;A parameter cannot be found that matches parameter name 'NavGroup'&quot;), the <code>Add-DhBullet</code> key <code>Bands</code>, and the 2.0 &quot;content looks like HTML&quot; warning, and needs PowerShell 7.4. One command finds and fixes the first two:</p>
+<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Update-DhScript -Path .\YourScripts            # list what needs changing (parsed, never run)
+Update-DhScript -Path .\YourScripts -Apply     # rewrite, with a backup of each file in .\Backups
 </div></div>
-<blockquote>
-<p><strong>One behaviour change worth checking.</strong> In 1.x a <em>block</em> given both <code>-NavGroup</code> and <code>-NavSubGroup</code> was unreachable and never rendered. It works now, so content that has been silently missing will reappear.</p>
-</blockquote>
-<hr />
-<h2 id="two-tier-navigation">Two-tier navigation</h2>
-<p>Use <code>-NavGroup</code> on <strong>any</strong> cmdlet (<code>Add-DhTable</code>, <code>Add-DhFilterCard</code>, <code>Add-DhBarChart</code>, <code>Add-DhHtmlBlock</code>, <code>Add-DhCollapsible</code>) to create a grouped navigation with a primary tab bar and a sub-nav strip:</p>
+<p>The rewrite keeps the menu exactly as the 2.x compat shim built it:</p>
+<table>
+<thead>
+<tr>
+<th>2.x</th>
+<th>3.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Add-DhTable -TableId 'vols' -NavGroup 'Storage'</code></td>
+<td><code>-NavPath 'Storage/vols'</code> (a table keeps its own menu entry, keyed on <code>TableId</code>)</td>
+</tr>
+<tr>
+<td><code>Add-DhTable -TableId 'vols' -NavGroup 'Storage' -NavSubGroup 'Capacity'</code></td>
+<td><code>-NavPath 'Storage/Capacity/vols'</code></td>
+</tr>
+<tr>
+<td>any block <code>-NavGroup 'Storage'</code></td>
+<td><code>-NavPath 'Storage' -NavScope Subtree</code> (visible on the whole branch, as before)</td>
+</tr>
+<tr>
+<td>any block <code>-NavGroup 'Storage' -NavSubGroup 'Capacity'</code></td>
+<td><code>-NavPath 'Storage/Capacity' -NavScope Subtree</code></td>
+</tr>
+<tr>
+<td><code>Add-DhBullet</code> item <code>Bands = @(...)</code></td>
+<td><code>Thresholds = @(...)</code></td>
+</tr>
+</tbody>
+</table>
+<p>A value that is not a literal (<code>-NavGroup $group</code>) is listed for you to convert by hand; an explicit <code>-NavScope</code> is kept; a <code>/</code> inside a name becomes <code>//</code>. <code>Test-DhReport -Path .\YourScripts\*.ps1</code> lists anything left as an ACTION. Old bookmarks with a 1.x <code>#{group,panel}</code> address still open the right view.</p>
+<h3 id="two-and-three-levels">Two and three levels</h3>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$report = New-DhDashboard -Title 'Operations Dashboard'
 
-# Filter card and bar chart placed at the top of the Identity group
-Add-DhFilterCard -Report $report -Id 'status-fc' -NavGroup 'Identity' `
+# A filter card on the whole Identity branch, above its tables
+Add-DhTable -Report $report -TableId 'users'  -Title 'Users'  -Data $users  -NavPath 'Identity/users'
+Add-DhTable -Report $report -TableId 'groups' -Title 'Groups' -Data $groups -NavPath 'Identity/groups'
+Add-DhFilterCard -Report $report -Id 'status-fc' -NavPath 'Identity' -NavScope Subtree `
     -Title 'Filter by Status' -TargetTableId 'users' -FilterField 'Status' `
     -Cards @( @{Label='Active'; Value='Active'}, @{Label='Disabled'; Value='Disabled'} )
 
-Add-DhTable -Report $report -TableId 'users'   -Title 'Users'   -Data $users   -NavGroup 'Identity'
-Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups'  -Data $groups  -NavGroup 'Identity'
-Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers -NavGroup 'Infrastructure'
-Add-DhTable -Report $report -TableId 'disks'   -Title 'Disks'   -Data $disks   -NavGroup 'Infrastructure'
+# A third level: Infrastructure &gt; Production &gt; Servers
+Add-DhTable -Report $report -TableId 'srv-prod' -Title 'Servers' -Data $prod -NavPath 'Infrastructure/Production/srv-prod' -NavLabel 'Servers'
+Add-DhTable -Report $report -TableId 'srv-dev'  -Title 'Servers' -Data $dev  -NavPath 'Infrastructure/Development/srv-dev' -NavLabel 'Servers'
 
 Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
 </div></div>
-<p>Result: primary nav shows <strong>Identity</strong> and <strong>Infrastructure</strong> group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching <code>-NavGroup</code> appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.</p>
-<h3 id="three-tier-navigation-optional">Three-tier navigation (optional)</h3>
-<p>Add an optional <code>-NavSubGroup</code> on top of <code>-NavGroup</code> to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. When a group with subgroups is opened, the <strong>first pill is automatically active</strong>, so items tagged with <code>-NavSubGroup</code> behave as a true subgroup binding — visible only when their pill is the active one. Clicking another pill switches the subgroup; clicking the active pill clears the filter and shows all items in the group. Items in a group that have <strong>no</strong> <code>-NavSubGroup</code> remain visible regardless of pill state, acting as group-wide content.</p>
-<div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhTable -Report $report -TableId 'users-prod' -Title 'Users (Prod)' -Data $prodUsers `
-    -NavGroup 'Identity' -NavSubGroup 'Production'
-Add-DhTable -Report $report -TableId 'users-dev'  -Title 'Users (Dev)'  -Data $devUsers  `
-    -NavGroup 'Identity' -NavSubGroup 'Development'
-Add-DhTable -Report $report -TableId 'users-all'  -Title 'All Users'    -Data $allUsers  `
-    -NavGroup 'Identity'   # no NavSubGroup → always visible in Identity
-</div></div>
-<p>The parameter is available on every block cmdlet (<code>Add-DhTable</code>, <code>Add-DhHtmlBlock</code>, <code>Add-DhCollapsible</code>, <code>Add-DhFilterCard</code>, <code>Add-DhBarChart</code>) and is fully backward compatible — existing scripts work unchanged.</p>
+<p>The menu is built from the paths: <strong>Identity</strong> and <strong>Infrastructure</strong> on the first row, their children on the next. An item with <code>-NavScope Subtree</code> shows on its node and every view below it; the default <code>Exact</code> shows on its own node only. <code>Examples/Feature-Navigation.ps1</code> walks through every rule, and <code>Tools\Show-DhNavMap.ps1</code> prints a report's menu.</p>
 <hr />
 <h2 id="collapsible-sections">Collapsible sections</h2>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>Add-DhCollapsible -Report $report -Id 'accounts' -Title 'Accounts' -DefaultOpen $true `
@@ -7194,7 +7356,10 @@ Add-DhTable -Report $report -TableId 'users-all'  -Title 'All Users'    -Data $a
 <hr />
 <h2 id="logo-and-header-fields">Logo and header fields</h2>
 <p>The logo (<code>-LogoPath</code>) is displayed in the <strong>report header</strong> only — it does not appear in the nav bar.
-<code>-NavTitle</code> is optional; when omitted the nav bar shows only navigation links.</p>
+Without <code>-LogoPath</code> the header has no logo and no empty box (3.0.0; it used to show a blank square).
+<code>-NavTitle</code> is optional; when omitted the nav bar shows only navigation links.
+The &quot;Generated&quot; date and time sits at the right of the header, in the header font; <code>-HideGeneratedAt</code>
+(3.0.0) leaves it out, for example when an info field already carries the date.</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>PowerShell</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>$report = New-DhDashboard -Title 'Infrastructure Dashboard' `
     -Subtitle 'Environment: Production' `
     -LogoPath 'C:\img\logo.png' `
@@ -7268,11 +7433,18 @@ Invoke-Pester .\Tests -Output Detailed
 
 # Fast local iteration
 .\Build.ps1 -SkipTests -SkipLint
+
+# Only the fast tests (skips example smoke tests, browser audits, compression)
+.\Build.ps1 -Quick -SkipLint
+Invoke-Pester .\Tests -ExcludeTagFilter Slow
+
+# Print every example to PDF and PNG pages for a look at page breaks
+.\Tools\Test-DhPrint.ps1 -Png -OutDir .\Examples\_print
 </div></div>
 <p>Artifacts land in <code>dist\</code>:</p>
 <div class='md-code-block'><div class='md-code-header'><span class='md-code-lang'>code</span><button class='copy-btn' title='Copy'>Copy</button></div><div class='example-code'>dist\DashHtml\                   dist\DashHtml.Design\
-dist\DashHtml-v2.0.0.zip        dist\DashHtml.Design-v1.0.0.zip
-dist\DashHtml.2.0.0.nupkg       dist\DashHtml.Design.1.0.0.nupkg
+dist\DashHtml-v3.0.0.zip        dist\DashHtml.Design-v3.0.0.zip
+dist\DashHtml.3.0.0.nupkg       dist\DashHtml.Design.3.0.0.nupkg
 </div></div>
 <p>Each staged module ships its own <code>README.md</code> (the companion has a module-local
 one, so its PSGallery page describes the companion, not the core) plus <code>LICENSE</code>.</p>
@@ -7321,7 +7493,7 @@ Add-DhAlertBanner -Report $r -Id 'a' -Severity warning `
 Add-DhHtmlBlock -Report $r -Id 'intro' -Style info -AllowHtml:$true `
     -Content '&lt;ul&gt;&lt;li&gt;Section A&lt;/li&gt;&lt;li&gt;Section B&lt;/li&gt;&lt;/ul&gt;'
 </div></div>
-<p><code>-AllowHtml</code> defaults to <code>$true</code> (raw) in the 1.x line, <strong>but that default flips to <code>$false</code> (encode) in 2.0.0.</strong> If you pass HTML without an explicit <code>-AllowHtml</code>, you'll get a one-time deprecation warning per call — resolve it by adding <code>-AllowHtml:$true</code> (trusted markup) or <code>-AllowHtml:$false</code> (untrusted data). If you'd rather encode manually, <code>[System.Web.HttpUtility]::HtmlEncode()</code> (or <code>[System.Net.WebUtility]::HtmlEncode()</code>) still works.</p>
+<p><code>-AllowHtml</code> defaults to <code>$false</code> (encode) since 2.0.0: markup passed without <code>-AllowHtml:$true</code> is shown as literal text. Pass <code>-AllowHtml:$true</code> only for trusted markup you wrote. (2.x printed a warning when it encoded something that looked like HTML; 3.0.0 removed it.)</p>
 <p>Everything else (table cells, summary tile labels, topology node labels, status grid cells, KPI captions, etc.) goes through HTML-encoding automatically; passing user-supplied text is safe.</p>
 <h3 id="what-the-module-enforces-for-you-since-1.5.3">What the module enforces for you (since 1.5.3)</h3>
 <ul>
@@ -7383,8 +7555,10 @@ Add-DhHtmlBlock -Report $r -Id 'intro' -Style info -AllowHtml:$true `
     Get-DhCssRagLight.ps1            # v1.4
     Get-DhCssRagDark.ps1             # v1.4
     Build-DhTableSections.ps1
+    ConvertTo-DhBrandCss.ps1         # 3.0 — brand colours, contrast maths, font embedding
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
+    ConvertTo-DhTreeTableJson.ps1    # 3.0 — fast tree-table JSON
 Tests/
   DashHtml.Tests.ps1               # see Build.ps1 for the current counts (Pester across the three suites plus the node tests) at 2.5.2
 Examples/                            # Demo-* = a realistic report, Feature-* = one capability
@@ -7402,6 +7576,8 @@ Examples/                            # Demo-* = a realistic report, Feature-* = 
   Feature-MapsAndGrids.ps1
   Feature-FiltersAndSearch.ps1
   Feature-PageElements.ps1
+  Feature-Branding.ps1
+Tools/                               # Show-DhNavMap, Test-DhPrint (-Png review), Test-DhContrast, Test-DhA11y; vendor/ = pdf.js for the review
 Build.ps1
 Build-DhReference.ps1              # Generates DashHtml-Reference.html
 Install.ps1
@@ -7422,7 +7598,7 @@ See <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a> for the full lis
   </section>
 
   <div class="page-footer">
-    Generated by Build-DhReference.ps1 · DashHtml v2.7.0 · 2026-10-27 10:50
+    Generated by Build-DhReference.ps1 · DashHtml v3.1.0 · 2026-11-03 11:16
   </div>
 
 </main>

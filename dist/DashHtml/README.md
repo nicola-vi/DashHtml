@@ -14,8 +14,8 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 - **Clickable filter cards** — single or multi-select, instant table filtering
 - **Collapsible sections** — key-value card grids or free-form HTML
 - **Master-detail table linking** — clicking a row filters a child table
-- **Two-tier (or three-tier) navigation** — flat nav, grouped primary-tabs + subnav strip, optional subgroup pills
-- **Per-NavGroup summary strips and alert banners** — each panel gets its own KPI hero row and banner set
+- **Menus of any depth** — `-NavPath 'Storage/Capacity'` puts an item on a menu node; strips up to three levels, a sidebar from four
+- **Per-node summary strips and alert banners** — each menu node can have its own KPI row and banners
 - **Auto-refresh** — `New-DhDashboard -AutoRefresh '30s' / '5m' / '1h'` for wall-display ops dashboards
 - **Assessment reports (2.2+)** — `Add-DhFindings` (severity, description, recommendation, affected objects, "show in table", reference links), a full-width **verdict** tile, and bar charts that **measure a value** (sum / average / min / max) instead of counting rows
 - **Detail panels and record lists (2.3+)** — click a table row, a status-grid cell or a finding to read its detail in a side panel (`Add-DhTable -DetailDrawer`); `Add-DhKeyValue` property tiles; `Add-DhRecordList` rows that expand to tiles, tables, bars and check lists
@@ -24,6 +24,7 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 - **Network maps (2.4+)** — `Add-DhNetworkMap`: nodes joined by links in grouped boxes or Tier 0/1/2 lanes, deterministic layout, filters, node search, shortest-path trace to a target, SVG download
 - **OU tree filter (2.4+)** — `Add-DhTreeFilter`: click an OU, the linked table shows only that OU and below
 - **Directory explorer (2.5+)** — `Add-DhTreeTable`: a tree of OUs, groups, users and computers with properties, members, member of and effective nesting; windowed above 2,000 rows so 50,000 objects stay quick, with CSV of the visible rows and member lists (2.6+)
+- **Gantt timelines (3.1+)** — `Add-DhGantt`: start/end bars on a time axis from seconds to years, lanes, rows shared by several bars (overlaps packed into sub-lines), milestones, critical path, marker lines and shaded windows; from a list or one bar per table row (it follows the table filter). Backup windows, patch and migration waves, certificate validity, start order
 - **One check command (2.6+)** — `Test-DhReport` (DashHtml.Design) runs the link, menu, size, baseline, script-audit and schema checks on a report, a script, a layout or a built HTML file
 - **Big reports (2.6+)** — `Export-DhDashboard -CompressData` (gzip, about 7 times smaller for a 50,000-row table) and a size warning (`-SizeBudgetMB`)
 - **Search and menu badges (2.4+)** — `New-DhDashboard -Search` (pages, findings, table rows; press `/`) and `-NavBadge` (worst finding severity on each menu item)
@@ -32,13 +33,15 @@ A PowerShell 7 module for generating **interactive, self-contained HTML dashboar
 - **Client-side export** — CSV (built in, works offline), XLSX and PDF. The XLSX/PDF libraries load from cdnjs on first click, or are embedded for air-gapped readers (`Export-DhDashboard -ExportLibraries Cdn|Embed|None`, 2.2+)
 - **Light/dark theme toggle** — both variants embedded, switchable at runtime; the reader's choice is remembered (2.1.4+), and `New-DhDashboard -ThemeMode Light|Dark|Auto` sets the default (2.2+)
 - **Six theme families** — Default, Azure, VMware, Grey, Company, Rag (the v1.4 family using the Office/Excel-compatible RAG palette)
+- **Your brand on any theme (3.0+)** — `New-DhDashboard -PrimaryColor '#0055A4'` (plus `-SecondaryColor`, `-AccentColor`, `-FontFamily`, `-FontFile`): contrast-safe in light and dark, the font embedded for offline readers
+- **Saved views (3.0+)** — `Add-DhTable -RememberViews`: readers save columns, sort, page size and filter under a name
 - **Column features** — progress bars, badges, link cells (2.2+), threshold colouring (unified `-Rag` parameter), row highlighting, pinned first column, footer aggregates, number/currency/bytes/percent/datetime/duration formatting, sparkline cells
 
 ---
 
 ## Requirements
 
-- PowerShell 7.0 or later
+- PowerShell 7.4 or later
 
 ---
 
@@ -140,7 +143,7 @@ Add-DhTable      -Report $report -TableId 'items' -Title 'Items' -Data $items
 
 ### Tip: visual position vs. declaration order
 
-When using `-NavGroup`, a filter card or bar chart will still render **above** its table in the UI even if the table was declared first — the layout engine groups related blocks visually. So you can keep the safe declaration order (tables first) without sacrificing the desired on-screen layout.
+On a menu node (`-NavPath`), a filter card or bar chart still renders **above** its table in the UI even if the table was declared first — the layout engine groups related blocks visually. So you can keep the safe declaration order (tables first) without sacrificing the desired on-screen layout.
 
 ---
 
@@ -166,6 +169,7 @@ When using `-NavGroup`, a filter card or bar chart will still render **above** i
 | `Add-DhTabs` *(v1.5)* | Add an inline tabbed content block (local pivot within one section) |
 | `Add-DhGlobalFilter` *(v1.9)* | Add a page-level filter (dropdown or date range) that filters every table with that field |
 | `Add-DhRangeBar` *(v2.1)* | Add min / avg / max range bars on a shared 0–100 axis |
+| `Add-DhGantt` *(v3.1)* | Add a Gantt timeline: start/end bars, lanes, milestones, critical path, markers and bands, from a list or a table |
 | `Add-DhFindings` *(v2.2)* | Add assessment findings: severity, description, recommendation, affected objects, references (v2.3: split layout, facts, evidence, change markers) |
 | `Add-DhKeyValue` *(v2.3)* | Add a grid of label/value property tiles |
 | `Add-DhRecordList` *(v2.3)* | Add rows (status, title, metrics) that expand to tiles, tables, bars and check lists |
@@ -186,12 +190,21 @@ Six built-in families — each includes a light and a dark variant, both always 
 
 | Family | Light | Dark | Header band | Font |
 |--------|-------|------|-------------|------|
-| `Default` | Light grey page + blue | Near-black + cyan | `#005F8A` / deep blue | Segoe UI (system) |
-| `Azure` | Warm grey page + Azure blue | Office dark + Azure | `#106EBE` / deep blue | Segoe UI (system) |
-| `VMware` | White page + VMware green | Navy + VMware green | `#007D63` / deep green | Inter if installed, else Segoe UI |
-| `Grey` | Warm grey page + steel | Dark neutral + muted grey | `#37474F` / slate | Segoe UI (system) |
-| `Company` | White page + Crimson | Near-black + Crimson | `#8C0031` / deep crimson | Montserrat if installed, else Segoe UI |
-| `Rag` *(v1.4+)* | Spec-exact Office/Excel RAG palette on white | Office dark-mode RAG companions on near-black | `#404040` / graphite | Segoe UI (system) |
+| `Default` | Light grey page + blue | Near-black + cyan | `#003B56` to `#0075A1` / deep blue | Segoe UI (system) |
+| `Azure` | Warm grey page + Azure Blue `#0078D4` | Office dark + Azure | `#104581` to `#006FC5`, Light Blue line / deep blue | Segoe UI (system) |
+| `VMware` | Light page + Broadcom teal-blue `#015C89` | Near-black + teal-blue | `#000000` to `#015C89`, Broadcom Red line / deep teal-blue | Inter if installed, else Segoe UI |
+| `Grey` | Warm grey page + steel | Dark neutral + muted grey | `#222C31` to `#546E7A` / slate | Segoe UI (system) |
+| `Company` | White page + Crimson | Near-black + Crimson | `#57001E` to `#BE0036` / deep crimson | Montserrat if installed, else Segoe UI |
+| `Rag` *(v1.4+)* | Spec-exact Office/Excel RAG palette on white | Office dark-mode RAG companions on near-black | `#262626` to `#595959` / graphite | Segoe UI (system) |
+
+**3.0.0: the header is a gradient.** Every family draws its header as a 120-degree gradient
+from `--bg-header` to `--bg-header-end`, and the line under it uses `--header-line` (Azure
+Light Blue, Broadcom Red in VMware, the accent elsewhere). The header text clears 4.5:1 on
+both ends and the band stays at least 1.30 from the page, in light and dark mode. Azure and
+VMware follow the vendors' current colour roles: Azure Blue / Dark Blue / Light Blue, and
+VMware by Broadcom teal-blue with Broadcom Red only as a line, never as a status colour, so
+the danger red keeps its meaning. A brand report (`-SecondaryColor`, `-PrimaryColor`) gets a
+gradient too, computed the same way.
 
 **v2.7.0 — every family now has a coloured header band in both light and dark mode.**
 Before 2.7.0 three families had a white band and, in dark mode, all six collapsed to a
@@ -324,6 +337,29 @@ Three defects were measured across all twelve theme variants and fixed:
   values, mostly on 12px text. Caps now appear on 8 rules — column headers, the KPI field
   label and the two status pills — and tracking is three tokens: `--track-tight`,
   `--track-none`, `--track-label`. Block titles are sentence case.
+
+### Your brand on any theme: `-PrimaryColor`, `-SecondaryColor`, `-AccentColor`, `-FontFamily` (3.0+)
+
+```powershell
+$brand = @{
+    PrimaryColor   = '#0055A4'                      # accent, links, selected menu item, chart series 1, row hover
+    SecondaryColor = '#1D252D'                      # header band (default: a darker shade of the primary)
+    AccentColor    = '#C86E00'                      # chart series 2
+    FontFamily     = 'Inter'
+    FontFile       = '.\fonts\Inter-subset.woff2'   # embedded, so it shows offline
+}
+$report = New-DhDashboard -Title 'Estate review' -Theme Default @brand
+```
+
+- **One colour is enough.** Without `-SecondaryColor` the header band is a darker shade of `-PrimaryColor`.
+- **Light and dark.** Light mode uses the colour as given. Text drawn in that colour (the selected menu item, accent text) uses a shade of the same hue that reaches 4.5:1 on every background the theme defines; dark mode uses lighter shades and a deep tint for the band. The theme toggle swaps both.
+- **Severity never changes.** Ok, warning, critical and no-data colours, the RAG and the range ramps stay the theme's, so a red cell means the same in every brand.
+- **Contrast warnings, not errors.** A colour that cannot reach the WCAG minimum (yellow as a link colour, say) prints a warning when the report is built, naming the pair and the ratio; `Test-DhReport` lists the same as Brand findings.
+- **Fonts.** `-FontFamily` goes first in the theme's font stack, with the theme's fonts behind it, so a reader without the font still gets a good one. `-FontFile` (`.woff2`, `.woff`, `.ttf`, `.otf`) embeds it as base64; a subset `.woff2` is usually under 100 KB, and a file over 1 MB prints a warning because it is added to every report. Check the font's licence allows embedding.
+- **Safe by construction.** Colours are hex only and the font name is letters, digits, spaces and hyphens, so nothing else can reach the CSS. A report without these parameters exports exactly as before.
+
+Try it: `.\Examples\Feature-Branding.ps1 -PrimaryColor '#C8102E' -OpenInBrowser`.
+
 ---
 
 ## Tables
@@ -421,6 +457,14 @@ Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $rows -Remember
 - **`Hidden = $true`** on a column: it starts unticked, stays in the data and in the detail panel, and the button says how many are hidden ("Columns (1 hidden)"). At least one column must stay visible (every column Hidden throws).
 - **`-RememberColumns`** (opt-in): the reader's ticks are kept per viewer in the browser's local storage and restored on the next visit, also after the report is regenerated (the key comes from the report title, `-GeneratedBy` and the table id). Columns are matched by field name, so a column added later keeps its default. **Default columns** in the picker puts your choice back and forgets the saved one. Nothing is stored unless the switch is on, and a blocked storage (private window) just means no memory.
 - A hidden or unticked column is left out of CSV, Excel and PDF exports, as an unticked column always was.
+
+### Saved views (3.0+)
+
+```powershell
+Add-DhTable -Report $r -TableId 'servers' -Title 'Servers' -Data $rows -RememberViews
+```
+
+A **Views** button next to Columns. The reader names the current view (columns, sort, page size, text filter and the Change chip) and applies or deletes it later; **Default view** goes back to your columns, sort and page size with no filter. Views are kept per viewer in the browser's local storage under the same key as `-RememberColumns` (report title, `-GeneratedBy` and table id), so they survive a regenerated report. Columns and sort fields are matched by name: a view saved before a column was renamed or removed applies what it still can. At most 20 views per table; a private window that blocks storage says so instead of failing. Nothing is stored unless the switch is on.
 
 ### What changed since the last run (2.5.2+)
 
@@ -569,39 +613,39 @@ Add-DhSummary -Report $report -Collapsible:$false -Items @(
 )
 ```
 
-### Per-NavGroup summary strips (v1.4.1+)
+### Per-node summary strips (v1.4.1+, `-NavPath` since 3.0)
 
-Pass `-NavGroup` (and optionally `-NavSubGroup`) to scope a summary to a single nav panel. Each panel in a two-tier nav can have its own KPI hero row, and these coexist with the unscoped global summary at the top of the page.
+Pass `-NavPath` to scope a summary to one menu node (`-NavScope Subtree` to show it on the node and everything below). Each node can have its own KPI row, and these coexist with the unscoped global summary at the top of the page.
 
 ```powershell
-# Global summary — no NavGroup, visible on every panel
+# Global summary — no -NavPath, visible on every view
 Add-DhSummary -Report $report -Title 'Overall health' -Items @(
     @{ Style='bignumber'; Label='SLA (30d)'; Value='99.96%'; Class='cell-ok' }
     @{ Label='Open incidents'; Value=4; Previous=7; TrendIsGood=$true }
 )
 
-# Identity-panel summary — visible only when the 'Identity' tab is active
-Add-DhSummary -Report $report -NavGroup 'Identity' -Title 'Identity KPIs' -Items @(
+# Identity summary — on the 'Identity' node and every view below it
+Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Title 'Identity KPIs' -Items @(
     @{ Label='Active users';  Value=231 }
     @{ Label='Failed logons'; Value=842; Previous=920; TrendIsGood=$true }
 )
 
 # Infrastructure-panel summary — different metrics for a different panel
-Add-DhSummary -Report $report -NavGroup 'Infrastructure' -Title 'Cluster KPIs' -Items @(
+Add-DhSummary -Report $report -NavPath 'Infrastructure' -NavScope Subtree -Title 'Cluster KPIs' -Items @(
     @{ Style='gauge'; Label='Cluster CPU'; Value=68; Max=100; Unit='%'
        Rag=@{ Green=@{Max=70}; Amber=@{Min=70;Max=90}; Red=@{Min=90} } }
     @{ Label='Active alarms'; Value=3; Previous=1; TrendIsGood=$false }
 )
 
-# Add the rest of each panel's content with -NavGroup matching the strip
-Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
-Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
+# The rest of each node's content, under the same path
+Add-DhTable      -Report $report -TableId 'users'      ... -NavPath 'Identity/users'
+Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavPath 'Infrastructure' -NavScope Subtree
 ```
 
 Full runnable example: [`Examples/Feature-KpiTiles.ps1`](Examples/Feature-KpiTiles.ps1) (strips) and [`Examples/Feature-Navigation.ps1`](Examples/Feature-Navigation.ps1).
 
-NavGroup-specific keys:
-- `-Id` — explicit block Id; auto-derived by slugifying `NavGroup` (+ optional `NavSubGroup`) when omitted, e.g. `My Group` → `summary-my-group`. Duplicate Ids throw.
+Keys of a per-node strip:
+- `-Id` — explicit block Id; derived by slugifying the path when omitted, e.g. `My Group/Prod` → `summary-my-group-prod`. Duplicate Ids throw.
 
 ### Tile styles (v1.4+)
 
@@ -787,7 +831,7 @@ Add-DhAlertBanner -Report $report -Id 'release-notes' `
 **Key behaviours:**
 - `-Dismissible` adds a close (×) button. The dismissal is remembered in the URL hash so a page reload keeps the banner hidden; opening the report in a new browser session restores it.
 - `-Action` adds a button that either navigates to a registered table (with optional `Filter` text pre-applied) or opens an external `Url`. Provide one of `TableId` or `Url`, not both.
-- `-NavGroup` / `-NavSubGroup` *(v1.4.2+)* bind the banner to a single nav panel, so it appears only when that panel is active. Without these params, the banner stays page-global (visible on every panel) — the legacy behaviour.
+- `-NavPath` / `-NavScope` bind the banner to a menu node, so it appears only when that node is selected (`Subtree`: also below it). Without them the banner is page-global (visible on every view).
 - The `-Message` may contain inline HTML — useful for embedding a short link inside the prose.
 - Severity maps to the existing `cell-ok` / `cell-warn` / `cell-danger` palette, so the colours follow the active theme.
 - Distinct from `Add-DhCollapsible` or `Add-DhHtmlBlock`: an alert banner sits **above** the summary and is meant for transient, high-visibility conditions.
@@ -1097,7 +1141,7 @@ Pass `-Interactive:$false` for the static scale-to-fit rendering (no toolbar, no
 
 ## Tabs (v1.5+)
 
-Inline tabbed content block — a **local** pivot within one section of the dashboard flow. Distinct from `-NavGroup` which partitions the **whole page**. Use tabs when several views of the same scope (Overview / Detail / Raw payload) belong together but only one should be visible at a time.
+Inline tabbed content block — a **local** pivot within one section of the dashboard flow. Distinct from the menu (`-NavPath`), which partitions the **whole page**. Use tabs when several views of the same scope (Overview / Detail / Raw payload) belong together but only one should be visible at a time.
 
 ```powershell
 Add-DhTabs -Report $report -Id 'fleet-views' -Title 'Fleet — Views' -Tabs @(
@@ -1192,7 +1236,7 @@ Per-item keys:
 - `Unit` — optional suffix in the readout (`'ms'`, `'%'`, …)
 - `Class` — optional value-bar colour override (`'cell-ok'` / `'cell-warn'` / `'cell-danger'` / `'cell-nodata'`). Wins over the auto threshold match.
 - `Rag` — preferred way to declare the bands (see [Unified `-Rag` parameter](#unified--rag-parameter-v14)).
-- `Bands` / `Thresholds` — legacy array shape `@(@{Min;Max;Class})`; `Bands` is an alias for `Thresholds`. `Rag` wins when both are supplied.
+- `Thresholds` — the array shape `@(@{Min;Max;Class})`. `Rag` wins when both are supplied. The 1.x alias `Bands` was removed in 3.0.0 (it throws; `Update-DhScript -Apply` renames it).
 
 ---
 
@@ -1255,6 +1299,35 @@ Full runnable example: [`Examples/Feature-Charts.ps1`](Examples/Feature-Charts.p
 
 ---
 
+## Gantt timelines (3.1+)
+
+`Add-DhGantt` draws one bar per task from `Start` to `End` on a shared time axis. The axis runs from seconds to years, so the same block serves a recovery test, last night's backup jobs, patch and migration waves, and certificate or contract validity.
+
+```powershell
+# Steps on a clock axis, with a target line and a milestone
+Add-DhGantt -Report $report -Id 'steps' -Title 'Recovery steps' -ShowDataTable -Items @(
+    @{ Id = 'st'; Label = 'Storage';      Start = '2026-06-13 06:10'; End = '2026-06-13 06:14:29'; Status = 'ok' }
+    @{ Id = 'cp'; Label = 'Compute';      Start = '2026-06-13 06:14:30'; End = '2026-06-13 07:06:04'; Status = 'ok'; Critical = $true; DependsOn = 'st' }
+    @{ Id = 'ap'; Label = 'Applications'; Start = '2026-06-13 07:06:04'; End = '2026-06-13 07:23:46'; Status = 'warn'; DependsOn = 'cp' }
+    @{ Label = 'Sign-off'; Start = '2026-06-13 07:25' }                        # no End: a milestone
+) -Markers @(@{ At = '2026-06-13 07:40'; Label = 'RTO target'; Status = 'warn' })
+
+# One bar per row of a table, one line per client; the chart follows the table filter
+Add-DhGantt -Report $report -Id 'night' -Title 'Last night' -TableId 'jobs' `
+    -LabelField 'Job' -StartField 'Started' -EndField 'Ended' -RowField 'Client' -StatusField 'Result' `
+    -Bands @(@{ From = $night; To = $night.AddHours(8); Label = 'Backup window' })
+```
+
+- **Items:** `Label` and `Start` are required. Optional: `End` (none = a milestone), `Group` (lane), `Row` (items with the same `Row` share a line; overlapping bars are packed into sub-lines), `Status` (`ok` / `warn` / `danger` / `info` / `nodata`), `Category` (a palette colour with a legend), `Critical`, `Text`, `Tooltip`, `Id` + `DependsOn` ("after: …" in the tooltip), `Detail` (the side panel), `LinkTableId` / `LinkFilter`.
+- **Times:** all dates (`[datetime]`, `[DateTimeOffset]` or an invariant string such as `'2026-06-13 06:10'`) or all numbers (elapsed, in `-Unit` s / min / h / d). `-Origin` sets the zero of the axis (default: the earliest start); a date `-Origin` gives numbers a clock. `-AxisFormat Auto` picks a clock below two days, dates above, elapsed for numbers.
+- **The browser never parses a date.** Every time is turned into seconds from the origin in PowerShell, and the page shows the wall clock the value carries: the reader's time zone cannot move a bar. A bar across a daylight-saving change is placed by wall clock.
+- **Table mode** (`-TableId`, `-LabelField`, `-StartField`, optional `-EndField`, `-GroupField`, `-RowField`, `-StatusField`, `-CategoryField`): a row whose start does not read as a date or number is left out with a warning, and a note under the chart. Clicking a bar filters the table on its label.
+- `-Markers` (vertical lines), `-Bands` (shaded windows), `-SortBy Start|End|Duration|Label` inside each lane, `-ShowDuration $false`, `-ShowDataTable` (the printable, screen-reader-friendly list), `-MaxItems` (default 500).
+
+Full runnable example: [`Examples/Feature-Gantt.ps1`](Examples/Feature-Gantt.ps1): a recovery test, nightly backups and certificate validity.
+
+---
+
 ## Findings (2.2+)
 
 `Add-DhFindings` is the block an audit or assessment report is built around. Each finding is one row: a severity badge, the title, an area and the affected count. Expanding the row shows:
@@ -1301,8 +1374,7 @@ Add-DhFindings -Report $report -Id 'hardening' -Title 'Protocols and hardening' 
 ```
 
 - **Facts** are label/value tiles. **Evidence** is one row per object (Object required; Value, Status, Note optional, a column appears only when some row uses it), capped by `-MaxEvidenceShown` (default 50, then "+N more"; `AffectedTableId` still jumps to the full table).
-- **Change** is 
-ew, worse, etter or esolved: a badge and a filter chip. Your script compares with the previous run; DashHtml only shows the result.
+- **Change** is `new`, `worse`, `better` or `resolved`: a badge and a filter chip. Your script compares with the previous run; DashHtml only shows the result.
 - **Detail** opens in the side panel (see below). It takes text, one section, an array of sections or `@{ Title; Subtitle; Sections }`.
 - **`-AllClearText 'No stale objects found.'`** shows a check mark and the sentence when the block has no findings (also on `Add-DhTable` for an empty `-Data`), so a passed check is visible.
 
@@ -1446,6 +1518,7 @@ Every report has a **🖨 Print** button, and Ctrl+P works the same way. Choose 
 
 Pipelines that render PDFs with a headless browser (`msedge --headless --print-to-pdf=...`) get the same layout: headless Edge runs the same print handlers.
 
+A network map prints at the proportions of its drawing (3.0+), so a small map no longer sits in a tall empty frame. To check page breaks by eye, `Tools\Test-DhPrint.ps1 -Png` prints each report to PDF, renders every page to a PNG and writes `review.html` with all of them side by side (headless Edge or Chrome; pdf.js is vendored in `Tools\vendor` and hash-checked). In those PNGs, gradients show as hot pink: pdf.js cannot draw the soft-masked shadings Chromium writes; the PDF itself is fine.
 ---
 
 ## Offline export: `-ExportLibraries` (2.2+)
@@ -1576,7 +1649,7 @@ Add-DhAlertBanner -Report $r -Id 'a1' -NavScope Global                     # eve
 | `-NavLabel` | display text, decoupled from the path key — rename without breaking deep links |
 | `-NavOrder` | explicit sibling ordering; ties fall back to declaration order |
 
-Combining `-NavPath` with `-NavGroup`/`-NavSubGroup` on one call is a hard error.
+The 1.x `-NavGroup` / `-NavSubGroup` parameters were removed in 3.0.0; see [Upgrading to 3.0](#upgrading-to-30).
 
 ### Layout
 
@@ -1607,54 +1680,47 @@ $r = New-DhDashboard -Title 'Estate' -StrictNav `
 
 `Examples/Feature-Navigation.ps1` shows the All view and the skeleton.
 
-### Upgrading from 1.x
+### Upgrading to 3.0
 
-`-NavGroup` / `-NavSubGroup` **keep working** and map onto the new model — no edit required. See **[MIGRATION-v2.md](MIGRATION-v2.md)**, and run:
+3.0.0 removed the 1.x `-NavGroup` / `-NavSubGroup` parameters (a call that still passes them fails with "A parameter cannot be found that matches parameter name 'NavGroup'"), the `Add-DhBullet` key `Bands`, and the 2.0 "content looks like HTML" warning, and needs PowerShell 7.4. One command finds and fixes the first two:
 
 ```powershell
-Update-DhScript -Path .\YourScripts        # report only
+Update-DhScript -Path .\YourScripts            # list what needs changing (parsed, never run)
+Update-DhScript -Path .\YourScripts -Apply     # rewrite, with a backup of each file in .\Backups
 ```
 
-> **One behaviour change worth checking.** In 1.x a *block* given both `-NavGroup` and `-NavSubGroup` was unreachable and never rendered. It works now, so content that has been silently missing will reappear.
+The rewrite keeps the menu exactly as the 2.x compat shim built it:
 
----
+| 2.x | 3.0 |
+|---|---|
+| `Add-DhTable -TableId 'vols' -NavGroup 'Storage'` | `-NavPath 'Storage/vols'` (a table keeps its own menu entry, keyed on `TableId`) |
+| `Add-DhTable -TableId 'vols' -NavGroup 'Storage' -NavSubGroup 'Capacity'` | `-NavPath 'Storage/Capacity/vols'` |
+| any block `-NavGroup 'Storage'` | `-NavPath 'Storage' -NavScope Subtree` (visible on the whole branch, as before) |
+| any block `-NavGroup 'Storage' -NavSubGroup 'Capacity'` | `-NavPath 'Storage/Capacity' -NavScope Subtree` |
+| `Add-DhBullet` item `Bands = @(...)` | `Thresholds = @(...)` |
 
-## Two-tier navigation
+A value that is not a literal (`-NavGroup $group`) is listed for you to convert by hand; an explicit `-NavScope` is kept; a `/` inside a name becomes `//`. `Test-DhReport -Path .\YourScripts\*.ps1` lists anything left as an ACTION. Old bookmarks with a 1.x `#{group,panel}` address still open the right view.
 
-Use `-NavGroup` on **any** cmdlet (`Add-DhTable`, `Add-DhFilterCard`, `Add-DhBarChart`, `Add-DhHtmlBlock`, `Add-DhCollapsible`) to create a grouped navigation with a primary tab bar and a sub-nav strip:
+### Two and three levels
 
 ```powershell
 $report = New-DhDashboard -Title 'Operations Dashboard'
 
-# Filter card and bar chart placed at the top of the Identity group
-Add-DhFilterCard -Report $report -Id 'status-fc' -NavGroup 'Identity' `
+# A filter card on the whole Identity branch, above its tables
+Add-DhTable -Report $report -TableId 'users'  -Title 'Users'  -Data $users  -NavPath 'Identity/users'
+Add-DhTable -Report $report -TableId 'groups' -Title 'Groups' -Data $groups -NavPath 'Identity/groups'
+Add-DhFilterCard -Report $report -Id 'status-fc' -NavPath 'Identity' -NavScope Subtree `
     -Title 'Filter by Status' -TargetTableId 'users' -FilterField 'Status' `
     -Cards @( @{Label='Active'; Value='Active'}, @{Label='Disabled'; Value='Disabled'} )
 
-Add-DhTable -Report $report -TableId 'users'   -Title 'Users'   -Data $users   -NavGroup 'Identity'
-Add-DhTable -Report $report -TableId 'groups'  -Title 'Groups'  -Data $groups  -NavGroup 'Identity'
-Add-DhTable -Report $report -TableId 'servers' -Title 'Servers' -Data $servers -NavGroup 'Infrastructure'
-Add-DhTable -Report $report -TableId 'disks'   -Title 'Disks'   -Data $disks   -NavGroup 'Infrastructure'
+# A third level: Infrastructure > Production > Servers
+Add-DhTable -Report $report -TableId 'srv-prod' -Title 'Servers' -Data $prod -NavPath 'Infrastructure/Production/srv-prod' -NavLabel 'Servers'
+Add-DhTable -Report $report -TableId 'srv-dev'  -Title 'Servers' -Data $dev  -NavPath 'Infrastructure/Development/srv-dev' -NavLabel 'Servers'
 
 Export-DhDashboard -Report $report -OutputPath '.\ops.html' -Force
 ```
 
-Result: primary nav shows **Identity** and **Infrastructure** group tabs. Clicking a group tab shows the subnav for that group. Blocks with a matching `-NavGroup` appear as persistent content above the sub-nav panel (e.g. filter cards remain visible while switching between tables in the same group). Groups composed entirely of blocks (no tables) are supported — the subnav strip is hidden automatically for those groups.
-
-### Three-tier navigation (optional)
-
-Add an optional `-NavSubGroup` on top of `-NavGroup` to get a third level: a pill strip appears below the sub-nav when the active group has any subgroups. When a group with subgroups is opened, the **first pill is automatically active**, so items tagged with `-NavSubGroup` behave as a true subgroup binding — visible only when their pill is the active one. Clicking another pill switches the subgroup; clicking the active pill clears the filter and shows all items in the group. Items in a group that have **no** `-NavSubGroup` remain visible regardless of pill state, acting as group-wide content.
-
-```powershell
-Add-DhTable -Report $report -TableId 'users-prod' -Title 'Users (Prod)' -Data $prodUsers `
-    -NavGroup 'Identity' -NavSubGroup 'Production'
-Add-DhTable -Report $report -TableId 'users-dev'  -Title 'Users (Dev)'  -Data $devUsers  `
-    -NavGroup 'Identity' -NavSubGroup 'Development'
-Add-DhTable -Report $report -TableId 'users-all'  -Title 'All Users'    -Data $allUsers  `
-    -NavGroup 'Identity'   # no NavSubGroup → always visible in Identity
-```
-
-The parameter is available on every block cmdlet (`Add-DhTable`, `Add-DhHtmlBlock`, `Add-DhCollapsible`, `Add-DhFilterCard`, `Add-DhBarChart`) and is fully backward compatible — existing scripts work unchanged.
+The menu is built from the paths: **Identity** and **Infrastructure** on the first row, their children on the next. An item with `-NavScope Subtree` shows on its node and every view below it; the default `Exact` shows on its own node only. `Examples/Feature-Navigation.ps1` walks through every rule, and `Tools\Show-DhNavMap.ps1` prints a report's menu.
 
 ---
 
@@ -1700,7 +1766,10 @@ Add-DhHtmlBlock -Report $report -Id 'intro' -Title 'Overview' -Style 'info' -Con
 ## Logo and header fields
 
 The logo (`-LogoPath`) is displayed in the **report header** only — it does not appear in the nav bar.
+Without `-LogoPath` the header has no logo and no empty box (3.0.0; it used to show a blank square).
 `-NavTitle` is optional; when omitted the nav bar shows only navigation links.
+The "Generated" date and time sits at the right of the header, in the header font; `-HideGeneratedAt`
+(3.0.0) leaves it out, for example when an info field already carries the date.
 
 ```powershell
 $report = New-DhDashboard -Title 'Infrastructure Dashboard' `
@@ -1792,14 +1861,21 @@ Invoke-Pester .\Tests -Output Detailed
 
 # Fast local iteration
 .\Build.ps1 -SkipTests -SkipLint
+
+# Only the fast tests (skips example smoke tests, browser audits, compression)
+.\Build.ps1 -Quick -SkipLint
+Invoke-Pester .\Tests -ExcludeTagFilter Slow
+
+# Print every example to PDF and PNG pages for a look at page breaks
+.\Tools\Test-DhPrint.ps1 -Png -OutDir .\Examples\_print
 ```
 
 Artifacts land in `dist\`:
 
 ```
 dist\DashHtml\                   dist\DashHtml.Design\
-dist\DashHtml-v2.0.0.zip        dist\DashHtml.Design-v1.0.0.zip
-dist\DashHtml.2.0.0.nupkg       dist\DashHtml.Design.1.0.0.nupkg
+dist\DashHtml-v3.0.0.zip        dist\DashHtml.Design-v3.0.0.zip
+dist\DashHtml.3.0.0.nupkg       dist\DashHtml.Design.3.0.0.nupkg
 ```
 
 Each staged module ships its own `README.md` (the companion has a module-local
@@ -1834,7 +1910,7 @@ Add-DhHtmlBlock -Report $r -Id 'intro' -Style info -AllowHtml:$true `
     -Content '<ul><li>Section A</li><li>Section B</li></ul>'
 ```
 
-`-AllowHtml` defaults to `$true` (raw) in the 1.x line, **but that default flips to `$false` (encode) in 2.0.0.** If you pass HTML without an explicit `-AllowHtml`, you'll get a one-time deprecation warning per call — resolve it by adding `-AllowHtml:$true` (trusted markup) or `-AllowHtml:$false` (untrusted data). If you'd rather encode manually, `[System.Web.HttpUtility]::HtmlEncode()` (or `[System.Net.WebUtility]::HtmlEncode()`) still works.
+`-AllowHtml` defaults to `$false` (encode) since 2.0.0: markup passed without `-AllowHtml:$true` is shown as literal text. Pass `-AllowHtml:$true` only for trusted markup you wrote. (2.x printed a warning when it encoded something that looked like HTML; 3.0.0 removed it.)
 
 Everything else (table cells, summary tile labels, topology node labels, status grid cells, KPI captions, etc.) goes through HTML-encoding automatically; passing user-supplied text is safe.
 
@@ -1901,8 +1977,10 @@ DashHtml/
     Get-DhCssRagLight.ps1            # v1.4
     Get-DhCssRagDark.ps1             # v1.4
     Build-DhTableSections.ps1
+    ConvertTo-DhBrandCss.ps1         # 3.0 — brand colours, contrast maths, font embedding
     ConvertTo-DhJsonString.ps1
     ConvertTo-DhRagThresholds.ps1    # v1.4 — unified -Rag normaliser
+    ConvertTo-DhTreeTableJson.ps1    # 3.0 — fast tree-table JSON
 Tests/
   DashHtml.Tests.ps1               # see Build.ps1 for the current counts (Pester across the three suites plus the node tests) at 2.5.2
 Examples/                            # Demo-* = a realistic report, Feature-* = one capability
@@ -1920,6 +1998,8 @@ Examples/                            # Demo-* = a realistic report, Feature-* = 
   Feature-MapsAndGrids.ps1
   Feature-FiltersAndSearch.ps1
   Feature-PageElements.ps1
+  Feature-Branding.ps1
+Tools/                               # Show-DhNavMap, Test-DhPrint (-Png review), Test-DhContrast, Test-DhA11y; vendor/ = pdf.js for the review
 Build.ps1
 Build-DhReference.ps1              # Generates DashHtml-Reference.html
 Install.ps1

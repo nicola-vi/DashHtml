@@ -25,14 +25,19 @@ function Build-DhTableSections {
             "            <button class=`"btn-export btn-xlsx`" id=`"exp-xlsx-$id`" title=`"Download filtered data as Excel`">&#8595;&thinsp;XLSX</button>`n" +
             "            <button class=`"btn-export btn-pdf`"  id=`"exp-pdf-$id`"  title=`"Download filtered data as PDF`">&#8595;&thinsp;PDF</button>"
         }
-        $ngAttr   = if ($t.NavGroup) { " data-navgroup=`"$([System.Web.HttpUtility]::HtmlEncode($t.NavGroup))`"" } else { '' }
-        $sgAttr   = if ($t.Contains('NavSubGroup') -and $t.NavSubGroup) { " data-navsubgroup=`"$([System.Web.HttpUtility]::HtmlEncode($t.NavSubGroup))`"" } else { '' }
         # v2.0.0 - canonical nav attributes + server-stamped initial visibility
         $tNav     = ConvertTo-DhNavAttr -Path @($t.NavSegments) -Scope $t.NavScope -InitialPath $NavInitialPath `
                         -Seq ([int]$NavSeq["Table:$($t.Id)"]) `
                         -Order $(if ($t.Contains('NavOrder')) { [int]$t.NavOrder } else { 0 }) `
                         -Label $(if ($t.Contains('NavLabel')) { [string]$t.NavLabel } else { '' })
         $navAttr  = $tNav.Attr
+        # v3.0.0 - Add-DhTable -RememberViews: the Views menu (filled by the runtime)
+        $viewsHtml = if ($t.Contains('RememberViews') -and $t.RememberViews) {
+            "`n          <div class=`"col-toggle-wrap views-wrap`" id=`"views-wrap-$id`">`n" +
+            "            <button type=`"button`" class=`"btn-col-toggle btn-views`" id=`"btn-views-$id`" aria-haspopup=`"true`" aria-expanded=`"false`" title=`"Save and reuse views of this table`">&#9733; Views</button>`n" +
+            "            <div class=`"col-toggle-dropdown views-dropdown`" id=`"views-dd-$id`" style=`"display:none`"></div>`n" +
+            "          </div>"
+        } else { '' }
         $descHtml = if ($t.Description) {
             "        <p class=`"table-description`">$([System.Web.HttpUtility]::HtmlEncode($t.Description))</p>"
         } else { '' }
@@ -79,7 +84,7 @@ $descHtml
         }
 
         [void]$sb.AppendLine(@"
-    <section class="table-section$secCls" id="section-$id"$ngAttr$sgAttr$navAttr$spanAttr>
+    <section class="table-section$secCls" id="section-$id"$navAttr$spanAttr>
 $headerHtml
 $chartsHtml
       <div class="table-toolbar" id="toolbar-$id">
@@ -100,7 +105,7 @@ $chartsHtml
           <div class="col-toggle-wrap" id="col-toggle-wrap-$id">
             <button class="btn-col-toggle" id="btn-col-toggle-$id" title="Show / hide columns">&#9776; Columns</button>
             <div class="col-toggle-dropdown" id="col-toggle-dd-$id" style="display:none"></div>
-          </div>
+          </div>$viewsHtml
           <div class="export-group" title="Export currently filtered data">
             <button class="btn-export btn-csv"  id="exp-csv-$id"  title="Download filtered data as CSV">&#8595;&thinsp;CSV</button>
 $libButtonsHtml

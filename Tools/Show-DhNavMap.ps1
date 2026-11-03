@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Print the menu of an exported DashHtml dashboard and what each view shows, in page order.

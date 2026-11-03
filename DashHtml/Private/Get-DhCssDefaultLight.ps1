@@ -7,7 +7,8 @@ function Get-DhCssDefaultLight {
 :root {
   /* DefaultLight — Clean light, blue accents */
   --bg-page:          #F0F4F8;
-  --bg-header:        #005F8A;
+  --bg-header:        #003B56;
+  --bg-header-end:    #0075A1;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F7FAFE;
@@ -96,7 +97,7 @@ function Get-DhCssDefaultLight {
   --nav-title-fg:      #57697A;
   --nav-link-fg:       #445566;
   --nav-link-hover-bg: rgba(0,136,187,0.07);
-  --nav-link-hover-fg: #0077BB;
+  --nav-link-hover-fg: #0066AA;   /* 3.0.0 - 4.5:1 on the hover tint */
   --nav-active-bg:     rgba(0,136,187,0.10);
   --nav-active-fg:     #0066AA;
   --nav-active-border: rgba(0,136,187,0.40);

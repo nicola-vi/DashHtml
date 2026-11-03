@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Install.ps1 — installs DashHtml (and the optional DashHtml.Design companion)

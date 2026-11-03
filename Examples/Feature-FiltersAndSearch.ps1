@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Finding things: global filters, filter cards, click filters, report search and menu badges.

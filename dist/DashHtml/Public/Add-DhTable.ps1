@@ -146,6 +146,14 @@ function Add-DhTable {
         the picker clears the choice. Off by default; nothing is stored unless it is on.
         A column with Hidden = $true starts unticked (see the Columns key list).
 
+    .PARAMETER RememberViews
+        v3.0.0. A Views menu next to Columns: the reader saves the current columns, sort, page size,
+        text filter and Change chip under a name, and applies or deletes saved views later. Kept per
+        viewer in the browser's local storage, under the same stable key as -RememberColumns (title,
+        -GeneratedBy, table id), so views survive a regenerated report. Columns and sort fields are
+        matched by name; one that no longer exists is skipped. At most 20 views per table. Default
+        view returns to the author's columns, sort and page size. Off by default.
+
     .PARAMETER ColumnFit
         v2.4.0. Auto (default) sizes every column to its widest text, header included, so
         a value is not cut off at an arbitrary width; the widest a column may grow is
@@ -202,9 +210,9 @@ function Add-DhTable {
             -Columns $cols -PageSize 25 -Description 'Live CPU and cost data.'
 
     .EXAMPLE
-        # Table in a two-tier navigation group with a pie chart
+        # Table under a two-level menu node, with a pie chart
         Add-DhTable -Report $report -TableId 'vms' -Title 'Virtual Machines' -Data $vms `
-            -NavGroup 'Azure' `
+            -NavPath 'Azure/vms' -NavLabel 'Virtual Machines' `
             -Charts @( @{ Title='VMs by Status'; Field='Status'; Type='pie' } )
     #>
     [CmdletBinding()]
@@ -229,6 +237,7 @@ function Add-DhTable {
         [ValidateRange(120, 2000)]
         [int]       $ColumnMaxWidth = 800,      # v2.4.0 - widest an auto-sized column may grow (px)
         [switch]    $RememberColumns,          # v2.5.0 - keep the reader's column choice (per viewer, per browser)
+        [switch]    $RememberViews,            # v3.0.0 - named views (columns, sort, page size, filter), per viewer
         [AllowEmptyCollection()] [object[]] $Baseline,   # v2.5.2 - rows of the previous run (with -KeyField): New / Changed / Removed markers
         [string]    $BaselinePath = '',        # v2.6.0 - read the previous rows from .clixml / .xml / .csv / .json (read-only)
         [string]    $KeyField = '',            # v2.5.2 - the property that identifies a row across runs
@@ -243,8 +252,6 @@ function Add-DhTable {
         [string]    $Icon           = '',       # v1.5.1 — optional emoji / unicode glyph shown in the collapsible header
         [ValidateRange(0,12)]
         [int]       $GridSpan       = 0,        # v1.10.0 — columns (1-12) to span in a -report-grid layout; 0 = default flow
-        [string]    $NavGroup       = '',   # primary nav group label (enables two-tier nav)
-        [string]    $NavSubGroup    = '',    # optional second-level group under NavGroup (enables three-tier nav)
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -253,10 +260,8 @@ function Add-DhTable {
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Table' -TableId $TableId -Context 'Add-DhTable'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -556,11 +561,10 @@ function Add-DhTable {
         DetailTitleField = $detailTitleOut
         AllClearText   = $AllClearText
         RememberColumns = [bool]$RememberColumns
+        RememberViews  = [bool]$RememberViews
         Baseline       = $baselineOut
         ColumnFit      = $ColumnFit
         ColumnMaxWidth = $ColumnMaxWidth
-        NavGroup       = $NavGroup
-        NavSubGroup    = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

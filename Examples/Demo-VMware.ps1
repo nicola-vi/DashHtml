@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     VMware vSphere operations dashboard (synthetic data).
@@ -28,7 +28,7 @@
 
     Run Tools/Show-DhNavMap.ps1 on the result to print the menu and each view's content.
 
-    All data is synthetic and deterministic. Replace the data section with PowerCLI output
+    All data is synthetic and deterministic. Replace the data section with VCF PowerCLI output
     (Get-VM, Get-VMHost, Get-Datastore, Get-VIEvent) when adapting.
 
 .PARAMETER OutputPath

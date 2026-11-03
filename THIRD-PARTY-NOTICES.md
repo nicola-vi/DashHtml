@@ -15,6 +15,16 @@ from cdnjs). The full licence text of each is next to it.
 | jsPDF (`jspdf.umd.min.js`) | 2.5.1 | MIT | `DashHtml/Vendor/LICENSE-jspdf.txt` |
 | jsPDF-AutoTable (`jspdf.plugin.autotable.min.js`) | 3.8.2 | MIT | `DashHtml/Vendor/LICENSE-jspdf-autotable.txt` |
 
+### Repository tooling (not in the module or in any report)
+
+`Tools\Test-DhPrint.ps1 -Png` (3.0.0) renders printed pages with pdf.js in a headless browser on
+the developer's machine. The files are in the repository only; they are not staged into the module
+and never reach a report. `Test-DhPrint.ps1` checks them against pinned SHA-384 hashes before use.
+
+| Library | Version | Licence | Licence file |
+|---|---|---|---|
+| PDF.js (`pdf.min.mjs`, `pdf.worker.min.mjs`), Mozilla Foundation | 4.9.124 | Apache-2.0 | `Tools/vendor/pdfjs-4.9.124/LICENSE` |
+
 ## 2. Design references (no code copied)
 
 Some widgets were designed after looking at Active Directory report generators.

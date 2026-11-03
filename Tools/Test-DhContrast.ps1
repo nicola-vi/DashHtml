@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Measures WCAG text contrast of DashHtml classes in every theme (light and dark) with headless Edge/Chrome.
@@ -6,7 +6,8 @@
     Exports Demo-ActiveDirectory, Feature-MapsAndGrids and Feature-Navigation in each theme family (or uses -Path),
     injects Tools/contrast-measure.js into a temporary COPY of each page, opens it in a headless Chromium browser and
     receives the result on a local loopback listener (current Edge prints nothing for --dump-dom). Selectors and accepted exceptions live in Tools/contrast-selectors.json.
-    Text over a gradient or image is counted as skipped, never as a pass. Skips with a message when no browser is found.
+    Text over an image is counted as skipped, never as a pass; over a linear gradient (the 3.0.0 header) it is
+    measured against every colour stop and the worst ratio counts. Skips with a message when no browser is found.
 .PARAMETER Path
     Exported report HTML files to measure (the theme is whatever each file was built with). Default: build the
     example reports in every family.
@@ -70,7 +71,7 @@ try {
 } finally { Remove-DhProbeSession -Session $session }
 
 $unique = $failures | Sort-Object Theme, Mode, Selector, Ratio -Unique
-Write-Host ("Contrast: {0} measurements, {1} skipped (image or gradient background), {2} below the minimum." -f $checked, $skipped, @($unique).Count)
+Write-Host ("Contrast: {0} measurements, {1} skipped (image background), {2} below the minimum." -f $checked, $skipped, @($unique).Count)
 if ($unique) { $unique | Sort-Object Ratio | Format-Table Ratio, Min, Theme, Mode, Selector, Text, File -AutoSize | Out-String | Write-Host }
 if ($PassThru) { $unique }
 if ($unique) { exit 1 }   # a CI step (pwsh -File) fails on findings

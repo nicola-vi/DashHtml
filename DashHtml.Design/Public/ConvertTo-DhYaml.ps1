@@ -66,6 +66,12 @@ function ConvertTo-DhYaml {
         if ($Report.Contains('StrictNav') -and $Report.StrictNav) { $model['strictNav'] = $true }
         if ($Report.Contains('NavOverflow') -and $Report.NavOverflow -and $Report.NavOverflow -ne 'More') { $model['navOverflow'] = $Report.NavOverflow }
         if ($Report.Contains('LinkState') -and $Report.LinkState) { $model['linkState'] = $true }   # DashHtml 2.6.0
+        if ($Report.Contains('HideGeneratedAt') -and $Report.HideGeneratedAt) { $model['hideGeneratedAt'] = $true }   # DashHtml 3.0.0
+        if ($Report.Contains('Brand') -and $Report.Brand) {   # DashHtml 3.0.0; the font file is written as its path, not its data
+            foreach ($k in 'PrimaryColor', 'SecondaryColor', 'AccentColor', 'FontFamily', 'FontFile') {
+                if ($Report.Brand.Contains($k) -and $Report.Brand[$k]) { $model[(ConvertTo-DhLcFirst $k)] = [string]$Report.Brand[$k] }
+            }
+        }
         if ($Report.Contains('InfoFields') -and @($Report.InfoFields).Count -gt 0) {
             $model['infoFields'] = @($Report.InfoFields | ForEach-Object { [ordered]@{ label = $_.Label; value = $_.Value } })
         }
@@ -92,7 +98,7 @@ function ConvertTo-DhYaml {
         # Blocks (BlockType -> type, moved to front)
         if ($Report.Contains('Blocks') -and @($Report.Blocks).Count -gt 0) {
             $model['blocks'] = @($Report.Blocks | ForEach-Object {
-                $b = Copy-DhSpec $_ -Drop @('BlockType')
+                $b = Copy-DhSpec $_ -Drop @('BlockType', 'GanttJson')   # GanttJson: Add-DhGantt's computed browser JSON (3.1.0)
                 $ordered = [ordered]@{ type = $_.BlockType }
                 foreach ($k in $b.Keys) { $ordered[$k] = $b[$k] }
                 $ordered

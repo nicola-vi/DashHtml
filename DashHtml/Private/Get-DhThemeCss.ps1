@@ -2,6 +2,8 @@ function Get-DhThemeCss {
     <#
     .SYNOPSIS  Returns the full CSS string for a named theme.
                Combines the theme's :root variable block with shared structural CSS.
+               -RootOnly returns the :root block alone (v3.0.0: Export-DhDashboard
+               embeds the structural CSS once, in its own <style>, after both themes).
     #>
     [CmdletBinding()]
     param(
@@ -12,7 +14,9 @@ function Get-DhThemeCss {
                      'VMwareLight','VMwareDark',
                      'GreyLight','GreyDark',
                      'RagLight','RagDark')]
-        [string] $Theme
+        [string] $Theme,
+
+        [switch] $RootOnly
     )
 
     $rootCss = switch ($Theme) {
@@ -30,5 +34,6 @@ function Get-DhThemeCss {
         'RagDark'       { Get-DhCssRagDark      }
     }
 
+    if ($RootOnly) { return $rootCss }
     return "$rootCss`n$(Get-DhCssBase)"
 }

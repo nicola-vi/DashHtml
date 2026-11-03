@@ -9,7 +9,8 @@ function Get-DhCssAzureDark {
      Primary: #479EF5 (lightened for dark bg)  Backgrounds: Office dark slate */
 
   --bg-page:          #1B1A19;
-  --bg-header:        #1E3246;
+  --bg-header:        #133A66;
+  --bg-header-end:    #1B5581;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #252423;
   --bg-table:         #201F1E;
   --bg-row-alt:       #2D2C2B;
@@ -105,11 +106,12 @@ function Get-DhCssAzureDark {
 
   --chart-container-bg: #201F1E;
   --chart-1: #479EF5;  --chart-2: #6CCB5F;  --chart-3: #FCE100;  --chart-4: #FC5F5F;
-  --chart-5: #C7A3F7;  --chart-6: #F4A460;  --chart-7: #40C4C4;  --chart-8: #A3CF60;
+  --chart-5: #C7A3F7;  --chart-6: #F4A460;  --chart-7: #50E6FF;  --chart-8: #A3CF60;
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #F3F2F1;
   --header-fg-muted: #C8C6C4;
+  --header-line:     #50E6FF;   /* 3.0.0 - the line under the header */
 }
 '@
 }

@@ -110,6 +110,13 @@ function Test-DhReportLinks {
                     if (& $missing $tid) { "network map '$bid' edge '$($e['From'])' to '$($e['To'])': LinkTableId '$tid' is not a table in this report - the click will do nothing." }
                 }
             }
+            'gantt' {
+                # v3.1.0 - the source table is checked at Add time; item links only here
+                foreach ($it in @($b.Items)) {
+                    $tid = [string]$it['LinkTableId']
+                    if (& $missing $tid) { "gantt '$bid' item '$($it['Label'])': LinkTableId '$tid' is not a table in this report - the click will do nothing." }
+                }
+            }
             'treefilter' {
                 $tid = [string]$b['TableId']
                 if (& $missing $tid) { "tree filter '$bid': TableId '$tid' is not a table in this report - selecting a node will filter nothing." }

@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     A deep menu (four levels) with the sidebar layout and a breadcrumb.

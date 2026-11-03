@@ -120,30 +120,23 @@ function Add-DhSummary {
         [string]   $Icon        = '',
         [bool]     $DefaultOpen = $true,
 
-        # ---- v1.4.1 — per-NavGroup summary ----
-        # When -NavGroup is set, the strip lives inside the per-panel block
-        # flow (hidden / shown by the existing two-tier nav routing) rather
-        # than at the top of the page. Each NavGroup can have its own strip
-        # with its own tiles. Without -NavGroup, the legacy top-of-page
-        # singleton behaviour is preserved.
-        [string]   $NavGroup    = '',
-        [string]   $NavSubGroup = '',
+        # With -NavPath the strip lives in the block flow of that menu node
+        # (shown and hidden with the rest of the node); each node can have its
+        # own strip. Without it, the strip is the single one at the top of the page.
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string]   $NavPath     = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
         [string]   $NavScope    = '',   # Exact (default) | Subtree (this node and below) | Global (everywhere)
         [string]   $NavLabel    = '',   # display text for this node, decoupled from the path key
         [int]      $NavOrder    = 0,    # explicit sibling ordering; 0 = declaration order
-        # Block Id used when -NavGroup is set (auto-derived from the group name
-        # when omitted). Ignored when there's no NavGroup.
+        # Block Id used when -NavPath is set (derived from the path when
+        # omitted). Ignored for the top-of-page strip.
         [ValidatePattern('^$|^[A-Za-z0-9_-]+$')]
         [string]   $Id          = ''
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhSummary'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -489,7 +482,7 @@ function Add-DhSummary {
         $t
     }
 
-    # ---- Storage: per-NavGroup strip OR legacy top-of-page singleton ----
+    # ---- Storage: per-node strip OR the top-of-page singleton ----
     if (@($navDecl.Path).Count -eq 0) {
         # Page-global singleton at the top of the page (unchanged from v1.4.0).
         $Report['Summary'] = @($normItems)
@@ -500,16 +493,16 @@ function Add-DhSummary {
             DefaultOpen = $DefaultOpen
         }
         if ($replacing) {
-            Write-Warning "Add-DhSummary: Report already has a global Summary - replacing the existing tiles. (Pass -NavGroup to add a per-panel strip instead.)"
+            Write-Warning "Add-DhSummary: Report already has a global Summary - replacing the existing tiles. (Pass -NavPath to add a strip to one menu node instead.)"
         }
         Write-Verbose "Add-DhSummary: $(@($normItems).Count) tile(s) added at top-of-page.$(if ($Collapsible) { ' (collapsible)' } else { ' (flat)' })"
     } else {
-        # v1.4.1+ — per-NavGroup strip; lives in $Report.Blocks so the nav
+        # Per-node strip; lives in $Report.Blocks so the nav
         # routing hides / shows it with the rest of the panel content.
         if (-not $Report.Contains('Blocks')) {
             $Report['Blocks'] = [System.Collections.Generic.List[hashtable]]::new()
         }
-        # Auto-derive Id from NavGroup + NavSubGroup if user didn't supply one.
+        # Derive the Id from the menu path if the caller didn't supply one.
         # Slugify (lowercase + non-alphanum to '-'): 'My Group' → 'my-group'.
         function _slug([string] $s) {
             if ([string]::IsNullOrWhiteSpace($s)) { return '' }
@@ -522,7 +515,7 @@ function Add-DhSummary {
         # Duplicate-Id guard mirroring the other block cmdlets
         foreach ($existing in $Report.Blocks) {
             if ($existing.Id -eq $blockId) {
-                throw "Add-DhSummary: A block with Id '$blockId' already exists. Supply -Id to disambiguate, or pick a different -NavGroup."
+                throw "Add-DhSummary: A block with Id '$blockId' already exists. Supply -Id to disambiguate, or pick a different -NavPath."
             }
         }
         $Report.Blocks.Add([ordered]@{
@@ -533,8 +526,6 @@ function Add-DhSummary {
             Items       = @($normItems)
             Collapsible = [bool]$Collapsible
             DefaultOpen = [bool]$DefaultOpen
-            NavGroup    = $NavGroup
-            NavSubGroup = $NavSubGroup
             NavPath     = $NavPath
             NavSegments     = $navDecl.Path
             NavSeqNo     = $navSeqNo
@@ -542,7 +533,7 @@ function Add-DhSummary {
             NavLabel    = $NavLabel
             NavOrder    = $NavOrder
         })
-        Write-Verbose "Add-DhSummary: $(@($normItems).Count) tile(s) added as block '$blockId' (NavGroup='$NavGroup'$(if ($NavSubGroup) { "', NavSubGroup='$NavSubGroup" }))."
+        Write-Verbose "Add-DhSummary: $(@($normItems).Count) tile(s) added as block '$blockId' (NavPath='$(@($navDecl.Path) -join '/')')."
     }
 }
 

@@ -26,13 +26,15 @@ Each view starts with a short note saying what you are looking at.
 |---|---|
 | `Feature-Navigation.ps1` | Paths, scopes, labels, order; global, branch and view elements; banners that follow the menu; linked tables |
 | `Feature-NavigationSidebar.ps1` | A four-level menu with the sidebar and breadcrumb (`-Layout Strips` to compare) |
-| `Feature-Tables.ps1` | Cell types and formats, colour rules, chips and paths, detail panel, linked tables, tree filter, column widths, column picker, changes since the last run, 50,000 rows |
+| `Feature-Tables.ps1` | Cell types and formats, colour rules, chips and paths, detail panel, linked tables, tree filter, column widths, column picker and saved views, changes since the last run, 50,000 rows |
 | `Feature-Charts.ps1` | Bars (count, measured value, stacked, coloured), pies, lines, bullets, ranges |
+| `Feature-Gantt.ps1` | Gantt timelines: a recovery test on a clock axis, nightly backups from a table (overlaps packed, backup window, follows the filter), certificate validity over years with a "today" marker |
 | `Feature-KpiTiles.ps1` | Every tile style, trends, clickable tiles, global / branch / view strips |
 | `Feature-Assessment.ps1` | Verdict, score ring, maturity ladder, findings (list and split), property tiles, record list |
 | `Feature-MapsAndGrids.ps1` | Status grid, heatmaps, tree, network map (grouped and in tiers, with path tracing) |
 | `Feature-FiltersAndSearch.ps1` | Global filters, filter cards, click-to-filter, report search, menu badges |
 | `Feature-PageElements.ps1` | Header, banners, text blocks, collapsibles, tabs, events, 12-column grid, print cover |
+| `Feature-Branding.ps1` | Brand colours and font on any theme (`-PrimaryColor`, `-SecondaryColor`, `-AccentColor`, `-FontFamily`); try your own with `-PrimaryColor '#C8102E'` |
 
 ## How to read a menu (the rules every example follows)
 

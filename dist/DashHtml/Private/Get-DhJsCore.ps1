@@ -627,14 +627,8 @@ function Get-DhJsCore {
       banner.className = 'alert-banner ' + severityClass;
       banner.setAttribute('data-alert-id', alert.id);
       banner.setAttribute('role', 'alert');
-      /* v1.4.2+ — NavGroup binding. The general nav-routing show/hide pass
-         picks up [data-navgroup] elements anywhere in the body. */
-      if (alert.navGroup)    banner.setAttribute('data-navgroup',    alert.navGroup);
-      if (alert.navSubGroup) banner.setAttribute('data-navsubgroup', alert.navSubGroup);
       /* A banner bound to a menu path is a nav section like any other: applyNav
-         shows it when the path matches (Exact / Subtree). Before, only the legacy
-         attribute above was emitted, which nothing ever matched, so a -NavPath
-         banner showed everywhere and a -NavGroup banner never showed. */
+         shows it when the path matches (Exact / Subtree). */
       if (alert.navPath && alert.navPath.length) {
         banner.setAttribute('data-navpath', JSON.stringify(alert.navPath));
         banner.setAttribute('data-navscope', alert.navScope || 'exact');

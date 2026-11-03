@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Grids, heatmaps and maps: status matrices, colour matrices, trees and networks.

@@ -86,6 +86,7 @@ function Get-DhJsTable {
     /* v2.5.0 - a column with Hidden starts unticked in the picker; -RememberColumns restores the reader's own choice */
     this.columns.forEach(function(col,i){this.colVisible[i]=!col.hidden;},this);
     this.rememberKey   = cfg.remember||'';
+    this.viewsKey      = cfg.views||'';   /* v3.0.0 - Add-DhTable -RememberViews */
     this._restoreCols();
     /* Per-field width overrides set by dragging a header edge. Empty until the
        user resizes something; the declared col.width stays the default. */
@@ -119,6 +120,7 @@ function Get-DhJsTable {
     this._bindLinkClear();
     this._bindExport();
     this._buildColToggle();
+    this._buildViews();
     this._renderCharts();
     this._bindRightClick();
     this._buildChangeBar();
@@ -291,6 +293,10 @@ function Get-DhJsTable {
         /* v2.1.0 - a filtered table live-recomputes its range bars */
         var rbT = blockRenderTarget(block);
         if (rbT.container) renderRangeBar(rbT.container, rbT.block);
+      } else if (block.blockType === 'gantt' && block.mode === 'fromtable' && block.tableId === id) {
+        /* v3.1.0 - a filtered table redraws its Gantt chart */
+        var gtT = blockRenderTarget(block);
+        if (gtT.container) renderGantt(gtT.container, gtT.block);
       }
     });
   };
@@ -538,9 +544,109 @@ function Get-DhJsTable {
       self._colToggleLabel(); self.render();
     });
     dd.appendChild(reset);
+    this._colBoxes = boxes;   /* v3.0.0 - a saved view ticks them */
     this._colToggleLabel();
     btn.addEventListener('click',function(e){e.stopPropagation();dd.style.display=dd.style.display==='none'?'block':'none';});
     document.addEventListener('click',function(){dd.style.display='none';});
+  };
+
+  /* ── Saved views (v3.0.0, Add-DhTable -RememberViews) ────────────────
+     A view is the reader's columns, sort, page size, text filter and Change chip under a name, kept per
+     viewer in localStorage under the same stable key as -RememberColumns. Columns are matched by field
+     name and the rest goes through dhTableStateSet (the -LinkState checks), so a view saved before a
+     column was renamed or removed applies what it still can. Storage can be blocked: every access is
+     guarded, and a refused save says so. */
+  var DH_VIEWS_MAX = 20;
+  function dhViewsLoad(key) {
+    try {
+      var v = JSON.parse(window.localStorage.getItem(key) || '[]');
+      return Array.isArray(v) ? v.filter(function (x) { return x && typeof x === 'object' && typeof x.name === 'string' && x.name; }) : [];
+    } catch (e) { return []; }
+  }
+  function dhViewsStore(key, list) {
+    try { window.localStorage.setItem(key, JSON.stringify(list)); return true; } catch (e) { return false; }
+  }
+  function dhViewCapture(eng) {
+    var v = { cols: {}, q: eng.filterText || '' };
+    eng.columns.forEach(function (c, i) { v.cols[c.field] = eng.colVisible[i] !== false; });
+    var st = dhTableStateGet(eng) || {};
+    if (st.s) v.s = st.s;
+    if (st.z) v.z = st.z;
+    if (st.c) v.c = st.c;
+    return v;
+  }
+  function dhViewApply(eng, v) {
+    eng.columns.forEach(function (c, i) {
+      eng.colVisible[i] = (v.cols && typeof v.cols === 'object' && Object.prototype.hasOwnProperty.call(v.cols, c.field)) ? !!v.cols[c.field] : !c.hidden;
+    });
+    eng.sortFields = []; eng.pageSize = eng._pageSize0; eng.changeFilter = '';
+    dhTableStateSet(eng, { s: v.s, z: v.z, c: v.c });
+    eng._pendingPage = 0;
+    eng.currentPage = 1;
+    return typeof v.q === 'string' ? v.q : '';
+  }
+  TableEngine.prototype._applyView = function (v) {
+    var self = this, q = dhViewApply(this, v || {});
+    (this._colBoxes || []).forEach(function (b, i) { b.checked = self.colVisible[i] !== false; });
+    this._saveCols();
+    this._colToggleLabel();
+    var sel = document.getElementById('pagesize-' + this.id);
+    if (sel) sel.value = String(this.pageSize);
+    var bar = document.getElementById('chg-bar-' + this.id);
+    if (bar) bar.querySelectorAll('.chg-chip').forEach(function (c) {
+      var cv = c.getAttribute('data-chg');
+      if (cv !== 'r') c.setAttribute('aria-pressed', cv === self.changeFilter ? 'true' : 'false');
+    });
+    this.applyTextFilter(q);   /* renders, refreshes the linked charts and saves the address */
+    this._saveLinkState();
+  };
+  TableEngine.prototype._buildViews = function () {
+    var btn = document.getElementById('btn-views-' + this.id), dd = document.getElementById('views-dd-' + this.id);
+    if (!this.viewsKey || !btn || !dd) return;
+    var self = this, key = 'dh:views:' + this.viewsKey;
+    function close() { dd.style.display = 'none'; btn.setAttribute('aria-expanded', 'false'); }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+    function draw(note) {
+      var list = dhViewsLoad(key);
+      dd.innerHTML = '';
+      if (!list.length) dd.appendChild(el('div', 'views-empty', 'No saved views yet.'));
+      list.forEach(function (v, n) {
+        var row = el('div', 'views-item');
+        var a = el('button', 'views-apply', v.name); a.type = 'button'; a.title = 'Apply this view';
+        a.addEventListener('click', function () { self._applyView(v); close(); btn.focus(); });
+        var del = el('button', 'views-del', '×'); del.type = 'button'; del.setAttribute('aria-label', 'Delete the view ' + v.name);
+        del.addEventListener('click', function () { var l = dhViewsLoad(key); l.splice(n, 1); dhViewsStore(key, l); draw(); });
+        row.appendChild(a); row.appendChild(del); dd.appendChild(row);
+      });
+      var form = el('form', 'views-save');
+      var inp = el('input', 'views-name'); inp.type = 'text'; inp.maxLength = 60; inp.placeholder = 'Name the current view';
+      inp.setAttribute('aria-label', 'Name for the current view');
+      var save = el('button', 'views-save-btn', 'Save'); save.type = 'submit';
+      form.appendChild(inp); form.appendChild(save);
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = inp.value.trim();
+        if (!name) { inp.focus(); return; }
+        var l = dhViewsLoad(key).filter(function (x) { return x.name !== name; });   /* the same name replaces */
+        var v = dhViewCapture(self); v.name = name; l.unshift(v);
+        if (l.length > DH_VIEWS_MAX) l.length = DH_VIEWS_MAX;
+        draw(dhViewsStore(key, l) ? '' : 'This browser does not allow saving (private window?).');
+      });
+      dd.appendChild(form);
+      if (note) dd.appendChild(el('div', 'views-note', note));
+      var reset = el('button', 'col-toggle-reset', 'Default view'); reset.type = 'button';
+      reset.title = "The author's columns, sort and page size, no filter";
+      reset.addEventListener('click', function () { self._applyView({}); close(); btn.focus(); });
+      dd.appendChild(reset);
+    }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (dd.style.display === 'none') { draw(); dd.style.display = 'block'; btn.setAttribute('aria-expanded', 'true'); }
+      else close();
+    });
+    dd.addEventListener('click', function (e) { e.stopPropagation(); });
+    dd.addEventListener('keydown', function (e) { if (e.key === 'Escape') { close(); btn.focus(); } });
+    document.addEventListener('click', close);
   };
 
   /* ── Linked-filter API ──────────────────────────────────────────── */

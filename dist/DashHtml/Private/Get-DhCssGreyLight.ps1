@@ -9,7 +9,8 @@ function Get-DhCssGreyLight {
      No strong colour bias — professional, print-friendly feel */
 
   --bg-page:          #EEEEEE;
-  --bg-header:        #37474F;
+  --bg-header:        #222C31;
+  --bg-header-end:    #546E7A;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #F5F5F5;
   --bg-table:         #FAFAFA;
   --bg-row-alt:       #F0F0F0;

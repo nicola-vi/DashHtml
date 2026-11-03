@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Azure infrastructure review: cost, compute, network, storage, security and governance (synthetic data).

@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     KPI tiles: every style, trends, clicks, and where a strip appears.

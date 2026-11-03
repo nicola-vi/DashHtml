@@ -6,10 +6,12 @@ function Get-DhCssAzureLight {
     return @'
 :root {
   /* AzureLight — Microsoft Fluent Design System / Azure Portal (light)
-     Primary: #0078D4  Font: Segoe UI  Backgrounds: F3F2F1 warm-grey shell */
+     Primary: #0078D4 (Azure Blue)  Secondary: #104581 (Dark Blue)  Accent: #50E6FF (Light Blue,
+     the line under the header only: never text on white)  Font: Segoe UI  Shell: F3F2F1 */
 
   --bg-page:          #F3F2F1;
-  --bg-header:        #106EBE;
+  --bg-header:        #104581;
+  --bg-header-end:    #006FC5;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #FAF9F8;
@@ -20,7 +22,7 @@ function Get-DhCssAzureLight {
   --accent-primary:   #0078D4;
 
   --accent-primary-fg: #ffffff;   /* v1.10.2 - readable text on the accent background */
-  --accent-secondary: #106EBE;
+  --accent-secondary: #104581;
   --accent-danger:    #A4262C;
 
   /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
@@ -99,9 +101,9 @@ function Get-DhCssAzureLight {
   --nav-title-fg:      #696765;
   --nav-link-fg:       #323130;
   --nav-link-hover-bg: rgba(0,120,212,0.07);
-  --nav-link-hover-fg: #0078D4;
+  --nav-link-hover-fg: #006ABA;
   --nav-active-bg:     rgba(0,120,212,0.10);
-  --nav-active-fg:     #0078D4;
+  --nav-active-fg:     #006ABA;   /* 3.0.0 - 4.5:1 on its own tint */
   --nav-active-border: rgba(0,120,212,0.45);
 
   --chart-container-bg: #FAF9F8;
@@ -111,6 +113,7 @@ function Get-DhCssAzureLight {
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #FFFFFF;
   --header-fg-muted: rgba(255,255,255,0.94);
+  --header-line:     #50E6FF;   /* 3.0.0 - the line under the header */
 }
 '@
 }

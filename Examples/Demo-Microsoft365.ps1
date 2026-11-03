@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Microsoft 365 services review: licences, Exchange, Teams, SharePoint, identity and service health (synthetic data).

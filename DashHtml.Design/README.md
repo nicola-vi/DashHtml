@@ -21,6 +21,7 @@ you want it.
 | `ConvertTo-DhYaml`   | report object → YAML | **lossless** — serialises the already-built object |
 | `ConvertFrom-DhYaml` | YAML/JSON → runnable `.ps1` | **exact** — driven by live cmdlet metadata |
 | `ConvertFrom-DhScript` | existing `.ps1` → YAML | **best-effort** — static parse, dynamic values flagged |
+| `Update-DhScript` | `.ps1` → `.ps1` upgraded to 3.0.0 | **mechanical** — AST rewrite, backup first, non-literal values listed |
 
 ## Why
 
@@ -139,7 +140,22 @@ Test-DhReport -Path .\out\ad.html -Deep       # also Tools\Test-DhA11y and Test-
 It never throws on a finding and never changes a file. `-PassThru` returns objects with `Check`, `Severity`
 (`error`, `ACTION`, `warning`, `advisory`, `info`), `Target` and `Message`; without it a short summary is printed.
 `-Strict` sets `$LASTEXITCODE` to 1 when there is an error, an ACTION or a warning. `-SizeBudgetMB` (default 15) is the
-size above which a report is reported.
+size above which a report is reported. A report with brand colours also gets a Brand check (3.0.0): the
+colours that stay below the WCAG minimum in the light or dark variant.
+
+### `Update-DhScript` — upgrade a script to DashHtml 3.0.0
+
+```powershell
+Update-DhScript -Path .\Scripts                  # what needs changing, file and line (parsed, never run)
+Update-DhScript -Path .\Scripts -Apply           # rewrite, a backup of each file in .\Backups first
+```
+
+It rewrites the removed `-NavGroup` / `-NavSubGroup` to `-NavPath` / `-NavScope` with the mapping the 2.x compat
+shim used, so the menu stays the same (a table keeps its own node `G[/S]/<TableId>`, a block becomes
+`-NavPath 'G[/S]' -NavScope Subtree`), renames the `Add-DhBullet` key `Bands` to `Thresholds`, and adds
+`-AllowHtml:$true` to 1.x calls that pass literal markup. A value that is not a literal is listed for a human. The
+result is parsed again and the backup restored if it does not parse; a second run finds nothing.
+
 ## The layout schema
 
 A layout document is a mapping with these top-level keys (all optional except
@@ -152,6 +168,8 @@ theme: Azure                          # -Theme (theme family name)
 navTitle: Infra                       # -NavTitle
 autoRefresh: 300                      # seconds (int) or a string like '5m'
 generatedBy: ops-team
+primaryColor: '#0055A4'               # 3.0.0 brand: -PrimaryColor / -SecondaryColor / -AccentColor
+fontFamily: Inter                     # -FontFamily (fontFile: path of a .woff2 to embed)
 
 infoFields:                           # header key/value chips
   - { label: Owner, value: SRE }
@@ -225,7 +243,7 @@ Keys are matched to cmdlet parameters **case-insensitively**, so `tableId`,
 
 ## Requirements
 
-- PowerShell 7.0+
+- PowerShell 7.4+
 - The core **DashHtml** module importable (its cmdlet metadata drives the codegen).
 
 MIT License — see [LICENSE](../LICENSE).

@@ -29,28 +29,29 @@ New-DhDashboard ──▶ Add-DhX … ──▶ Add-DhTable ──▶ Set-DhTabl
 
 ---
 
-## 2 — Cmdlet cheat sheet (27 cmdlets, grouped by role)
+## 2 — Cmdlet cheat sheet (28 cmdlets, grouped by role)
 
 | Group | Cmdlet | Use when… |
 |---|---|---|
-| **Foundation** | `New-DhDashboard` | Always first. Sets title, theme, info-fields header. **`-AutoRefresh '30s'/'5m'/'1h'`** (v1.4.2) emits a `<meta http-equiv="refresh">` for wall displays. **`-ThemeMode Light|Dark|Auto`** (2.2) sets the opening theme; **`-PrintCover`** (2.2) adds a printed cover page. **`-LinkState`** (2.6) keeps each table's sort, page, page size and Change chip in the address (7.33). |
+| **Foundation** | `New-DhDashboard` | Always first. Sets title, theme, info-fields header. **`-AutoRefresh '30s'/'5m'/'1h'`** (v1.4.2) emits a `<meta http-equiv="refresh">` for wall displays. **`-ThemeMode Light|Dark|Auto`** (2.2) sets the opening theme; **`-PrintCover`** (2.2) adds a printed cover page. **`-LinkState`** (2.6) keeps each table's sort, page, page size and Change chip in the address (7.33). **`-PrimaryColor` / `-SecondaryColor` / `-AccentColor` / `-FontFamily` / `-FontFile`** (3.0) brand any theme (7.36). **`-HideGeneratedAt`** (3.0) drops the header timestamp. No `-LogoPath`, no logo element (the placeholder box is gone in 3.0). |
 | | `Export-DhDashboard` | Always last. Writes the HTML file. **`-ExportLibraries Cdn|Embed|None`** (2.2): XLSX/PDF libraries loaded on first click (default), inlined for air-gapped readers, or no XLSX/PDF buttons. **`-CompressData`** (2.6) gzip + base64 data and **`-SizeBudgetMB`** (2.6, default 15) size warning, see 7.33. **`-PrintMaxRows`** (2.2, default 200) caps rows per table in print. Warns about dangling table references (2.1.4). |
 | | `Get-DhTheme` | List available themes / fetch raw CSS. Rarely needed in user scripts. |
-| **Tables** | `Add-DhTable` | Tabular data. Sortable, filterable, pageable, exportable. Cell types: `text` / `progressbar` / `badge` / `sparkline` / `link` (2.2: `UrlField`, `LinkText`; 2.6: `UrlTemplate`, `RelativeLinks`, `LinkTarget`; http(s)/mailto/tel only, see 7.34). `-Charts` types: `donut` (default) / `pie` / `bar` (2.2, with `ValueField`/`Aggregate`/`TopN`). Cells never wrap: a clipped value gets a hover tooltip with the full text, and any column can be resized by dragging its header edge (2.1.1+). Headers clip and get a tooltip too; minimum column width is 40px (2.1.2+). |
+| **Tables** | `Add-DhTable` | Tabular data. Sortable, filterable, pageable, exportable. Cell types: `text` / `progressbar` / `badge` / `sparkline` / `link` (2.2: `UrlField`, `LinkText`; 2.6: `UrlTemplate`, `RelativeLinks`, `LinkTarget`; http(s)/mailto/tel only, see 7.34). `-Charts` types: `donut` (default) / `pie` / `bar` (2.2, with `ValueField`/`Aggregate`/`TopN`). Cells never wrap: a clipped value gets a hover tooltip with the full text, and any column can be resized by dragging its header edge (2.1.1+). Headers clip and get a tooltip too; minimum column width is 40px (2.1.2+). **`-RememberViews`** (3.0): named views per reader (7.37). |
 | | `Set-DhTableLink` | Master-detail wiring: clicking a row in table A filters table B. |
-| **KPI strip** | `Add-DhSummary` | Top-of-page KPI tiles (and per-NavGroup strips in v1.4.1+). Tile styles: `tile` (default compact) / `bignumber` (hero) / `gauge` (semicircle SVG) / `verdict` (2.2: full-width overall assessment with severity chips from `Counts`). v1.4.2: per-tile `Action` makes any tile clickable. |
+| **KPI strip** | `Add-DhSummary` | Top-of-page KPI tiles (and per-node strips with `-NavPath`). Tile styles: `tile` (default compact) / `bignumber` (hero) / `gauge` (semicircle SVG) / `verdict` (2.2: full-width overall assessment with severity chips from `Counts`). v1.4.2: per-tile `Action` makes any tile clickable. |
 | **Charts** | `Add-DhBarChart` | Horizontal bars. Pass `-Stacked -SeriesField 'X'` for stacked variant (v1.4+). **2.2:** `-ValueField F -Aggregate sum|avg|min|max -Unit -Decimals` makes the bars measure a value instead of counting rows. |
 | | `Add-DhPieChart` | Pie / donut. Two modes: Mode A (from a table column) or Mode B (explicit `-Slices`). |
 | | `Add-DhLineChart` | Time-series with axes. Multi-series + optional `-Filled` (area) + optional `-TargetLine` for thresholds (the spec's mandatory pairing per §7.4). |
 | | `Add-DhBullet` | Actual-vs-target with performance bands. Canonical SLA / headroom visualisation. |
 | | `Add-DhRangeBar` *(v2.1)* | **min–avg–max range per category** on a shared 0–100 axis. Each row is normalised against its own `High`, so entities of very different magnitude become comparable; bar colour follows position on the axis (`--accent-ok → --accent-warn → --accent-danger`), not category identity. Two modes: explicit `-Items`, or `-TableId` + `-CategoryField`/`-ValueField` (aggregated in the browser, so filtering the table live-recomputes the ranges). |
+| | `Add-DhGantt` *(v3.1)* | **Start/end timeline.** One bar per task on a time axis from seconds to years: lanes (`Group`), rows shared by several bars (`Row`; overlaps packed into sub-lines), status or category colour, milestones (no `End`), `Critical`, `-Markers` lines, `-Bands` windows, drawer `Detail`. Two modes: `-Items`, or `-TableId` + `-LabelField`/`-StartField`/`-EndField` (one bar per row; follows the table filter). Times become seconds from `-Origin` in PowerShell: **the browser never parses a date**. |
 | **2-D grids** *(v1.5)* | `Add-DhStatusGrid` | Rows × columns **RAG** matrix (categorical). Services × regions, hosts × probes. |
 | | `Add-DhHeatmap` *(v1.5)* | Rows × columns **numeric** matrix with sequential / diverging colour scale. Time-of-day load, percentile distributions, deviation from target. |
 | **Trees** *(v1.5)* | `Add-DhTopologyMap` *(v1.5)* | Parent-child tree (AD Forest→Domain→DC, vCenter→Cluster→Host). Recursive subtree-width SVG layout; cycle detection. **v1.5.2:** `-AutoFitWidth` measures the widest label and grows `NodeWidth` so FQDN labels stop truncating; every node also gets a styled hover tooltip (falls back to the full `Label`). |
 | **Assessment** *(v2.2)* | `Add-DhFindings` | Audit findings: severity (critical/warning/info/ok; high/medium/low aliases), description, recommendation, affected objects, "Show in table", reference links. Severity chips + text filter; `-GroupBy Area`; printed fully expanded. |
 | **Events / alerts** | `Add-DhEventFeed` | Chronological severity-tagged log. Pair with KPI tiles as Row-5 audit trail. |
-| | `Add-DhAlertBanner` | Top-of-page strip for *current* conditions. Dismissible, with optional Action button. v1.4.2: `-NavGroup` / `-NavSubGroup` bind to a single panel. |
-| **Layout** | `Add-DhTabs` *(v1.5)* | Inline tabbed content block. Local pivot inside one block; distinct from `-NavGroup` (page-level). |
+| | `Add-DhAlertBanner` | Top-of-page strip for *current* conditions. Dismissible, with optional Action button. `-NavPath` / `-NavScope` bind it to a menu node. |
+| **Layout** | `Add-DhTabs` *(v1.5)* | Inline tabbed content block. Local pivot inside one block; distinct from the menu (`-NavPath`, page-level). |
 | **Global filter** *(v1.9)* | `Add-DhGlobalFilter` | Page-level facet dropdown or from/to date range in a bar above the body. Re-filters EVERY table that has the field at once; charts re-aggregate; AND-combined; persists in URL. Tables lacking the field are unaffected. |
 | | `Add-DhFilterCard` | Clickable filter card grid; single or multi-select; filters a target table. |
 | | `Add-DhKeyValue` *(2.3)* | A grid of label/value tiles (a property sheet): `-Items @(@{ Label; Value; Status })`, `-Columns 1..6`. |
@@ -73,7 +74,7 @@ Several numbers as a compact strip                   → Add-DhSummary (default 
 A % towards a max (CPU, disk, SLA)                   → Add-DhSummary Style='gauge'  OR  Add-DhBullet
 A KPI with "vs last period" change                   → Add-DhSummary item: + Previous=X, TrendIsGood
 A tiny per-tile trend visual                         → Add-DhSummary item: + Sparkline=@(...)
-Different KPIs per nav-panel                         → Add-DhSummary -NavGroup 'X'    (v1.4.1+)
+Different KPIs per menu node                         → Add-DhSummary -NavPath 'X' -NavScope Subtree
 
 Categorical counts                                   → Add-DhBarChart
 Categorical counts split by another field            → Add-DhBarChart -Stacked -SeriesField 'Y'
@@ -84,6 +85,7 @@ Filled area trend                                    → Add-DhLineChart -Filled
 
 Actual vs target per entity                          → Add-DhBullet
 Spread of a metric per entity (min/avg/max)          → Add-DhRangeBar        (v2.1)
+Tasks, jobs or validity from a start to an end        → Add-DhGantt           (v3.1)
 Entities of different scale, compared as % of own    → Add-DhRangeBar -HighField 'Capacity'
    capacity/ceiling
 Health matrix (rows × columns, categorical state)    → Add-DhStatusGrid
@@ -170,9 +172,9 @@ Thresholds = @(
 
 ## 5 — Navigation: the `-NavPath` model
 
-> **Write all new code with `-NavPath`.** `-NavGroup` / `-NavSubGroup` are a
-> compatibility shim — kept indefinitely, still correct, but they cannot express
-> most of what the path model can. Migration guide: §15.1.
+> **`-NavPath` is the only menu API.** The 1.x `-NavGroup` / `-NavSubGroup`
+> compatibility shim was removed in 3.0.0; `Update-DhScript -Apply` rewrites old
+> scripts (§15).
 
 Every item — table or block — sits at a **path** in one tree and declares **how
 far its visibility reaches** from that path. That is the whole model. The 1.x
@@ -218,8 +220,8 @@ spike that proved the approach on a private copy; keep it as history.)
 
 ### 5.2 — Nav-aware cmdlets
 
-**22 accept the nav parameters:** `Add-DhTable`, `Add-DhSummary`, `Add-DhFindings`,
-`Add-DhBarChart`, `Add-DhPieChart`, `Add-DhLineChart`, `Add-DhRangeBar`,
+**23 accept the nav parameters:** `Add-DhTable`, `Add-DhSummary`, `Add-DhFindings`,
+`Add-DhBarChart`, `Add-DhPieChart`, `Add-DhLineChart`, `Add-DhRangeBar`, `Add-DhGantt`,
 `Add-DhBullet`, `Add-DhStatusGrid`, `Add-DhHeatmap`, `Add-DhTopologyMap`,
 `Add-DhTabs`, `Add-DhEventFeed`, `Add-DhFilterCard`, `Add-DhHtmlBlock`,
 `Add-DhCollapsible`, `Add-DhAlertBanner`, `Add-DhKeyValue`, `Add-DhRecordList`,
@@ -271,10 +273,10 @@ Add-DhTable -Report $r -TableId 'groups' -Title 'Groups' -Data $groups `
 Add-DhTable -Report $r -TableId 'cpu' -Data $cpu -NavPath 'Compute/Capacity/cpu' -NavLabel 'CPU'
 ```
 
-Supplying **both** `-NavPath` and `-NavGroup`/`-NavSubGroup` on one call is a
-hard error, and `-NavSubGroup` without `-NavGroup` is too. Silent precedence
-between two ways of saying the same thing is how the 1.x nav became three
-competing mechanisms — see `Private/Resolve-DhNavDeclaration.ps1`.
+There is one way to say where an item lives (`Private/Resolve-DhNavDeclaration.ps1`):
+a path, or no path (a table then gets its own node keyed on `TableId`, a block is
+Global). Two ways of saying the same thing is how the 1.x nav became three competing
+mechanisms; 3.0.0 removed the second one.
 
 ---
 
@@ -363,27 +365,27 @@ Add-DhStatusGrid -Report $report -Id 'service-health' -Title 'Service Health' `
 ```
 Cells you don't declare render as a neutral dashed state. `LinkTableId`/`LinkFilter` is optional per cell.
 
-### 7.6 — Multi-panel dashboard with per-NavGroup KPI strips
+### 7.6 — Multi-node dashboard with per-node KPI strips
 ```powershell
 # Global summary (visible everywhere)
 Add-DhSummary -Report $report -Items @(
     @{ Style='bignumber'; Label='Overall SLA'; Value='99.96%'; Class='cell-ok' }
 )
 
-# Identity-panel summary
-Add-DhSummary -Report $report -NavGroup 'Identity' -Title 'Identity KPIs' -Items @(
+# Identity summary: the node and everything below it
+Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Title 'Identity KPIs' -Items @(
     @{ Label='Active users';  Value=231 }
     @{ Label='Failed logons'; Value=842; Previous=920; TrendIsGood=$true }
 )
 
-# Infrastructure-panel summary (different metrics)
-Add-DhSummary -Report $report -NavGroup 'Infrastructure' -Title 'Cluster KPIs' -Items @(
+# Infrastructure summary (different metrics)
+Add-DhSummary -Report $report -NavPath 'Infrastructure' -NavScope Subtree -Title 'Cluster KPIs' -Items @(
     @{ Style='gauge'; Label='Cluster CPU'; Value=68; Max=100; Unit='%' }
 )
 
-# Other blocks bind to the same NavGroup
-Add-DhTable      -Report $report -TableId 'users'      ... -NavGroup 'Identity'
-Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavGroup 'Infrastructure'
+# The rest of each branch, under the same path
+Add-DhTable      -Report $report -TableId 'users'      ... -NavPath 'Identity/users'
+Add-DhStatusGrid -Report $report -Id      'svc-health' ... -NavPath 'Infrastructure' -NavScope Subtree
 ```
 
 ### 7.7 — Sparkline cells in a table
@@ -422,10 +424,10 @@ Add-DhAlertBanner -Report $report -Id 'top-alert' `
     -Message '3 critical incidents open in the last 24h' `
     -Action @{ Label='View incidents'; TableId='incidents'; Filter='critical' }
 
-# v1.4.2+ — bind to a single nav panel
+# bound to a menu node: visible on Infrastructure and everything below it
 Add-DhAlertBanner -Report $report -Id 'eu-alert' `
     -Severity 'warning' -Message 'EU site failover in progress' `
-    -NavGroup 'Infrastructure'   # visible only when the Infrastructure tab is active
+    -NavPath 'Infrastructure' -NavScope Subtree
 ```
 Severity: `info` / `ok` / `warning` / `critical`. The `Action` button either navigates to a registered table (with optional filter text) or opens an external URL.
 
@@ -511,7 +513,7 @@ Add-DhTabs -Report $report -Id 'fleet' -Title 'Fleet views' -Tabs @(
     @{ Title='Raw payload'; Icon='R'; Content='<pre>{ ... }</pre>' }
 )
 ```
-`Content` is raw HTML (same policy as `Add-DhHtmlBlock`). Distinct from `-NavGroup`: tabs partition one block's content, NavGroup partitions the whole page. Full W3C tablist pattern with arrow-key nav.
+`Content` is raw HTML (same policy as `Add-DhHtmlBlock`). Distinct from the menu: tabs partition one block's content, `-NavPath` partitions the whole page. Full W3C tablist pattern with arrow-key nav.
 
 ### 7.15 — Range bar: min–avg–max per entity (v2.1+)
 
@@ -773,6 +775,72 @@ $r = New-DhDashboard -Title 'Estate' -StrictNav `
 - Print: `dhTtPrintHooks` (`before` draws the first `DH_TT_PRINT_MAX` open rows with a note, `after` repaints), called from `dhBeforePrint` / `dhAfterPrint`.
 - CSV: `dhCsvText(header, rows)` (BOM, quotes, CRLF, `dhCsvSafe`) and `dhCsvDownload`; the toolbar `data-tt="csv"` button saves `flat`, the `data-tt-csv` buttons in Members / Member of save the list. Columns: Id, ParentId, Type, Label, Path, Status, Flags, then every property label in first-seen order.
 - `Add-DhTreeTable`: `-MaxRows` default 20,000 (warning), hard limit 100,000. Building 50,000 rows takes about 25 s in `Add-DhTreeTable` and 30 s in the export on a laptop.
+### 7.36 — Brand colours and font (v3.0.0)
+```powershell
+$r = New-DhDashboard -Title 'Estate' -Theme Grey -PrimaryColor '#00594F' -SecondaryColor '#1D252D' -AccentColor '#C86E00' `
+        -FontFamily 'Inter' -FontFile .\Inter-subset.woff2
+```
+One extra `:root` block per variant, after the theme's own (`Private/ConvertTo-DhBrandCss.ps1`, the only place
+that maps brand to tokens). Primary drives `--accent-primary` / `--chart-1` (as given in light mode),
+`--text-accent` / `--nav-active-fg` / `--nav-link-hover-fg` (a shade reaching 4.5:1 on every background token of the
+theme), the row and nav tints, `--border-strong`, `--shadow-glow` and `--accent-primary-fg` (black or white).
+Secondary (default: Primary at 72% lightness) drives `--bg-header` / `--accent-secondary` / `--header-fg`; dark mode
+uses a deep tint at 1.30 or more against the page (the §9.1 band rule). `--bg-header-end` is the Primary hue (else
+Secondary's) at 5.1:1 against the header text, and the deeper stop always goes first. Accent is `--chart-2` and
+`--header-line`. Never touched:
+`--cell-*`, `--accent-ok/warn/danger`, `--range-grad-*`. Contrast below the minimum is a warning in `New-DhDashboard`
+and a Brand finding in `Test-DhReport`. Stored as `$report.Brand` only when used; `ConvertTo-DhYaml` writes the keys.
+The colour maths is plain arithmetic on purpose (no pipelines): it runs a few thousand times per brand. Watch out
+for `[math]::Min(1, $x)`: with an integer literal PowerShell can pick the Int32 overload and truncate; write `1.0`.
+
+### 7.37 — Saved views (v3.0.0)
+```powershell
+Add-DhTable -Report $r -TableId 'srv' -Title 'Servers' -Data $rows -RememberViews -RememberColumns
+```
+Emits `"views":"<key>"` (the same SHA-256 key as `"remember"`) and a Views button in the toolbar. Runtime:
+`dhViewCapture` / `dhViewApply` in `Get-DhJsTable.ps1` reuse `dhTableStateGet/Set` for sort, page size and the
+Change chip, so a view is checked exactly like a `-LinkState` address; columns by field name. localStorage key
+`dh:views:<key>`, 20 views at most, blocked storage handled (node tests in `Tests/js/v300.test.js`).
+
+### 7.38 — Print review (v3.0.0)
+```powershell
+.\Tools\Test-DhPrint.ps1 -Png -OutDir .\Examples\_print     # PDFs, <name>-pNN.png and review.html
+```
+pdf.js 4.9.124 is vendored in `Tools/vendor` (repo only, hash-pinned in the tool and in a Pester test) and runs in
+the same headless browser through `BrowserProbe.ps1` (`-ExtraArgs --allow-file-access-from-files` for the module
+import). Hot pink in the PNGs is pdf.js failing on Chromium's soft-masked shadings, not a report bug. Print hooks:
+`dhTtPrintHooks` (in `Get-DhJsTreeTable.ps1`) is the shared before/after list; the network map registers one that
+sets its viewBox to the drawing and its box to the drawing's aspect ratio. Do not measure in a hook: a section on
+another menu page is still `display:none` when `beforeprint` fires.
+
+### 7.39 — Gantt timeline (v3.1.0)
+
+```powershell
+# Clock axis from dates; no End = milestone; a dashed target line
+Add-DhGantt -Report $report -Id 'steps' -Title 'Recovery steps' -ShowDataTable -Items @(
+    @{ Id = 'a'; Label = 'Storage'; Start = $t0;               End = $t0.AddSeconds(269);  Status = 'ok' }
+    @{ Id = 'b'; Label = 'Compute'; Start = $t0.AddSeconds(270); End = $t0.AddSeconds(3364); Critical = $true; DependsOn = 'a' }
+    @{ Label = 'Sign-off'; Start = $t0.AddSeconds(4500) }
+) -Markers @(@{ At = $t0.AddMinutes(90); Label = 'RTO target'; Status = 'warn' })
+
+# Elapsed seconds; lanes; segments sharing one row
+Add-DhGantt -Report $report -Id 'phases' -Title 'Phases' -Unit s -Items @(
+    @{ Row = 'Compute'; Label = 'Rescan'; Start = 0;   End = 111; Category = 'Storage' }
+    @{ Row = 'Compute'; Label = 'Remap';  Start = 111; End = 596; Category = 'Network' }
+)
+
+# One bar per table row (follows the table filter), one line per client, a shaded window
+Add-DhGantt -Report $report -Id 'night' -Title 'Last night' -TableId 'jobs' -LabelField 'Job' `
+    -StartField 'Started' -EndField 'Ended' -RowField 'Client' -StatusField 'Result' -SortBy Start `
+    -Bands @(@{ From = $night; To = $night.AddHours(8); Label = 'Backup window' })
+```
+
+- **Time rule:** `Add-DhGantt` turns every Start / End / marker / band into seconds from the origin (wall-clock seconds since 1970, the `[datetime]` Kind ignored; a `[DateTimeOffset]` keeps its own clock) and stores the browser JSON in `GanttJson`. The runtime builds labels with `Date.UTC` / `getUTC*` only. In table mode the per-row seconds go in `times` (by row position, `engine._idxOf(row)`), because a `[datetime]` cell reaches the browser in the invariant US form (`[string]` cast) and pre-formatted strings follow the script's culture.
+- All dates or all numbers in one chart (mixing throws). Strings: a number string is a number, otherwise `DateTimeOffset.TryParse(InvariantCulture, AssumeUniversal)`.
+- Runtime helpers (node-tested in `Tests/js/gantt.test.js`): `dhGanttFmtDur`, `dhGanttFmtAt`, `dhGanttTicks` (fixed steps to a week, Monday weeks, calendar months / quarters / years), `dhGanttPack` (greedy sub-lines), `dhGanttLayout`, `dhGanttTextPos`. Text never sits on a bar colour: inside a bar it is a surface pill, otherwise beside a lone bar.
+- Status colours are the pill colours (`--cell-*-fg`, info = `--accent-primary`); categories `--chart-1..8`. Bars with `Detail` or a link (and every bar in table mode) are `<button>`s.
+- Not built (yet): dependency arrows, axis zoom, a computed critical path.
+
 ### 7.17 — Bars that measure a value (v2.2+)
 
 ```powershell
@@ -807,7 +875,7 @@ Export-DhDashboard -Report $report -OutputPath $out -ExportLibraries Embed -Prin
 
 ## 8 — Critical gotchas (AI should always check these)
 
-1. **Declaration order.** Declare tables before any block that references them by `TableId` (`Add-DhFilterCard`, `Add-DhBarChart`, `Add-DhPieChart` Mode A, `Set-DhTableLink`, `Add-DhAlertBanner -Action`, `Add-DhStatusGrid` cell `LinkTableId`, summary tile `Action`, `Add-DhRangeBar -TableId`, `Add-DhFindings` `AffectedTableId`). What actually happens otherwise: `Add-DhBarChart` / `PieChart` / `FilterCard` **throw** when another table already exists but this one does not yet, and skip the check when no table exists; `Set-DhTableLink` always throws. The runtime itself is order-independent (table-fed blocks render after every engine exists, verified in 2.1.4). Since 2.1.4 `Export-DhDashboard` **warns** about every reference to a table that never appears, so a typo is no longer a silent no-op.
+1. **Declaration order.** Declare tables before any block that references them by `TableId` (`Add-DhFilterCard`, `Add-DhBarChart`, `Add-DhPieChart` Mode A, `Set-DhTableLink`, `Add-DhAlertBanner -Action`, `Add-DhStatusGrid` cell `LinkTableId`, summary tile `Action`, `Add-DhRangeBar -TableId`, `Add-DhGantt -TableId`, `Add-DhFindings` `AffectedTableId`). What actually happens otherwise: `Add-DhBarChart` / `PieChart` / `FilterCard` **throw** when another table already exists but this one does not yet, and skip the check when no table exists; `Set-DhTableLink` always throws. The runtime itself is order-independent (table-fed blocks render after every engine exists, verified in 2.1.4). Since 2.1.4 `Export-DhDashboard` **warns** about every reference to a table that never appears, so a typo is no longer a silent no-op.
 
 2. **`Icon` is decorative.** Pass an emoji (`🖥`, `⚠`, `🔒`, `🌐`) or unicode glyph, or omit. **Don't pass bare ASCII letters like `'X'` or `'B'`** — they render as ugly single characters in the corner.
 
@@ -829,13 +897,13 @@ Export-DhDashboard -Report $report -OutputPath $out -ExportLibraries Embed -Prin
 
 9. **`Add-DhStatusGrid` row/column membership is checked.** Every cell's `Row` and `Column` must appear in the `-Rows` / `-Columns` axis arrays. Typos throw — they don't silently miss.
 
-10. **NavGroup case-sensitive matching at render time.** `-NavGroup 'Identity'` and `-NavGroup 'identity'` are two different groups. Pick one casing and use it consistently.
+10. **Menu paths are case-sensitive.** `-NavPath 'Identity'` and `-NavPath 'identity'` are two different nodes. Pick one casing (`-StrictNav` warns about case-only differences).
 
 11. **Locale-safe number parsing.** v1.4 cmdlets all parse via `InvariantCulture` (regression fix from v1.4.0 — `it-IT` was treating `92330.25` as `9233025`). When extending the module, never use `[double]::TryParse([string], [ref])` without explicitly passing `InvariantCulture`.
 
 12. **JS helpers are module-scope (v1.4.1+).** When extending the embedded JS, put new helpers at module scope (not nested inside `renderSummary` or similar) so cross-block renderers can call them. The bullet + line chart renderers used to silently break because of nested helpers — fixed in 1.4.1. **Since 1.8.0** the runtime JS is split across `Get-DhJsCore/Blocks/Nav/Table/Boot.ps1` (concatenated by `Get-DhJsContent`) — it is still ONE shared scope after assembly, so a helper defined in `Get-DhJsCore` is callable from `Get-DhJsBlocks`, etc. Put new block renderers in `Get-DhJsBlocks.ps1`.
 
-13. **Banners can be per-panel since v1.4.2.** `Add-DhAlertBanner -NavGroup '...' [-NavSubGroup '...']` binds the banner to a single panel. Without those params, the banner stays page-global (the legacy default). Bound banners disappear when their group is not active.
+13. **Banners can follow the menu.** `Add-DhAlertBanner -NavPath '...' [-NavScope Subtree]` binds the banner to a node. Without a path the banner is page-global. Bound banners disappear when their node is not selected.
 
 14. **Heatmap vs StatusGrid — don't confuse them.** Heatmap cells carry a **numeric** `Value`; the colour is interpolated. StatusGrid cells carry a **categorical** `Status` (`ok`/`warn`/`danger`/`nodata`/`info`); the colour is discrete RAG. If your cells naturally have a *range*, use Heatmap. If they have a *state*, use StatusGrid.
 
@@ -849,7 +917,7 @@ Export-DhDashboard -Report $report -OutputPath $out -ExportLibraries Embed -Prin
 
    Always set `Tooltip` on leaf nodes to the full identifying string (FQDN + role + status). Even with auto-fit, a hover tooltip is the user's escape hatch when the box can't show everything.
 
-16. **Tabs vs NavGroup — different scopes.** `Add-DhTabs` partitions content **within one block** — the user toggles between local views of the same scope. `-NavGroup` partitions the **whole page** — the user navigates between unrelated dashboards via the top tab bar. Don't try to use Tabs as page-level navigation.
+16. **Tabs vs the menu — different scopes.** `Add-DhTabs` partitions content **within one block** — the user toggles between local views of the same scope. `-NavPath` partitions the **whole page** — the user navigates between unrelated views via the menu. Don't try to use Tabs as page-level navigation.
 
 17. **AutoRefresh is a browser `<meta refresh>`, not live data.** `New-DhDashboard -AutoRefresh '5m'` makes the browser reload the same HTML file every 5 minutes. To actually update the data, schedule a job that re-runs your dashboard script slightly more frequently than the refresh interval.
 
@@ -873,7 +941,7 @@ Export-DhDashboard -Report $report -OutputPath $out -ExportLibraries Embed -Prin
 
 25. **Never pass an options object to `localeCompare` inside a comparator (fixed 1.10.4).** `String.localeCompare(x, undefined, {sensitivity:'base'})` makes the engine **re-resolve collation settings on every call**. In the table sort comparator that ran ~270,000 times for a 19,011-row table and blocked the main thread for **5.6 seconds** on a single header click. Build **one** `Intl.Collator` and reuse `collator.compare` — measured ~15× on its own, ~33× combined with precomputing sort keys outside the comparator (`parseFloat` was also running O(n log n) times instead of O(n)). Ordering is safe to preserve across the swap because the spec defines `localeCompare(y, loc, opts)` as `new Intl.Collator(loc, opts).compare(x, y)`, and `Array#sort` is stable. Note this class of bug is **invisible to functional tests** — the slow code sorted perfectly correctly — so it is pinned at source level in the Pester suite instead.
 
-26. **A block given BOTH `-NavGroup` and `-NavSubGroup` is unreachable in 1.x (fixed in 2.0.0).** `showSubGroup` (`Get-DhJsNav.ps1:200-204`) hides with `style.display='none'` **and** `classList.remove('panel-active')`, but shows again by clearing **only** the inline style. Since `.block-section { display:none }` / `.block-section.panel-active { display:block }` (`Get-DhCssBase.ps1:827-828`), a section that lost `panel-active` stays invisible no matter what the inline style says. Reproduced in a browser: a block in the **first** subgroup shows on load but disappears after any pill click (only a full group round-trip restores it); a block in **any other** subgroup is **never visible at all**. **Tables are unaffected** — they use the subnav-link path. Fails **silently**: zero console output, just an empty panel. This is the class of bug no functional test catches, because nothing throws — see [plan-v2.md](plan-v2.md) §WP2 for the structural "no content unreachable" test that will pin it.
+26. **`-NavGroup` / `-NavSubGroup` are gone (3.0.0).** A 2.x script that still passes them fails with "A parameter cannot be found that matches parameter name 'NavGroup'". Run `Update-DhScript -Apply` (§15); it keeps the 2.x menu exactly (tables `G[/S]/<TableId>`, blocks `G[/S]` with `-NavScope Subtree`). History: in 1.x a block with both parameters was unreachable (fixed in 2.0.0 by the path model, pinned by the "no content unreachable" test).
 
 ---
 
@@ -884,8 +952,8 @@ Export-DhDashboard -Report $report -OutputPath $out -ExportLibraries Embed -Prin
 | Family | Use when… |
 |---|---|
 | `Default` | General-purpose, blue accents, system UI font. |
-| `Azure` | Microsoft Azure / 365 branding (Segoe UI, Azure blue). |
-| `VMware` | VMware-ecosystem dashboards (VMware green; Inter if the reader has it). |
+| `Azure` | Microsoft Azure / 365 branding (Segoe UI; Azure Blue, Dark Blue header, Light Blue line). |
+| `VMware` | VMware by Broadcom dashboards (teal-blue `#015C89`, black to teal-blue header, Broadcom Red line; Inter if the reader has it). |
 | `Grey` | Neutral / muted, no brand colour. |
 | `Company` | Crimson + Montserrat if the reader has it. Marketing / executive reports. |
 | `Rag` (v1.4) | **Strict Office/Excel RAG palette** (`#375623` / `#7F4B00` / `#9C0006` / `#595959`). Use when audit / compliance / finance audience needs spreadsheet parity. |
@@ -904,13 +972,25 @@ minimum** before a release.
    Azure's, the two lightest bands. In dark mode the band is a deep tint of the accent hue
    (saturation taken from the theme's own accent, so `Rag` and `Grey` stay neutral) with at
    least 1.30 contrast against `--bg-page`. Before 2.7.0 `Grey` and `Azure` set it to
-   *exactly* `--bg-page`, so the band did not exist.
+   *exactly* `--bg-page`, so the band did not exist. **3.0.0 replaces the flat band with a
+   gradient:** `.report-header` paints `linear-gradient(120deg, --bg-header, --bg-header-end)`
+   (no end token = flat), and `.report-header::after` draws `--header-line` (default the
+   accent). In light mode `--bg-header` is now the deep stop (no longer equal to
+   `--accent-secondary`) and the end is the accent hue at about 5.1:1 against white, which is
+   what keeps the 0.94 muted text at 4.5:1. Both stops must pass the header-text and 1.30
+   band rules. `Test-DhContrast` measures text over a linear gradient against every stop (it
+   used to skip it), and the Pester context 'Theme refresh' checks all twelve variants at
+   token level, including the menu text on its own active and hover tints (three themes
+   were 3.96 to 4.42 there).
 2. **Every text token clears 4.5:1 against every background it can land on** — not only
    `--bg-surface` and `--bg-page`, but `--bg-row-alt`, `--bg-thead`,
    `--chart-container-bg`, and each of those composited under `--progress-track-bg` (the
    8% overlay behind `.dh-kv-item`) or the element's own `--cell-*-bg` tint. This is what
    a first pass missed: `--text-muted` was corrected against surface and page and still
-   failed on `.dh-kv-label` at 3.80.
+   failed on `.dh-kv-label` at 3.80. **3.0.0 addition:** a badge column tints the cell
+   *and* the badge, so a `--cell-*-fg` must clear 4.5:1 on **two** layers of its
+   `--cell-*-bg` over `--bg-table` and `--bg-row-alt` (seven dark tokens were 4.10 to
+   4.48); a Pester test in 'v3.0.0 features' pins it for all twelve variants.
 3. **`--size-2xs` (0.72rem / 11.5px) is the floor**, for badges and chips only. Nothing in
    the HTML goes below it. The exception is the network-map SVG labels
    (`.nm-edge-label text` and `.nm-node-badges` at 10.5px, `.nm-lane-label` /
@@ -978,6 +1058,7 @@ DashHtml/
 │   │   ├── Add-DhTreeTable.ps1        ← v2.5
 │   │   ├── Add-DhHtmlBlock.ps1
 │   │   ├── Add-DhRangeBar.ps1         ← v2.1
+│   │   ├── Add-DhGantt.ps1            ← v3.1
 │   │   ├── Add-DhFindings.ps1         ← v2.2
 │   │   ├── Add-DhGlobalFilter.ps1     ← v1.9
 │   │   └── Add-DhCollapsible.ps1
@@ -1028,7 +1109,7 @@ DashHtml/
 │   ├── Feature-Assessment.ps1 / Feature-MapsAndGrids.ps1
 │   ├── Feature-FiltersAndSearch.ps1 / Feature-PageElements.ps1
 │   └── (Tools\Show-DhNavMap.ps1 prints the menu and per-view content of an exported file)
-├── Tools/   Show-DhNavMap, Test-DhV2Upgrade, Test-DhPrint (PDF), Test-DhContrast (WCAG ratios, 12 themes), Test-DhA11y (accessibility audit);
+├── Tools/   Show-DhNavMap, Test-DhPrint (PDF; -Png renders the pages and writes review.html, pdf.js in Tools/vendor), Test-DhContrast (WCAG ratios, 12 themes), Test-DhA11y (accessibility audit);
 │            helpers Find-DhBrowser.ps1, BrowserProbe.ps1 (headless browser + loopback result), contrast-measure.js, a11y-probe.js, contrast-selectors.json
 ├── docs/
 │   ├── KPI_Dashboard_Specification_v2.docx   ← the IT-infra KPI spec that drove v1.4/1.5
@@ -1109,7 +1190,7 @@ The recurring pattern for a new block-type cmdlet:
 7. **Tell the tooling about it** — each list below is hand-maintained, and `Add-DhRangeBar` was missing from three of them from 2.1.0 to 2.1.3:
    - `DashHtml.Design/Private/DhSchema.ps1` → `$script:DhTypeToCmdlet` (block type → cmdlet)
    - `DashHtml.Design/Public/ConvertFrom-DhScript.ps1` → `$reverse` (cmdlet → block type)
-   - `DashHtml.Design/Public/Update-DhScript.ps1` and `Tools/Test-DhV2Upgrade.ps1` → `$blockCmds`
+   - `DashHtml.Design/Public/Update-DhScript.ps1` → `$blockCmds`
    - `Build-DhReference.ps1` → `$cmdMeta` (tag, colour, group in the reference)
    - the skill prose under `skills/dashhtml/` (`Build-DhSkill.ps1` warns about any public cmdlet the skill never mentions)
 8. **Write Pester tests** in `Tests/DashHtml.Tests.ps1` — at minimum, validation paths + a smoke test that checks the emitted HTML. Add the cmdlet to the duplicate-Id `-ForEach` in `Describe 'Duplicate-Id guard on all block cmdlets'`. `Tests/DhTestHelpers.ps1` has `Export-DhTestHtml` (export to temp, return the HTML, optionally the warnings) and `Get-DhTestJsFunction` (one runtime function's source).
@@ -1266,130 +1347,95 @@ Export-DhDashboard -Report $report -OutputPath '.\demo.html' -Force -OpenInBrows
 
 ---
 
-## 15 — Upgrading existing scripts to v2.0.0 (audit checklist)
+## 15 — Upgrading existing scripts to 3.0.0
 
-> **Applies to:** DashHtml **2.0.0 and later** (shipped 2026-08-26; current
-> release 2.1.3). See [plan-v2.md](plan-v2.md).
-> `Update-DhScript` (in the **DashHtml.Design** module) automates every check
-> below and has a rewrite mode: `-Apply`.
-
-2.0.0 carries **two breaking changes** and one behaviour fix.
+> **Applies to:** DashHtml **3.0.0 and later** (2026-11-01). `Update-DhScript` (in
+> **DashHtml.Design**) finds every change below and rewrites the mechanical ones with
+> `-Apply`. It parses the scripts with the AST and never runs them.
 
 ### 15.0 — Run the audit first
 
 ```powershell
-.\Tools\Test-DhV2Upgrade.ps1 -Path .\Examples      # or any folder of scripts
-.\Tools\Test-DhV2Upgrade.ps1 -Path 'C:\Scripts' -Detailed
+Update-DhScript -Path .\Scripts                  # report: file, line, cmdlet, what changes
+Update-DhScript -Path .\Scripts -Apply           # rewrite; a backup of each file goes to .\Backups
+Test-DhReport   -Path .\Scripts\*.ps1            # anything left is an ACTION finding
 ```
-
-Read-only, AST-based, never executes your scripts. It reports every affected call with file and line.
 
 > **Do not audit with grep.** These calls routinely span several lines with backtick
-> continuation, so a line-oriented pattern silently under-reports. On `Examples/` the
-> obvious greps find **0** issues; the AST audit finds **13**. Under-reporting is the
-> exact failure class this release exists to fix.
+> continuation, so a line-oriented pattern under-reports. The rewrite works on AST
+> extents, removes a `-NavSubGroup` on its own continued line together with its line
+> break, parses the result again, and restores the backup if it does not parse.
 
-Current result for the bundled examples:
+### 15.1 — BREAKING: `-NavGroup` / `-NavSubGroup` removed
 
-```
-  9  15.1 table relies on the removed automatic menu entry
-  4  15.2 -AllowHtml default flips to $false
-  0  15.3 block in a subgroup
-```
+The 1.x compat shim is gone from all 22 nav-aware cmdlets and from
+`Resolve-DhNavDeclaration`. A call that still passes them fails at binding:
+"A parameter cannot be found that matches parameter name 'NavGroup'".
 
-### 15.1 — ADVISORY: tables now use one uniform path model
+`Update-DhScript -Apply` applies the mapping the 2.x shim applied at run time, so
+the rewritten script builds the **same menu**:
 
-**What changed.** In 1.x, `Add-DhTable -NavGroup 'G'` produced its own subnav link through a table-only code path; blocks had no equivalent (that asymmetry was defect #2). In 2.0.0 every item — table or block — sits at the path it declares, under one rule.
+| Old declaration | Item | Rewritten to |
+|---|---|---|
+| `-NavGroup 'G'` | Table | `-NavPath 'G/<TableId>'` (its own node, keyed on `TableId`) |
+| `-NavGroup 'G' -NavSubGroup 'S'` | Table | `-NavPath 'G/S/<TableId>'` |
+| `-NavGroup 'G'` | Block | `-NavPath 'G' -NavScope Subtree` |
+| `-NavGroup 'G' -NavSubGroup 'S'` | Block | `-NavPath 'G/S' -NavScope Subtree` |
 
-**Your scripts keep working — no edit needed.** The compat shim maps `-NavGroup 'G'` on a table to `'G/<TableId>'` with `Exact` scope, reproducing the 1.x menu entry exactly. Verified against a pure 1.x script: each table keeps its own node.
+- An explicit `-NavScope` on the call is kept (no `Subtree` is added).
+- A `/` inside a group name becomes `//` (the path escape); a quote is doubled.
+- The colon form `-NavGroup:'G'` is handled.
+- **Not rewritten, listed for a human:** a value that is not a literal string
+  (`-NavGroup $group`), a table whose `-TableId` is not a literal, a call that also
+  has `-NavPath`, a `-NavSubGroup` without `-NavGroup`.
+- Converting by hand: the block rule is the trap. `-NavPath 'Storage'` alone is
+  `Exact` and shows only on the bare node; the 2.x behaviour needs
+  `-NavScope Subtree`.
 
-Migrating to `-NavPath` is **optional**, and buys explicit control over the node key, its label, and its depth.
+The 1.x `#{group,panel}` address shim in `initNav` stays: old bookmarks still open
+the right view. After a nav migration, regenerate the report and click every menu
+node (`Tools\Show-DhNavMap.ps1 -Path report.html` prints the menu).
 
-**Convert (optional):**
+### 15.2 — BREAKING: `Add-DhBullet` `Bands` removed
 
-| 1.x | 2.0.0 |
+The 1.x alias of `Thresholds` throws, naming `Thresholds` and `Rag`.
+`Update-DhScript -Apply` renames a literal `Bands =` key in any hashtable of a
+script that calls `Add-DhBullet` (same shape, nothing else changes).
+
+### 15.3 — Quieter: the 2.0 `-AllowHtml` warning removed
+
+2.0.0 flipped the `-AllowHtml` default to `$false` and warned when content that
+looked like HTML was encoded. 3.0.0 keeps the default and drops the warning.
+`-AllowHtml:$false` added only to silence it is harmless. A script written for 1.x
+still needs `-AllowHtml:$true` where its markup is trusted: `Update-DhScript`
+reports those calls and adds the switch for literal markup.
+
+### 15.4 — Requirements
+
+PowerShell **7.4** or later (both modules). `Tools\Test-DhV2Upgrade.ps1` is
+removed; `Update-DhScript` and `Test-DhReport` cover what it did.
+
+### 15.5 — Not breaking
+
+| Pattern | 3.0.0 |
 |---|---|
-| `Add-DhTable -TableId 'vols' -NavGroup 'Storage'` | `Add-DhTable -TableId 'vols' -NavPath 'Storage/vols' -NavLabel 'Volumes'` |
-| `Add-DhTable -TableId 'vols' -NavGroup 'Storage' -NavSubGroup 'Capacity'` | `Add-DhTable -TableId 'vols' -NavPath 'Storage/Capacity/vols'` |
-
-The path node is keyed on **`TableId`**, not `Title` — `TableId` is the only value the module enforces as unique (`Add-DhTable.ps1:152`). `Title` becomes the `-NavLabel`. Keying on `Title` would silently merge two same-titled tables into one node.
-
-**⚠ Converting a BLOCK? Restate the scope.** `-NavPath` defaults to `Exact`, but
-the block compat shim defaults to `Subtree`. The naive rewrite silently hides
-content:
-
-```powershell
-Add-DhBarChart ... -NavGroup 'Storage'                          # visible across all of Storage
-Add-DhBarChart ... -NavPath 'Storage'                           # ❌ only the bare 'Storage' node
-Add-DhBarChart ... -NavPath 'Storage' -NavScope Subtree         # ✅ equivalent to the original
-```
-
-The full mapping the shim applies (`Private/Resolve-DhNavDeclaration.ps1`):
-
-| Old declaration | Item | Path | Scope |
-|---|---|---|---|
-| `-NavGroup 'G'` | Table | `G/<TableId>` | `Exact` |
-| `-NavGroup 'G' -NavSubGroup 'S'` | Table | `G/S/<TableId>` | `Exact` |
-| *(none)* | Table | `<TableId>` | `Exact` |
-| `-NavGroup 'G'` | Block | `G` | **`Subtree`** |
-| `-NavGroup 'G' -NavSubGroup 'S'` | Block | `G/S` | **`Subtree`** |
-| *(none)* | Block | *(empty)* | **`Global`** |
-
-Nav is never rewritten automatically by `Update-DhScript` — it is reported as
-`advisory` and left to a human. After any nav migration, regenerate the report
-and **click every menu node**: nav bugs fail silently, with no console output.
-
-### 15.2 — BREAKING: `-AllowHtml` defaults to `$false`
-
-**What changed.** The default flips from `$true` (raw markup) to `$false` (HTML-encoded). This has been announced by a runtime warning since 1.5.x. Affects **4 cmdlets**: `Add-DhHtmlBlock`, `Add-DhCollapsible`, `Add-DhAlertBanner`, `Add-DhTabs`.
-
-**Find affected calls:** audit issue **15.2** — it flags exactly those four cmdlets called *without* an explicit `-AllowHtml`. Any of them passing markup in `-Content` will start rendering it as literal text.
-
-**Convert:** add `-AllowHtml:$true` where you genuinely intend raw HTML. Where the content is externally sourced, change nothing — the new default is the safe one, and that is the point of the flip.
-
-The quickest way to spot these today: run the script against **1.10.4** and read the warnings. Every call that will change behaviour already prints one:
-
-> `… content contains HTML and is rendered as raw markup. DashHtml 2.0.0 will change the -AllowHtml default …`
-
-**A clean 1.10.4 run with no such warnings means nothing to do here.**
-
-### 15.3 — Behaviour fix: blocks in a subgroup start appearing
-
-**What changed.** In 1.x a **block** (chart, summary, HTML block …) given both `-NavGroup` and `-NavSubGroup` was unreachable — see gotcha #26 below. In 2.0.0 it renders correctly. Content that has been silently missing will reappear.
-
-**Find affected calls:** audit issue **15.3**.
-
-Not an error to fix — but if a dashboard was rewritten to *dodge* this bug (e.g. flattened to top-level tabs), that workaround is now unnecessary. It stays valid; cleanup is optional.
-
-### 15.4 — Not breaking, no action needed
-
-| Pattern | Status in 2.0.0 |
-|---|---|
-| Blocks with `-NavGroup` only, no subgroup | ✅ unchanged — visible across the whole group (`-NavScope Subtree`) |
-| Cmdlets with no nav parameters | ✅ unchanged — page-global (`-NavScope Global`) |
-| `-NavGroup` / `-NavSubGroup` themselves | ✅ **kept forever** as a compatibility shim; they map onto `-NavPath`/`-NavScope` at `Add-Dh*` time |
-| Old bookmarked `#{group,panel}` URLs | ✅ still resolve, via a shim in `URLState.load` |
-
-### 15.5 — Triage summary
-
-Run the audit, then:
-
-- **No hits at all** → nothing to do; the upgrade is a drop-in.
-- **Only 15.3 hits** → nothing to fix; expect previously invisible content to reappear.
-- **15.1 or 15.2 hits** → real edits required. `Update-DhScript` will handle them, or convert by hand using the tables above.
+| A 2.x script with `-NavPath` only | unchanged |
+| `Thresholds = @(...)` arrays, `high/medium/low` severities | unchanged (2.x API) |
+| A report without the new parameters | same data; the HTML is about 150 KB smaller (structural CSS embedded once) |
+| Old `#{group,panel}` bookmarks | still resolve |
 
 ---
 
 ## 16 — When in doubt
 
-1. **Look at `Examples/`** — the four `Demo-*.ps1` reports (Active Directory, VMware, Azure, Microsoft 365) show how a menu is laid out with realistic data, and the nine `Feature-*.ps1` scripts show one capability each (`Examples\README.md` lists them and the menu rules; `Tools\Show-DhNavMap.ps1` prints a report's menu).
+1. **Look at `Examples/`** — the four `Demo-*.ps1` reports (Active Directory, VMware, Azure, Microsoft 365) show how a menu is laid out with realistic data, and the ten `Feature-*.ps1` scripts show one capability each (`Examples\README.md` lists them and the menu rules; `Tools\Show-DhNavMap.ps1` prints a report's menu).
 2. **Look at `DashHtml-Reference.html`** — full Get-Help output for every public cmdlet, with parameter signatures and defaults.
 3. **Look at `docs/v1.4-plan.md` and `docs/KPI_Dashboard_Specification.docx`** for the design rationale of the v1.4 widget set.
 4. **Look at the tests** — `Tests/DashHtml.Tests.ps1` documents every supported parameter combination, validation rule, and threshold edge case.
 
 ---
 
-*End of dev/AI reference. Module version 2.1.3, last revised 2026-09-09.*
+*End of dev/AI reference. Module version 3.0.0, last revised 2026-11-01.*
 
 *A distilled version of this document ships as the **`dashhtml` Claude skill**
 (`~\.claude\skills\dashhtml`), so it is available in every project rather than

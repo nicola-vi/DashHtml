@@ -50,11 +50,11 @@ function Get-DhTheme {
 
     # Internal light/dark mapping (mirrors New-DhDashboard)
     $themeMap = @{
-        'Default' = @{ Light = 'DefaultLight'; Dark = 'DefaultDark';  LightDesc = 'Light grey page, deep blue header (#005F8A)'; DarkDesc = 'Near-black (#0b0f14), deep blue band';    Font = 'System UI / Segoe UI'  }
-        'Azure'   = @{ Light = 'AzureLight';   Dark = 'AzureDark';    LightDesc = 'Warm grey page, Azure blue header (#106EBE)'; DarkDesc = 'Office dark (#1B1A19), deep blue band';  Font = 'Segoe UI (system)'     }
-        'VMware'  = @{ Light = 'VMwareLight';  Dark = 'VMwareDark';   LightDesc = 'White page, VMware green header (#007D63)'; DarkDesc = 'Navy (#1D2437), deep green band';   Font = 'Inter if installed, else Segoe UI' }
-        'Grey'    = @{ Light = 'GreyLight';    Dark = 'GreyDark';     LightDesc = 'Warm grey page, slate header (#37474F)'; DarkDesc = 'Dark neutral (#1A1A1A), slate band';  Font = 'System UI / Segoe UI'  }
-        'Company' = @{ Light = 'CompanyLight'; Dark = 'CompanyDark';  LightDesc = 'White page, Crimson header (#8C0031)';   DarkDesc = 'Near-black (#0E0709), deep crimson band'; Font = 'Montserrat if installed, else Segoe UI' }
+        'Default' = @{ Light = 'DefaultLight'; Dark = 'DefaultDark';  LightDesc = 'Light grey page, deep blue gradient header (#003B56 to #0075A1)'; DarkDesc = 'Near-black (#0b0f14), deep blue gradient band';    Font = 'System UI / Segoe UI'  }
+        'Azure'   = @{ Light = 'AzureLight';   Dark = 'AzureDark';    LightDesc = 'Warm grey page, Azure Blue accent (#0078D4), Dark Blue to Azure gradient header (#104581), Light Blue line'; DarkDesc = 'Office dark (#1B1A19), deep blue gradient band';  Font = 'Segoe UI (system)'     }
+        'VMware'  = @{ Light = 'VMwareLight';  Dark = 'VMwareDark';   LightDesc = 'Light page, Broadcom teal-blue accent (#015C89), black to teal-blue header, Broadcom Red line (#CC092F)'; DarkDesc = 'Near-black (#101317), deep teal-blue gradient band';   Font = 'Inter if installed, else Segoe UI' }
+        'Grey'    = @{ Light = 'GreyLight';    Dark = 'GreyDark';     LightDesc = 'Warm grey page, slate gradient header (#222C31 to #546E7A)'; DarkDesc = 'Dark neutral (#1A1A1A), slate gradient band';  Font = 'System UI / Segoe UI'  }
+        'Company' = @{ Light = 'CompanyLight'; Dark = 'CompanyDark';  LightDesc = 'White page, Crimson gradient header (#57001E to #BE0036)';   DarkDesc = 'Near-black (#0E0709), deep crimson gradient band'; Font = 'Montserrat if installed, else Segoe UI' }
         'Rag'     = @{ Light = 'RagLight';     Dark = 'RagDark';      LightDesc = 'White page, graphite header; spec-exact Office/Excel RAG palette (#375623 / #7F4B00 / #9C0006)'; DarkDesc = 'Near-black (#0E0E0E), graphite band, Office dark-mode RAG companions'; Font = 'System UI / Segoe UI' }
     }
 

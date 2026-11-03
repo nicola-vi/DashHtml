@@ -43,7 +43,8 @@ function ConvertFrom-DhScript {
         'add-dhtabs'='tabs'; 'add-dhheatmap'='heatmap'; 'add-dhtopologymap'='topologymap';
         'add-dhrangebar'='rangebar'; 'add-dhfindings'='findings';
         'add-dhkeyvalue'='keyvalue'; 'add-dhrecordlist'='recordlist';
-        'add-dhtreefilter'='treefilter'; 'add-dhnetworkmap'='networkmap'; 'add-dhtreetable'='treetable'
+        'add-dhtreefilter'='treefilter'; 'add-dhnetworkmap'='networkmap'; 'add-dhtreetable'='treetable';
+        'add-dhgantt'='gantt'
     }
 
     $commands = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)
@@ -86,7 +87,7 @@ function ConvertFrom-DhScript {
                 [void]$tables.Add($t)
             }
             'add-dhsummary' {
-                $hasNav = $params.Keys | Where-Object { $_ -ieq 'NavGroup' } | ForEach-Object { $params[$_] } | Where-Object { $_ }
+                $hasNav = $params.Keys | Where-Object { $_ -ieq 'NavPath' } | ForEach-Object { $params[$_] } | Where-Object { $_ }
                 if ($hasNav) {
                     $blk = [ordered]@{ type = 'summary' }
                     foreach ($k in $params.Keys) { if ($k -inotin @('Report')) { $blk[$k] = $params[$k] } }

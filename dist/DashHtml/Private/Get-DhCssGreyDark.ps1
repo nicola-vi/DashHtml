@@ -10,6 +10,7 @@ function Get-DhCssGreyDark {
 
   --bg-page:          #1A1A1A;
   --bg-header:        #283236;
+  --bg-header-end:    #3E4E55;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #242424;
   --bg-table:         #1E1E1E;
   --bg-row-alt:       #2A2A2A;
@@ -88,8 +89,8 @@ function Get-DhCssGreyDark {
 
   --cell-ok-fg:      #81C784;  --cell-ok-bg:      rgba(129,199,132,0.10);
   --cell-warn-fg:    #FFB74D;  --cell-warn-bg:    rgba(255,183,77,0.10);
-  --cell-danger-fg:  #E98787;  --cell-danger-bg:  rgba(229,115,115,0.10);
-  --cell-nodata-fg:  #A4A4A4;  --cell-nodata-bg:  rgba(158,158,158,0.10);
+  --cell-danger-fg:  #EB9494;  --cell-danger-bg:  rgba(229,115,115,0.10);
+  --cell-nodata-fg:  #AEAEAE;  --cell-nodata-bg:  rgba(158,158,158,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.07);
 
@@ -109,7 +110,7 @@ function Get-DhCssGreyDark {
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #E0E0E0;
-  --header-fg-muted: #9E9E9E;
+  --header-fg-muted: #BDBDBD;
 }
 '@
 }

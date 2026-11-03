@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Active Directory operations dashboard (synthetic data).
@@ -111,7 +111,7 @@ $freeRag = @{ Green = @{ Min = 30 }; Amber = @{ Min = 15; Max = 30 }; Red = @{ M
 
 $report = New-DhDashboard -Title 'Active Directory Operations' `
     -Subtitle 'Forest contoso.com, last 24 hours' -Theme $Theme -NavTitle 'AD' -NavMaxDepth 2 `
-    -GeneratedBy 'Demo-ActiveDirectory.ps1' -InfoFields @(
+    -GeneratedBy 'Demo-ActiveDirectory.ps1' -HideGeneratedAt -InfoFields @(   # the date is an info field here
         @{ Label = 'Forest';    Value = 'contoso.com' }
         @{ Label = 'Domains';   Value = 'contoso.com, eu.contoso.com' }
         @{ Label = 'Sites';     Value = '5' }

@@ -19,6 +19,7 @@ function Get-DhCssRagDark {
   /* RagDark — Office-compatible RAG palette on near-black surface */
   --bg-page:          #0E0E0E;
   --bg-header:        #282828;
+  --bg-header-end:    #4C4C4C;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #1A1A1A;
   --bg-table:         #161616;
   --bg-row-alt:       #1C1C1C;

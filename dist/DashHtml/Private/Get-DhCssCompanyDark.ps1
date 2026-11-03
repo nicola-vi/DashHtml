@@ -11,6 +11,7 @@ function Get-DhCssCompanyDark {
 
   --bg-page:          #0E0709;
   --bg-header:        #3D1A24;
+  --bg-header-end:    #871D3B;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #1A0E12;
   --bg-table:         #160C10;
   --bg-row-alt:       #1E1015;
@@ -89,7 +90,7 @@ function Get-DhCssCompanyDark {
 
   --cell-ok-fg:      #44CC66;  --cell-ok-bg:      rgba(68,204,102,0.10);
   --cell-warn-fg:    #FF8C00;  --cell-warn-bg:    rgba(255,140,0,0.10);
-  --cell-danger-fg:  #FF506D;  --cell-danger-bg:  rgba(255,51,85,0.12);
+  --cell-danger-fg:  #FF5A76;  --cell-danger-bg:  rgba(255,51,85,0.12);
   --cell-nodata-fg:  #9C9C9C;  --cell-nodata-bg:  rgba(156,156,156,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.07);
@@ -99,9 +100,9 @@ function Get-DhCssCompanyDark {
   --nav-title-fg:      #AA7E8F;
   --nav-link-fg:       #BB8899;
   --nav-link-hover-bg: rgba(190,0,54,0.10);
-  --nav-link-hover-fg: #E81B44;
+  --nav-link-hover-fg: #EC4365;   /* 3.0.0 - 4.5:1 on the hover tint */
   --nav-active-bg:     rgba(190,0,54,0.15);
-  --nav-active-fg:     #EA2C52;
+  --nav-active-fg:     #EC4365;   /* 3.0.0 - 4.5:1 on its own tint */
   --nav-active-border: rgba(190,0,54,0.40);
 
   --chart-container-bg: #160C10;
@@ -110,7 +111,7 @@ function Get-DhCssCompanyDark {
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #F0E4E8;
-  --header-fg-muted: #BB8899;
+  --header-fg-muted: #D4AEBB;
 }
 '@
 }

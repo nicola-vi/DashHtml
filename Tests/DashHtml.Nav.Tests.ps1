@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS  Pester 5 tests for the DashHtml 2.0.0 navigation model.
 .DESCRIPTION
@@ -222,33 +222,6 @@ Describe 'Resolve-DhNavDeclaration' {
         }
     }
 
-    Context 'v1 compat mapping (proposed.md section 5)' {
-        It 'maps a block with NavGroup only to that path with Subtree scope' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -ItemKind Block
-            @($r.Path).Count | Should -Be 1
-            $r.Path[0]       | Should -Be 'Storage'
-            $r.Scope         | Should -Be 'Subtree'
-        }
-        It 'maps a block with NavGroup + NavSubGroup to a 2-segment Subtree path' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -NavSubGroup 'Tagging' -ItemKind Block
-            @($r.Path).Count | Should -Be 2
-            $r.Scope         | Should -Be 'Subtree'
-        }
-        It 'appends TableId as a leaf for a grouped table, keyed on TableId not Title' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -ItemKind Table -TableId 'vols'
-            @($r.Path).Count | Should -Be 2
-            $r.Path[1]       | Should -Be 'vols'
-            $r.Scope         | Should -Be 'Exact'
-        }
-        It 'appends TableId under a subgroup too' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -NavSubGroup 'Capacity' -ItemKind Table -TableId 'vols'
-            @($r.Path) -join '/' | Should -Be 'Storage/Capacity/vols'
-        }
-        It 'throws when a table uses the compat API without a TableId' {
-            { Resolve-DhNavDeclaration -NavGroup 'S' -ItemKind Table } | Should -Throw
-        }
-    }
-
     Context 'No nav parameters' {
         It 'is page-global' {
             $r = Resolve-DhNavDeclaration
@@ -257,35 +230,24 @@ Describe 'Resolve-DhNavDeclaration' {
         }
     }
 
-    Context 'Conflicts are hard errors, never silent precedence' {
-        It 'rejects NavPath combined with NavGroup' {
-            { Resolve-DhNavDeclaration -NavPath 'A/B' -NavGroup 'A' } | Should -Throw
+    Context 'An ungrouped table keeps its own node' {
+        It 'keys the node on TableId' {
+            $r = Resolve-DhNavDeclaration -ItemKind Table -TableId 'vols'
+            @($r.Path) -join '/' | Should -Be 'vols'
+            $r.Scope             | Should -Be 'Exact'
         }
-        It 'rejects NavPath combined with NavSubGroup' {
-            { Resolve-DhNavDeclaration -NavPath 'A/B' -NavSubGroup 'B' } | Should -Throw
-        }
-        It 'rejects NavSubGroup without NavGroup' {
-            { Resolve-DhNavDeclaration -NavSubGroup 'B' } | Should -Throw
+        It 'throws for a table without a TableId' {
+            { Resolve-DhNavDeclaration -ItemKind Table } | Should -Throw
         }
     }
 
-    Context 'Round-trip through the predicate' {
-        It 'reproduces 1.x visibility for a group-only block' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -ItemKind Block
-            Test-DhNavMatch -DeclaredPath $r.Path -SelectedPath @('Storage','Capacity') -Scope $r.Scope | Should -BeTrue
-        }
-        It 'makes the previously invisible subgroup block reachable' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -NavSubGroup 'Tagging' -ItemKind Block
-            Test-DhNavMatch -DeclaredPath $r.Path -SelectedPath @('Storage','Tagging') -Scope $r.Scope | Should -BeTrue
-        }
-        It 'keeps a compat table selectable at its own leaf' {
-            $r = Resolve-DhNavDeclaration -NavGroup 'Storage' -ItemKind Table -TableId 'vols'
-            Test-DhNavMatch -DeclaredPath $r.Path -SelectedPath @('Storage','vols') -Scope $r.Scope | Should -BeTrue
-            Test-DhNavMatch -DeclaredPath $r.Path -SelectedPath @('Storage')        -Scope $r.Scope | Should -BeFalse
+    Context '3.0.0: the 1.x -NavGroup / -NavSubGroup parameters are gone' {
+        It 'the resolver no longer has them' {
+            (Get-Command Resolve-DhNavDeclaration).Parameters.Keys | Should -Not -Contain 'NavGroup'
+            (Get-Command Resolve-DhNavDeclaration).Parameters.Keys | Should -Not -Contain 'NavSubGroup'
         }
     }
 }
-
 Describe 'Nav layout resolution (v2.0.0 WP3)' {
     BeforeAll {
         $script:navTmp = Join-Path ([IO.Path]::GetTempPath()) ("dhnav_$([guid]::NewGuid().ToString('N'))")

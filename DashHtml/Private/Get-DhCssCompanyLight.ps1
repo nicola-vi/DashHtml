@@ -10,7 +10,8 @@ function Get-DhCssCompanyLight {
   --company-jet:       #333333;
 
   --bg-page:          #FFFFFF;
-  --bg-header:        #8C0031;
+  --bg-header:        #57001E;
+  --bg-header-end:    #BE0036;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #FAFBFC;

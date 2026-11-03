@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     Generates DashHtml-Reference.html from the module's Public PS1 source files.
@@ -83,6 +83,7 @@ $cmdMeta = [ordered]@{
     'Add-DhLineChart'    = @{ Tag = 'CHART';  Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
     'Add-DhBullet'       = @{ Tag = 'BULLET'; Color = '#d2a8ff'; Group = 'Charts'          }   # v1.4
     'Add-DhRangeBar'     = @{ Tag = 'RANGE';  Color = '#d2a8ff'; Group = 'Charts'          }   # v2.1
+    'Add-DhGantt'        = @{ Tag = 'GANTT';  Color = '#d2a8ff'; Group = 'Charts'          }   # v3.1
     'Add-DhFindings'     = @{ Tag = 'FIND';   Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.2
     'Add-DhKeyValue'     = @{ Tag = 'KV';     Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.3
     'Add-DhRecordList'   = @{ Tag = 'RECORD'; Color = '#ff7b72'; Group = 'Content Blocks'  }   # v2.3
@@ -544,10 +545,10 @@ $refSections = @'
       <thead><tr><th>Family</th><th>Light variant</th><th>Dark variant</th><th>Font</th></tr></thead>
       <tbody>
         <tr><td><span class="param-name">Default</span></td><td class="param-desc"><p>Light grey + blue</p></td><td class="param-desc"><p>Near-black + cyan</p></td><td><span class="param-type">System UI</span></td></tr>
-        <tr><td><span class="param-name">Azure</span></td><td class="param-desc"><p>Warm grey + Azure blue</p></td><td class="param-desc"><p>Office dark + Azure</p></td><td><span class="param-type">Segoe UI</span></td></tr>
-        <tr><td><span class="param-name">VMware</span></td><td class="param-desc"><p>White/navy + VMware green</p></td><td class="param-desc"><p>Navy + VMware green</p></td><td><span class="param-type">Inter (Google)</span></td></tr>
+        <tr><td><span class="param-name">Azure</span></td><td class="param-desc"><p>Warm grey + Azure Blue, Dark Blue header</p></td><td class="param-desc"><p>Office dark + Azure</p></td><td><span class="param-type">Segoe UI</span></td></tr>
+        <tr><td><span class="param-name">VMware</span></td><td class="param-desc"><p>Broadcom teal-blue, black to teal-blue header, red line</p></td><td class="param-desc"><p>Near-black + teal-blue</p></td><td><span class="param-type">Inter if installed</span></td></tr>
         <tr><td><span class="param-name">Grey</span></td><td class="param-desc"><p>Warm grey + steel</p></td><td class="param-desc"><p>Dark neutral + muted grey</p></td><td><span class="param-type">System UI</span></td></tr>
-        <tr><td><span class="param-name">Company</span></td><td class="param-desc"><p>White + Crimson</p></td><td class="param-desc"><p>Near-black + Crimson</p></td><td><span class="param-type">Montserrat (Google)</span></td></tr>
+        <tr><td><span class="param-name">Company</span></td><td class="param-desc"><p>White + Crimson</p></td><td class="param-desc"><p>Near-black + Crimson</p></td><td><span class="param-type">Montserrat if installed</span></td></tr>
       </tbody>
     </table>
   </section>

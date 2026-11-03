@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS
     DashHtml.Design — companion tools that convert between a declarative YAML
@@ -8,8 +8,8 @@
     ConvertFrom-DhYaml   YAML/JSON     -> .ps1   (runnable build script)
     ConvertFrom-DhScript .ps1          -> YAML   (best-effort static parse)
     Export-DhYamlSchema  cmdlets       -> JSON Schema of the layout
-    Update-DhScript      .ps1          -> 2.0.0 upgrade audit / rewrite
-    Test-DhReport        report, .ps1, .yaml, .html -> findings (2.6.0)
+    Update-DhScript      .ps1          -> 3.0.0 upgrade audit / rewrite
+    Test-DhReport        report, .ps1, .yaml, .html -> findings (2.6.0; Brand 3.0.0)
 
     This module changes NOTHING in the core DashHtml module; it is a pure
     design / round-trip tool. It has no external dependencies (self-contained

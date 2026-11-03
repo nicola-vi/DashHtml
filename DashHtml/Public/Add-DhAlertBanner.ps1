@@ -109,12 +109,8 @@ function Add-DhAlertBanner {
         [bool]      $DefaultOpen = $true,
         [string]    $Title       = '',
 
-        # v1.4.2+ — optional NavGroup binding. When set, the banner is visible
-        # only while the matching nav group (and optional subgroup) is active.
-        # Without these, the banner stays page-global (visible everywhere) as
-        # in v1.4.x — full backward compatibility.
-        [string]    $NavGroup    = '',
-        [string]    $NavSubGroup = '',
+        # Optional menu binding: with -NavPath the banner is visible only while
+        # that menu node is selected; without it the banner is page-global.
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -123,10 +119,8 @@ function Add-DhAlertBanner {
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhAlertBanner'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -183,8 +177,7 @@ function Add-DhAlertBanner {
                      } }
 
     # v1.6.0 — apply the -AllowHtml policy to the raw-HTML message.
-    $safeMessage = ConvertTo-DhSafeContent -Content $Message -AllowHtml $AllowHtml `
-        -Explicit $PSBoundParameters.ContainsKey('AllowHtml') -Context "Add-DhAlertBanner '$Id' -Message"
+    $safeMessage = ConvertTo-DhSafeContent -Content $Message -AllowHtml $AllowHtml
 
     $banner = [ordered]@{
         Id          = $Id
@@ -196,8 +189,6 @@ function Add-DhAlertBanner {
         Collapsible = [bool]$Collapsible
         DefaultOpen = [bool]$DefaultOpen
         Title       = $resolvedTitle
-        NavGroup    = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

@@ -48,7 +48,7 @@ function Add-DhBullet {
                   Red   = @{ Min = 80 }
                   NoData = $false
               }
-              # OR legacy array shape (also accepted under alias 'Bands'):
+              # OR the array shape:
               Thresholds = @(
                   @{           Max = 50;  Class = 'cell-ok'     }
                   @{ Min = 50; Max = 80;  Class = 'cell-warn'   }
@@ -56,13 +56,8 @@ function Add-DhBullet {
               )
           }
 
-        When both Rag and Thresholds (or Bands) are supplied, Rag wins.
-
-    .PARAMETER NavGroup
-        Primary nav group label (enables two-tier nav).
-
-    .PARAMETER NavSubGroup
-        Optional second-level group under NavGroup (enables three-tier nav).
+        When both Rag and Thresholds are supplied, Rag wins. The 1.x alias 'Bands'
+        was removed in 3.0.0 (an item that still uses it throws, naming Thresholds).
 
     .EXAMPLE
         # Three rows sharing one RAG band definition
@@ -99,8 +94,6 @@ function Add-DhBullet {
         [bool]   $DefaultOpen = $true,    # whether the collapsible body starts expanded (only used when -Collapsible is $true)
         [ValidateRange(0,12)]
         [int]    $GridSpan    = 0,   # v1.10.0 - columns (1-12) to span in -report-grid layout; 0 = default flow
-        [string] $NavGroup    = '',
-        [string] $NavSubGroup = '',
         # ---- v2.0.0 navigation (see readme-dev.md section 15) ----
         [string] $NavPath      = '',   # 'A/B/C' - where this item lives. '//' escapes a literal '/'
         [ValidateSet('','Exact','Subtree','Global')]
@@ -109,10 +102,8 @@ function Add-DhBullet {
         [int]    $NavOrder     = 0     # explicit sibling ordering; 0 = declaration order
     )
 
-    # v2.0.0 - resolve nav declaration once, in one place. Throws if -NavPath is
-    # combined with -NavGroup/-NavSubGroup rather than silently preferring one.
+    # v2.0.0 - resolve nav declaration once, in one place.
     $navDecl = Resolve-DhNavDeclaration -NavPath $NavPath -NavScope $NavScope `
-                    -NavGroup $NavGroup -NavSubGroup $NavSubGroup `
                     -ItemKind 'Block' -Context 'Add-DhBullet'
     # Monotonic declaration number, shared by tables and blocks. The exporter
     # emits ALL blocks before ALL tables, so without this the menu would order
@@ -161,19 +152,16 @@ function Add-DhBullet {
 
         # ---- Threshold band resolution (v1.4 F13) — done FIRST so the gauge-style
         # NoData escape hatch is known before the Value type check below.
-        # Precedence: Rag > Thresholds > Bands (Bands is a documented alias).
+        # Precedence: Rag > Thresholds. 3.0.0: the 1.x alias 'Bands' throws.
+        if ($b.Contains('Bands')) {
+            throw "Add-DhBullet: $ctx - the 'Bands' key was removed in DashHtml 3.0.0. Rename it to 'Thresholds' (same shape), or use 'Rag'."
+        }
         $b['RagNoData'] = $false
         if ($b.Contains('Rag') -and $null -ne $b['Rag']) {
             $rag = ConvertTo-DhRagThresholds -Rag $b['Rag'] -Context "Add-DhBullet $ctx"
             $b['Thresholds'] = $rag.Thresholds
             $b['RagNoData']  = $rag.NoData
             $b.Remove('Rag')
-            if ($b.Contains('Bands')) { $b.Remove('Bands') }
-        } elseif ($b.Contains('Thresholds') -and $b['Thresholds']) {
-            if ($b.Contains('Bands')) { $b.Remove('Bands') }
-        } elseif ($b.Contains('Bands') -and $b['Bands']) {
-            $b['Thresholds'] = @($b['Bands'])
-            $b.Remove('Bands')
         }
         if (-not $b.Contains('Thresholds')) { $b['Thresholds'] = @() }
 
@@ -208,10 +196,10 @@ function Add-DhBullet {
         $thOut = @()
         foreach ($th in @($b['Thresholds'])) {
             if ($th -isnot [hashtable] -and $th -isnot [System.Collections.Specialized.OrderedDictionary]) {
-                throw "Add-DhBullet: $ctx — each Thresholds/Bands entry must be a hashtable. Got: $($th.GetType().Name)"
+                throw "Add-DhBullet: $ctx — each Thresholds entry must be a hashtable. Got: $($th.GetType().Name)"
             }
             if (-not $th.Contains('Class') -or [string]::IsNullOrWhiteSpace([string]$th['Class'])) {
-                throw "Add-DhBullet: $ctx — each Thresholds/Bands entry must have a non-empty Class key."
+                throw "Add-DhBullet: $ctx — each Thresholds entry must have a non-empty Class key."
             }
             $row = @{ Class = [string]$th['Class'] }
             foreach ($bk in 'Min','Max') {
@@ -231,8 +219,6 @@ function Add-DhBullet {
         Id           = $Id
         Title        = $Title
         Items        = @($normItems)
-        NavGroup     = $NavGroup
-        NavSubGroup = $NavSubGroup
         NavPath     = $NavPath
         NavSegments     = $navDecl.Path
         NavSeqNo     = $navSeqNo

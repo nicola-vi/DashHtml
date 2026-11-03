@@ -5,27 +5,29 @@ function Get-DhCssVMwareDark {
     #>
     return @'
 :root {
-  /* VMwareDark — Broadcom VMware brand (dark)
-     Green: #00C49A (brightened for dark bg)  Navy: #1D2437 base */
+  /* VMwareDark — VMware by Broadcom (dark, 3.0.0)
+     Near-black neutral base; teal-blue #015C89 lightened to #029DE9 so accent text
+     reads at 4.5:1; a deep teal-blue header gradient; Broadcom Red #CC092F only as
+     the line under the header. */
 
-  --vmware-green:     #00B388;
-  --vmware-green-dk:  #007D63;
-  --vmware-navy:      #1D2437;
+  --broadcom-red:     #CC092F;
+  --vmware-teal:      #015C89;
   --vmware-grey:      #53565A;
 
-  --bg-page:          #1D2437;
-  --bg-header:        #1B3E37;
-  --bg-surface:       #243047;
-  --bg-table:         #1E2940;
-  --bg-row-alt:       #26344C;
-  --bg-row-hover:     #44608E;
-  --bg-row-sel:       #0B3D2E;
-  --bg-thead:         #2A3750;
+  --bg-page:          #101317;
+  --bg-header:        #0E3550;
+  --bg-header-end:    #1A5A7A;   /* 3.0.0 - the header is a 120deg gradient between the two */
+  --bg-surface:       #1A1F26;
+  --bg-table:         #161A20;
+  --bg-row-alt:       #1F252D;
+  --bg-row-hover:     #34495A;
+  --bg-row-sel:       #0D3B55;
+  --bg-thead:         #242B34;
 
-  --accent-primary:   #00C49A;
+  --accent-primary:   #029DE9;
 
   --accent-primary-fg: #10151b;   /* v1.10.2 - readable text on the accent background */
-  --accent-secondary: #00B388;
+  --accent-secondary: #2B87BF;
   --accent-danger:    #E74C3C;
 
   /* Range-gradient bar stops (v2.1.0) - one continuous scale across the
@@ -41,14 +43,14 @@ function Get-DhCssVMwareDark {
   --export-pdf-bg:    #2A1010;  --export-pdf-fg:    #E74C3C;  --export-pdf-bdr:   #441414;
 
   --text-primary:   #E8EDF4;
-  --text-secondary: #9BAAB8;
+  --text-secondary: #A3AFBC;
   --text-muted:     #B1BBC6;
-  --text-accent:    #00C49A;
-  --text-invert:    #1D2437;
+  --text-accent:    #029DE9;
+  --text-invert:    #101317;
 
-  --border-subtle:  #2A3750;
-  --border-medium:  #374463;
-  --border-strong:  #00C49A44;
+  --border-subtle:  #262D36;
+  --border-medium:  #363E49;
+  --border-strong:  #029DE944;
 
   --font-ui:      'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
@@ -89,32 +91,33 @@ function Get-DhCssVMwareDark {
   --nav-height:    44px;
 
   --shadow-md:   0 4px 16px rgba(0,0,0,0.55);
-  --shadow-glow: 0 0 16px rgba(0,196,154,0.16);
+  --shadow-glow: 0 0 16px rgba(2,157,233,0.16);
 
-  --cell-ok-fg:      #0AC69E;  --cell-ok-bg:      rgba(0,196,154,0.10);
-  --cell-warn-fg:    #F39C12;  --cell-warn-bg:    rgba(243,156,18,0.10);
+  --cell-ok-fg:      #0BD5AA;  --cell-ok-bg:      rgba(0,196,154,0.10);
+  --cell-warn-fg:    #F5AA34;  --cell-warn-bg:    rgba(243,156,18,0.10);
   --cell-danger-fg:  #F09187;  --cell-danger-bg:  rgba(231,76,60,0.10);
-  --cell-nodata-fg:  #A9B1BC;  --cell-nodata-bg:  rgba(139,150,165,0.10);
+  --cell-nodata-fg:  #AFB6C0;  --cell-nodata-bg:  rgba(139,150,165,0.10);
 
   --progress-track-bg: rgba(255,255,255,0.08);
 
-  --nav-bg:            #151C2C;
-  --nav-border:        #2A3750;
+  --nav-bg:            #0C0F12;
+  --nav-border:        #262D36;
   --nav-title-fg:      #8D9CAA;
-  --nav-link-fg:       #9BAAB8;
-  --nav-link-hover-bg: rgba(0,196,154,0.08);
-  --nav-link-hover-fg: #00C49A;
-  --nav-active-bg:     rgba(0,196,154,0.12);
-  --nav-active-fg:     #00C49A;
-  --nav-active-border: rgba(0,196,154,0.40);
+  --nav-link-fg:       #A3AFBC;
+  --nav-link-hover-bg: rgba(2,157,233,0.08);
+  --nav-link-hover-fg: #029DE9;
+  --nav-active-bg:     rgba(2,157,233,0.12);
+  --nav-active-fg:     #029DE9;
+  --nav-active-border: rgba(2,157,233,0.40);
 
-  --chart-container-bg: #1E2940;
-  --chart-1: #00C49A;  --chart-2: #479EF5;  --chart-3: #F39C12;  --chart-4: #E74C3C;
-  --chart-5: #A78BFA;  --chart-6: #FB923C;  --chart-7: #22D3EE;  --chart-8: #A3E635;
+  --chart-container-bg: #161A20;
+  --chart-1: #029DE9;  --chart-2: #8FC3E3;  --chart-3: #F39C12;  --chart-4: #E74C3C;
+  --chart-5: #A78BFA;  --chart-6: #FB923C;  --chart-7: #CFD6DE;  --chart-8: #A3E635;
 
   /* Header text — ensures legibility on both light and dark header backgrounds */
   --header-fg: #E8EDF4;
-  --header-fg-muted: #9BAAB8;
+  --header-fg-muted: #C3CDD8;
+  --header-line:     #CC092F;   /* 3.0.0 - the line under the header: Broadcom Red */
 }
 '@
 }

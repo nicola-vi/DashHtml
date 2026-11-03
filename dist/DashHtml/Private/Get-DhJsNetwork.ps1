@@ -337,6 +337,30 @@ function Get-DhJsNetwork {
       getContent: function () { return { w: L.width, h: L.height }; }
     });
     pz.syncViewBox(); pz.fit();
+    /* v3.0.0 - on paper the map box takes the drawing's own proportions, so a small map no longer
+       prints inside a tall empty frame. No measuring: a map on another menu page is still hidden when
+       beforeprint fires. The viewBox becomes the drawing and the box its aspect ratio, capped so the
+       drawing is not enlarged past about its own size; the browser fits it to the paper. The screen
+       view (and the reader's zoom) comes back after. */
+    var printT = null;
+    dhTtPrintHooks.push({
+      before: function () {
+        printT = vp.getAttribute('transform') || '';
+        vp.removeAttribute('transform');
+        svgEl.setAttribute('viewBox', '0 0 ' + L.width + ' ' + L.height);
+        innerDiv.style.height = 'auto';
+        innerDiv.style.aspectRatio = L.width + ' / ' + L.height;
+        innerDiv.style.maxHeight = Math.min(initH, L.height + 16) + 'px';
+      },
+      after: function () {
+        if (printT === null) return;
+        innerDiv.style.aspectRatio = ''; innerDiv.style.maxHeight = '';
+        innerDiv.style.height = initH + 'px';
+        if (printT) vp.setAttribute('transform', printT);
+        printT = null;
+        pz.syncViewBox();
+      }
+    });
 
     /* ---- state + painting -------------------------------------------- */
     var fStatus = {}, fBadge = {}, selected = null, pathMode = false, pathRes = null, q = '';

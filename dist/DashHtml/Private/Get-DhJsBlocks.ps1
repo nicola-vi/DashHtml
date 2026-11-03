@@ -77,6 +77,7 @@ function Get-DhJsBlocks {
         case 'recordlist':     renderRecordList(container, b); break; /* v2.3.0 */
         case 'networkmap':     renderNetworkMap(container, b); break; /* v2.4.0 */
         case 'treetable':      renderTreeTable(container, b); break;  /* v2.5.0 */
+        case 'gantt':          renderGantt(container, b); break;      /* v3.1.0 */
       }
     });
   }
@@ -521,6 +522,359 @@ function Get-DhJsBlocks {
     }
   }
 
+  /* ── Gantt timeline (v3.1.0, Add-DhGantt) ─────────────────────────────────
+     Times arrive as seconds from block.origin: wall-clock seconds since
+     1970-01-01, or null for a plain elapsed axis. The browser never parses a
+     date: clock and date labels come from Date.UTC / getUTC* on origin + t, so
+     the reader's time zone cannot move a bar. Table-fed charts get each row's
+     start / end from block.times (by row position), computed in PowerShell. */
+
+  /* 45s, 7m 26s, 1h 13m, 3d 4h, 5w 2d, 7mo, 1y 2mo */
+  function dhGanttFmtDur(sec) {
+    if (sec === null || sec === undefined || !isFinite(sec)) return '';
+    /* round to the precision of the unit shown first, so 3599.6 s reads 1h, not 60m */
+    var neg = sec < 0, v = Math.abs(sec), r, n;
+    var two = function (big, bigU, small, smallU) { return big + bigU + (small ? ' ' + small + smallU : ''); };
+    if (Math.round(v * 10) / 10 < 60) {
+      r = (Math.round(v * 10) / 10) + 's';
+    } else if ((n = Math.round(v)) < 3600) {
+      r = two(Math.floor(n / 60), 'm', n % 60, 's');
+    } else if ((n = Math.round(v / 60)) < 1440) {
+      r = two(Math.floor(n / 60), 'h', n % 60, 'm');
+    } else if ((n = Math.round(v / 3600)) < 336) {
+      r = two(Math.floor(n / 24), 'd', n % 24, 'h');
+    } else if ((n = Math.round(v / 86400)) < 60) {
+      r = two(Math.floor(n / 7), 'w', n % 7, 'd');
+    } else if ((n = Math.round(v / 2629800)) < 12) {
+      r = n + 'mo';
+    } else {
+      n = Math.round(v / 2629800);
+      r = two(Math.floor(n / 12), 'y', n % 12, 'mo');
+    }
+    return (neg ? '-' : '') + r;
+  }
+
+  /* Wall-clock parts of wall seconds since 1970 (UTC arithmetic only). */
+  function dhGanttParts(wall) {
+    var d = new Date(Math.round(wall * 1000));
+    return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate(),
+             h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
+  }
+
+  /* One point in time as text: '+7m 26s' (elapsed), '08:15:06' / '3 Nov 08:15'
+     (clock), '2026-11-03' / '2026-11-03 22:00' (date). span picks the clock form. */
+  function dhGanttFmtAt(t, origin, axis, span) {
+    if (origin === null || origin === undefined || axis === 'elapsed') {
+      return t === 0 ? '0s' : (t > 0 ? '+' : '') + dhGanttFmtDur(t);
+    }
+    var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var p = dhGanttParts(origin + t);
+    var two = function (n) { return (n < 10 ? '0' : '') + n; };
+    var hms = two(p.h) + ':' + two(p.mi) + ':' + two(p.s);
+    if (axis === 'clock') return span < 86400 ? hms : p.d + ' ' + MON[p.mo] + ' ' + two(p.h) + ':' + two(p.mi);
+    var day = p.y + '-' + two(p.mo + 1) + '-' + two(p.d);
+    return (p.h || p.mi || p.s) ? day + ' ' + two(p.h) + ':' + two(p.mi) : day;
+  }
+
+  /* Axis ticks between lo and hi (seconds from origin): [{ t, label, major }].
+     Fixed steps from 1 s to a week (weeks start on Monday), calendar steps for
+     months, quarters and years, at most maxTicks labels. */
+  function dhGanttTicks(lo, hi, origin, axis, maxTicks) {
+    var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var FIX = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 604800];
+    var two = function (n) { return (n < 10 ? '0' : '') + n; };
+    var span = Math.max(hi - lo, 1), out = [], i, t, a, step = 0;
+    maxTicks = Math.max(2, maxTicks || 8);
+    if (origin === null || origin === undefined || axis === 'elapsed') {
+      var EL = FIX.concat([1209600, 2592000, 7776000, 15552000, 31536000]);
+      step = EL[EL.length - 1];
+      for (i = 0; i < EL.length; i++) { if (span / EL[i] <= maxTicks) { step = EL[i]; break; } }
+      while (span / step > maxTicks) step *= 2;
+      for (t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) {
+        out.push({ t: t, label: t === 0 ? '0' : (t > 0 ? '+' : '') + dhGanttFmtDur(t), major: t === 0 });
+      }
+      return out;
+    }
+    var a0 = origin + lo, a1 = origin + hi;
+    for (i = 0; i < FIX.length; i++) { if (span / FIX[i] <= maxTicks) { step = FIX[i]; break; } }
+    if (step) {
+      var base = step === 604800 ? 345600 : 0;          /* 1970-01-05 was a Monday */
+      for (a = Math.ceil((a0 - base) / step) * step + base; a <= a1 + 1e-9; a += step) {
+        var p = dhGanttParts(a), midnight = !p.h && !p.mi && !p.s, label;
+        if (step >= 86400) label = p.d + ' ' + MON[p.mo] + (p.mo === 0 && p.d === 1 ? ' ' + p.y : '');
+        else if (midnight) label = p.d + ' ' + MON[p.mo];
+        else label = two(p.h) + ':' + two(p.mi) + (step < 60 ? ':' + two(p.s) : '');
+        out.push({ t: a - origin, label: label, major: midnight && step < 86400 });
+      }
+      return out;
+    }
+    var MS = [1, 2, 3, 6, 12, 24, 60, 120, 240, 600], mstep = MS[MS.length - 1];
+    for (i = 0; i < MS.length; i++) { if (span / (MS[i] * 2629800) <= maxTicks) { mstep = MS[i]; break; } }
+    var p0 = dhGanttParts(a0), m = Math.ceil((p0.y * 12 + p0.mo) / mstep) * mstep;
+    for (; ; m += mstep) {
+      var y = Math.floor(m / 12), mo = m - y * 12;
+      a = Date.UTC(y, mo, 1) / 1000;
+      if (a < a0 - 1e-9) continue;
+      if (a > a1 + 1e-9) break;
+      out.push({ t: a - origin, major: mo === 0,
+                 label: mstep >= 12 ? String(y) : (mstep === 3 ? 'Q' + (mo / 3 + 1) + ' ' + y : MON[mo] + ' ' + y) });
+    }
+    return out;
+  }
+
+  /* Overlap packing for the bars of one row: each bar gets .line (0..n-1), the
+     first line it fits on after sorting by start, then declaration order. A bar
+     fits when it starts at or after the line's last end. Returns the line count. */
+  function dhGanttPack(bars) {
+    var order = bars.map(function (b, k) { return k; });
+    order.sort(function (x, y) { return (bars[x].s - bars[y].s) || (x - y); });
+    var ends = [];
+    order.forEach(function (k) {
+      var b = bars[k], e = (b.e === null || b.e === undefined) ? b.s : b.e, line = -1;
+      for (var j = 0; j < ends.length; j++) { if (b.s >= ends[j]) { line = j; break; } }
+      if (line < 0) { line = ends.length; ends.push(e); } else { ends[line] = e; }
+      b.line = line;
+    });
+    return Math.max(ends.length, 1);
+  }
+
+  /* Items -> lanes (by group, first appearance) -> rows (by row key, or one row per
+     item) -> packed bars. sortBy: none | start | end | duration | label (inside a lane). */
+  function dhGanttLayout(items, sortBy) {
+    var lanes = [], laneIdx = Object.create(null);
+    items.forEach(function (it, k) {
+      var g = it.group || '';
+      if (!(g in laneIdx)) { laneIdx[g] = lanes.length; lanes.push({ name: g, rows: [], idx: Object.create(null) }); }
+      var lane = lanes[laneIdx[g]], key = it.row ? 'r:' + it.row : 'i:' + k;
+      if (!(key in lane.idx)) { lane.idx[key] = lane.rows.length; lane.rows.push({ label: it.row || it.label, bars: [] }); }
+      lane.rows[lane.idx[key]].bars.push(it);
+    });
+    lanes.forEach(function (lane) {
+      lane.rows.forEach(function (r, k) {
+        r.k = k;
+        r.s = Math.min.apply(null, r.bars.map(function (b) { return b.s; }));
+        r.e = Math.max.apply(null, r.bars.map(function (b) { return (b.e === null || b.e === undefined) ? b.s : b.e; }));
+        r.d = r.e - r.s;
+        r.lines = dhGanttPack(r.bars);
+      });
+      var key = { start: function (r) { return r.s; }, end: function (r) { return r.e; },
+                  duration: function (r) { return -r.d; } }[sortBy];
+      if (key) lane.rows.sort(function (x, y) { return (key(x) - key(y)) || (x.k - y.k); });
+      else if (sortBy === 'label') lane.rows.sort(function (x, y) { return String(x.label).localeCompare(String(y.label)) || (x.k - y.k); });
+      delete lane.idx;
+    });
+    return lanes;
+  }
+
+  /* Where a bar's text goes: 'in' (fits inside), 'right' / 'left' (alone on its
+     line and room beside it), or 'none' (tooltip and data table still have it). */
+  function dhGanttTextPos(leftPct, widthPct, text, trackPx, alone) {
+    if (!text) return 'none';
+    var need = text.length * 6.5 + 14;
+    if (widthPct / 100 * trackPx >= need) return 'in';
+    if (!alone) return 'none';
+    if ((100 - leftPct - widthPct) / 100 * trackPx >= need) return 'right';
+    if (leftPct / 100 * trackPx >= need) return 'left';
+    return 'none';
+  }
+
+  /* The bars to draw: block.items, or the table's filtered rows with their times.
+     null while the table engine does not exist yet. */
+  function dhGanttItems(block) {
+    var list = [], invalid = 0;
+    if (block.mode !== 'fromtable') {
+      list = (block.items || []).map(function (it) {
+        var c = {}; for (var k in it) { if (Object.prototype.hasOwnProperty.call(it, k)) c[k] = it[k]; }
+        if (c.e === undefined) c.e = null;
+        return c;
+      });
+    } else {
+      var engine = engines[block.tableId];
+      if (!engine) return null;
+      var str = function (v) { return (v === null || v === undefined) ? '' : String(v); };
+      engine._getFiltered().forEach(function (row) {
+        var t = (block.times || [])[engine._idxOf(row)];
+        if (!t) { invalid++; return; }
+        list.push({ label: str(row[block.labelField]), s: t[0], e: t.length > 1 ? t[1] : null,
+                    group: block.groupField ? str(row[block.groupField]) : '',
+                    row: block.rowField ? str(row[block.rowField]) : '',
+                    status: block.statusField ? str(row[block.statusField]) : '',
+                    category: block.categoryField ? str(row[block.categoryField]) : '' });
+      });
+    }
+    var total = list.length, max = block.maxItems || 500;
+    return { items: list.slice(0, max), invalid: invalid, omitted: Math.max(total - max, 0) };
+  }
+
+  function renderGantt(container, block) {
+    container.className = 'gantt-section';
+    var titleHtml = block.title ? '<h3 class="gantt-title">' + esc(block.title) + '</h3>' : '';
+    var src = dhGanttItems(block);
+    if (src === null) { container.innerHTML = titleHtml + '<p class="no-data">Table not ready.</p>'; return; }
+    var notes = '';
+    if (src.invalid) notes += '<p class="gantt-note">' + src.invalid + (src.invalid === 1 ? ' row has' : ' rows have') + ' no valid start or end and ' + (src.invalid === 1 ? 'is' : 'are') + ' not shown.</p>';
+    if (src.omitted) notes += '<p class="gantt-note">Showing the first ' + src.items.length + ' of ' + (src.items.length + src.omitted) + ' bars.</p>';
+    var items = src.items;
+    if (!items.length) { container.innerHTML = titleHtml + '<div class="gantt-empty">No data.</div>' + notes; return; }
+
+    var markers = block.markers || [], bands = block.bands || [], origin = block.origin, axis = block.axis || 'elapsed';
+    var lo = Infinity, hi = -Infinity;
+    items.forEach(function (b) { lo = Math.min(lo, b.s); hi = Math.max(hi, b.e === null ? b.s : b.e); });
+    markers.forEach(function (m) { lo = Math.min(lo, m.at); hi = Math.max(hi, m.at); });
+    bands.forEach(function (d) { lo = Math.min(lo, d.from); hi = Math.max(hi, d.to); });
+    if (hi - lo < 1) { lo -= 30; hi += 30; }
+    var span = hi - lo;
+    var pct = function (t) { return Math.round((t - lo) / span * 100000) / 1000; };
+    var at  = function (t) { return dhGanttFmtAt(t, origin, axis, span); };
+
+    var trackPx = Math.max(320, (container.clientWidth || 900) * 0.7);
+    var ticks = dhGanttTicks(lo, hi, origin, axis, Math.min(12, Math.floor(trackPx / 90)));
+    var lanes = dhGanttLayout(items, block.sortBy || 'none');
+
+    var catIdx = Object.create(null), nCat = 0, seen = { st: Object.create(null), crit: false, ms: false };
+    items.forEach(function (b) {
+      if (!b.status && b.category && !(b.category in catIdx)) catIdx[b.category] = (nCat++ % 8) + 1;
+    });
+
+    var flat = [], r = 1, rowsHtml = '', grouped = lanes.length > 1 || lanes[0].name !== '';
+    lanes.forEach(function (lane) {
+      if (grouped) { r++; rowsHtml += '<div class="gt-lane" style="grid-row:' + r + '">' + esc(lane.name || '(none)') + '</div>'; }
+      lane.rows.forEach(function (row) {
+        r++;
+        var lineCount = Object.create(null);
+        row.bars.forEach(function (b) { lineCount[b.line] = (lineCount[b.line] || 0) + 1; });
+        var bars = '', outs = '';
+        row.bars.forEach(function (b) {
+          var gi = flat.length, ms = b.e === null || b.e === undefined;
+          var x = pct(b.s), w = ms ? 0 : Math.max(pct(b.e) - x, 0);
+          var st = b.status ? (secStatus(b.status) || 'nodata') : '';
+          var colour = st ? ' gt-st-' + st : (b.category ? ' gt-cat-' + catIdx[b.category] : ' gt-plain');
+          if (st) seen.st[st] = true;
+          if (b.critical) seen.crit = true;
+          if (ms) seen.ms = true;
+          var dur = ms ? '' : dhGanttFmtDur(b.e - b.s);
+          var text = b.text || (block.showDuration !== false ? dur : '');
+          var range = ms ? at(b.s) : at(b.s) + ' to ' + at(b.e);
+          var aria = b.label + ', ' + range + (dur ? ', ' + dur : '') + (st ? ', ' + SEC_LABEL[st] : '') +
+                     (b.category && !st ? ', ' + b.category : '') + (b.critical ? ', critical path' : '') +
+                     (ms ? ', milestone' : '') + (b.after && b.after.length ? ', after ' + b.after.join(', ') : '');
+          var live = !!(b.detail || b.linkTableId || block.mode === 'fromtable');
+          var tag = live ? 'button' : 'div';
+          var top = 'top:calc(var(--gt-line) * ' + b.line + ')';
+          var pos = ms ? (text ? 'right' : 'none') : dhGanttTextPos(x, w, text, trackPx, lineCount[b.line] === 1);
+          bars += '<' + tag + (live ? ' type="button"' : ' role="img"') + ' class="' + (ms ? 'gt-ms' : 'gt-bar') + colour +
+                  (b.critical ? ' gt-crit' : '') + '" data-gi="' + gi + '" aria-label="' + esc(aria) + '" style="left:' + x + '%;' +
+                  (ms ? '' : 'width:' + w + '%;') + top + '">' +
+                  (pos === 'in' ? '<span class="gt-txt">' + esc(text) + '</span>' : '') + '</' + tag + '>';
+          if (pos === 'right') outs += '<span class="gt-txt gt-txt-out" aria-hidden="true" style="left:calc(' + (x + w) + '% + ' + (ms ? 10 : 6) + 'px);' + top + '">' + esc(text) + '</span>';
+          if (pos === 'left')  outs += '<span class="gt-txt gt-txt-out" aria-hidden="true" style="right:calc(' + (100 - x) + '% + 6px);' + top + '">' + esc(text) + '</span>';
+          flat.push({ b: b, range: range, dur: dur, st: st, row: row.label });
+        });
+        rowsHtml += '<div class="gt-label" style="grid-row:' + r + '" title="' + esc(row.label) + '">' + esc(row.label) + '</div>' +
+                    '<div class="gt-track" style="grid-row:' + r + ';height:calc(var(--gt-line) * ' + row.lines + ')">' + bars + outs + '</div>';
+      });
+    });
+    var lastRow = r;
+
+    var tickHtml = ticks.map(function (k) {
+      var x = pct(k.t), edge = x < 4 ? ' gt-tick-l' : (x > 96 ? ' gt-tick-r' : '');
+      return '<span class="gt-tick' + (k.major ? ' gt-tick-major' : '') + edge + '" style="left:' + x + '%">' + esc(k.label) + '</span>';
+    }).join('');
+    var overlay = bands.map(function (d) {
+      return '<div class="gt-band" style="left:' + pct(d.from) + '%;width:' + (pct(d.to) - pct(d.from)) + '%"></div>';
+    }).join('') + ticks.map(function (k) {
+      return '<i class="gt-grid' + (k.major ? ' gt-grid-major' : '') + '" style="left:' + pct(k.t) + '%"></i>';
+    }).join('') + markers.map(function (m) {
+      var x = pct(m.at);
+      return '<i class="gt-mark' + (m.status ? ' gt-st-' + (secStatus(m.status) || 'nodata') : '') + (x > 99.5 ? ' gt-mark-r' : '') + '" style="left:' + x + '%"></i>';
+    }).join('');
+    var foot = '';
+    if (markers.length || bands.length) {
+      foot = '<div class="gt-foot" style="grid-row:' + (lastRow + 1) + '">' + bands.map(function (d) {
+        return '<span class="gt-foot-lbl gt-band-lbl" style="left:' + pct(d.from) + '%">' + esc(d.label || '') + '</span>';
+      }).join('') + markers.map(function (m) {
+        var x = pct(m.at), edge = x > 85 ? ' gt-tick-r' : (x < 15 ? ' gt-tick-l' : '');
+        return '<span class="gt-foot-lbl gt-mark-lbl' + edge + '" style="left:' + x + '%">' + esc(m.label ? m.label + ' (' + at(m.at) + ')' : at(m.at)) + '</span>';
+      }).join('') + '</div>';
+    }
+
+    var legend = '';
+    if (block.legend !== false) {
+      var li = [];
+      ['ok', 'warn', 'danger', 'info', 'nodata'].forEach(function (s) {
+        if (seen.st[s]) li.push('<span class="gt-leg"><i class="gt-sw gt-st-' + s + '"></i>' + esc(SEC_LABEL[s]) + '</span>');
+      });
+      Object.keys(catIdx).forEach(function (c) {
+        li.push('<span class="gt-leg"><i class="gt-sw gt-cat-' + catIdx[c] + '"></i>' + esc(c) + '</span>');
+      });
+      if (seen.crit) li.push('<span class="gt-leg"><i class="gt-sw gt-plain gt-crit"></i>Critical path</span>');
+      if (seen.ms)   li.push('<span class="gt-leg"><i class="gt-sw-ms"></i>Milestone</span>');
+      if (li.length) legend = '<div class="gantt-legend">' + li.join('') + '</div>';
+    }
+
+    var tableHtml = '';
+    if (block.showDataTable) {
+      var hasG = grouped, hasRow = flat.some(function (f) { return f.row !== f.b.label; });
+      var hasSt = flat.some(function (f) { return f.st; });
+      var head = (hasG ? '<th>Group</th>' : '') + (hasRow ? '<th>Row</th>' : '') + '<th>Task</th><th>Start</th><th>End</th><th>Duration</th>' + (hasSt ? '<th>Status</th>' : '');
+      var body = flat.map(function (f) {
+        var b = f.b;
+        return '<tr>' + (hasG ? '<td>' + esc(b.group || '') + '</td>' : '') + (hasRow ? '<td>' + esc(f.row) + '</td>' : '') +
+               '<td>' + esc(b.label) + '</td><td>' + esc(at(b.s)) + '</td><td>' + esc(b.e === null ? '' : at(b.e)) + '</td><td>' + esc(f.dur) + '</td>' +
+               (hasSt ? '<td>' + esc(f.st ? SEC_LABEL[f.st] : '') + '</td>' : '') + '</tr>';
+      }).join('');
+      tableHtml = '<button type="button" class="rb-table-toggle gt-table-toggle" aria-expanded="false">Show data table</button>' +
+                  '<div class="rb-data-table gt-data-table"><table hidden><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+    }
+
+    var figLabel = (block.title ? block.title + ': ' : '') + flat.length + (flat.length === 1 ? ' bar, ' : ' bars, ') + at(lo) + ' to ' + at(hi);
+    container.innerHTML = titleHtml +
+      '<div class="gantt-scroller"><div class="gantt-plot" role="figure" aria-label="' + esc(figLabel) + '">' +
+        '<div class="gt-axis" style="grid-row:1">' + tickHtml + '</div>' +
+        '<div class="gt-overlay" aria-hidden="true" style="grid-row:2 / span ' + Math.max(lastRow - 1, 1) + '">' + overlay + '</div>' +
+        rowsHtml + foot +
+      '</div></div>' + legend + notes + tableHtml;
+
+    container.querySelectorAll('.gt-bar, .gt-ms').forEach(function (el) {
+      var f = flat[parseInt(el.getAttribute('data-gi'), 10)];
+      if (!f) return;
+      var b = f.b;
+      var tip = b.label + (f.row !== b.label ? '\n' + f.row : '') + '\n' + f.range + (f.dur ? '\nDuration ' + f.dur : '') +
+                (f.st ? '\n' + SEC_LABEL[f.st] : '') + (b.category && !f.st ? '\n' + b.category : '') +
+                (b.critical ? '\nCritical path' : '') + (b.after && b.after.length ? '\nAfter: ' + b.after.join(', ') : '') +
+                (b.tooltip ? '\n' + b.tooltip : '');
+      el.addEventListener('pointerenter', function (e) { _topoShowTooltip(tip, e); });
+      el.addEventListener('pointermove',  function (e) { _topoShowTooltip(tip, e); });
+      el.addEventListener('pointerleave', _topoHideTooltip);
+      el.addEventListener('blur',         _topoHideTooltip);
+      el.addEventListener('focus', function () {
+        var rc = el.getBoundingClientRect();
+        _topoShowTooltip(tip, { clientX: rc.left + rc.width / 2, clientY: rc.top });
+      });
+      if (el.tagName !== 'BUTTON') return;
+      el.addEventListener('click', function () {
+        _topoHideTooltip();
+        if (b.detail) {
+          dhDrawerOpen({ title: b.detail.title || b.label, subtitle: b.detail.subtitle || f.range,
+                         sections: b.detail.sections, tableId: b.linkTableId, filter: b.linkFilter }, { opener: el });
+        } else if (b.linkTableId) jumpToTable(b.linkTableId, b.linkFilter);
+        else if (block.mode === 'fromtable') jumpToTable(block.tableId, b.label);
+      });
+    });
+
+    var toggle = container.querySelector('.gt-table-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var tbl = container.querySelector('.gt-data-table table');
+        if (!tbl) return;
+        var hidden = tbl.hasAttribute('hidden');
+        if (hidden) { tbl.removeAttribute('hidden'); } else { tbl.setAttribute('hidden', ''); }
+        toggle.textContent = hidden ? 'Hide data table' : 'Show data table';
+        toggle.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+      });
+    }
+  }
+
   /* ── Line / Area chart (v1.4 F9) ──
         Pure SVG with axes, multi-series support, optional filled-area variant,
         and an optional dashed target / threshold annotation. Per spec §7.4:
@@ -574,12 +928,23 @@ function Get-DhJsBlocks {
     }
     if (yMax <= yMin) yMax = yMin + 1;   /* defensive */
 
+    /* Y-axis labels first: the left margin is sized to the longest one. v3.0.0 - it was a fixed 46 units,
+       so '2814 req/s' lost its first digits on screen and in print (the print review showed '314'). */
+    var tickCount = 5;
+    var unit = block.yAxisUnit || '';
+    var yLabels = [];
+    for (var k = 0; k <= tickCount; k++) {
+      var v0 = yMin + (1 - k / tickCount) * (yMax - yMin);
+      yLabels.push(((Math.abs(v0) >= 100) ? v0.toFixed(0) : v0.toFixed(1).replace(/\.0$/, '')) + unit);
+    }
+    var longest = Math.max.apply(null, yLabels.map(function (s) { return s.length; }));
+    padL = Math.max(padL, Math.ceil(longest * 6.2) + 12);
+    plotW = W - padL - padR;
+
     function xAt(i) { return padL + (i / (n - 1)) * plotW; }
     function yAt(v) { return padT + (1 - (v - yMin) / (yMax - yMin)) * plotH; }
 
     /* Y-axis ticks — 5 levels at 0/25/50/75/100% of range */
-    var tickCount = 5;
-    var unit = block.yAxisUnit || '';
     var gridHtml = '', yTickHtml = '';
     for (var i = 0; i <= tickCount; i++) {
       var t = i / tickCount;
@@ -588,8 +953,7 @@ function Get-DhJsBlocks {
       if (block.showGrid !== false) {
         gridHtml += '<line class="lc-grid" x1="'+padL+'" y1="'+yPx.toFixed(1)+'" x2="'+(W - padR)+'" y2="'+yPx.toFixed(1)+'" stroke="var(--border-subtle)" stroke-width="1"/>';
       }
-      var lbl = (Math.abs(yVal) >= 100) ? yVal.toFixed(0) : yVal.toFixed(1).replace(/\.0$/, '');
-      yTickHtml += '<text class="lc-y-tick" x="'+(padL - 6)+'" y="'+(yPx + 4).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text-muted)">'+esc(lbl + unit)+'</text>';
+      yTickHtml += '<text class="lc-y-tick" x="'+(padL - 6)+'" y="'+(yPx + 4).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text-muted)">'+esc(yLabels[i])+'</text>';
     }
 
     /* X-axis tick labels — thin to roughly every Nth so labels never collide */

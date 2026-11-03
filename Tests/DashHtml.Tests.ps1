@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.4
 <#
 .SYNOPSIS  Pester 5 test suite for the DashHtml module.
 .DESCRIPTION
@@ -569,11 +569,12 @@ Describe 'Get-DhTheme' {
         $result.DarkCss  | Should -Match '#479EF5'
     }
 
-    It 'VMware family has VMware green and Inter font' {
+    It 'VMware family has the Broadcom teal-blue accent, the red header line and Inter font' {
         $result = Get-DhTheme -Name VMware
-        $result.LightCss | Should -Match '#00B388'
+        $result.LightCss | Should -Match '--accent-primary:\s+#015C89;'
+        $result.LightCss | Should -Match '--header-line:\s+#CC092F;'
         $result.LightCss | Should -Match 'Inter'
-        $result.DarkCss  | Should -Match '#00C49A'
+        $result.DarkCss  | Should -Match '--accent-primary:\s+#029DE9;'
     }
 
     It 'Grey family has neutral grey accent in both variants' {
@@ -1382,8 +1383,8 @@ Describe 'Add-DhSummary' {
         }
     }
 
-    # ---- Per-NavGroup summary strips (v1.4.1) --------------------------------
-    It 'Without -NavGroup the strip goes to $Report.Summary (legacy path)' {
+    # ---- Per-node summary strips (v1.4.1; -NavPath since 3.0.0) ---------------
+    It 'Without -NavPath the strip goes to $Report.Summary (top of page)' {
         Add-DhSummary -Report $report -Items @(@{ Label='X'; Value=1 })
         @($report['Summary']).Count | Should -Be 1
         # No summarystrip block created
@@ -1392,8 +1393,8 @@ Describe 'Add-DhSummary' {
         }
     }
 
-    It 'With -NavGroup the strip lives in $Report.Blocks (not Summary)' {
-        Add-DhSummary -Report $report -NavGroup 'Identity' -Items @(
+    It 'With -NavPath the strip lives in $Report.Blocks (not Summary)' {
+        Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Items @(
             @{ Label='Active users'; Value=231 }
         )
         # Legacy Summary untouched
@@ -1401,64 +1402,64 @@ Describe 'Add-DhSummary' {
         # Block emitted instead
         $b = $report['Blocks'] | Where-Object { $_.BlockType -eq 'summarystrip' } | Select-Object -First 1
         $b              | Should -Not -BeNullOrEmpty
-        $b.NavGroup     | Should -Be 'Identity'
+        @($b.NavSegments) -join '/' | Should -Be 'Identity'
         $b.Id           | Should -Be 'summary-identity'   # auto-derived slug
         @($b.Items).Count | Should -Be 1
         $b.Items[0].Label | Should -Be 'Active users'
     }
 
-    It 'NavSubGroup carries through and is part of the auto Id' {
-        Add-DhSummary -Report $report -NavGroup 'Identity' -NavSubGroup 'Production' -Items @(
+    It 'a two-level path carries through and is part of the auto Id' {
+        Add-DhSummary -Report $report -NavPath 'Identity/Production' -NavScope Subtree -Items @(
             @{ Label='X'; Value=1 }
         )
         $b = $report['Blocks'][0]
-        $b.NavSubGroup | Should -Be 'Production'
+        @($b.NavSegments) -join '/' | Should -Be 'Identity/Production'
         $b.Id          | Should -Be 'summary-identity-production'
     }
 
     It 'Auto Id slugifies spaces and uppercase' {
-        Add-DhSummary -Report $report -NavGroup 'My Big Group' -Items @(@{ Label='X'; Value=1 })
+        Add-DhSummary -Report $report -NavPath 'My Big Group' -NavScope Subtree -Items @(@{ Label='X'; Value=1 })
         $report['Blocks'][0].Id | Should -Be 'summary-my-big-group'
     }
 
     It 'Explicit -Id overrides the auto-derived value' {
-        Add-DhSummary -Report $report -NavGroup 'Identity' -Id 'kpi-overview' -Items @(
+        Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Id 'kpi-overview' -Items @(
             @{ Label='X'; Value=1 }
         )
         $report['Blocks'][0].Id | Should -Be 'kpi-overview'
     }
 
     It 'Multiple per-group summaries coexist' {
-        Add-DhSummary -Report $report -NavGroup 'Identity'       -Items @(@{ Label='Users'; Value=231 })
-        Add-DhSummary -Report $report -NavGroup 'Infrastructure' -Items @(@{ Label='Hosts'; Value=42  })
-        Add-DhSummary -Report $report -NavGroup 'Finance'        -Items @(@{ Label='MRR';   Value=1.2e6 })
+        Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree       -Items @(@{ Label='Users'; Value=231 })
+        Add-DhSummary -Report $report -NavPath 'Infrastructure' -NavScope Subtree -Items @(@{ Label='Hosts'; Value=42  })
+        Add-DhSummary -Report $report -NavPath 'Finance' -NavScope Subtree        -Items @(@{ Label='MRR';   Value=1.2e6 })
         @($report['Blocks'] | Where-Object { $_.BlockType -eq 'summarystrip' }).Count | Should -Be 3
     }
 
-    It 'Throws on duplicate auto-Id (same NavGroup + NavSubGroup twice)' {
-        Add-DhSummary -Report $report -NavGroup 'Identity' -Items @(@{ Label='X'; Value=1 })
-        { Add-DhSummary -Report $report -NavGroup 'Identity' -Items @(@{ Label='Y'; Value=2 }) } | Should -Throw
+    It 'Throws on duplicate auto-Id (same path twice)' {
+        Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Items @(@{ Label='X'; Value=1 })
+        { Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Items @(@{ Label='Y'; Value=2 }) } | Should -Throw
     }
 
     It 'Per-group strip can coexist with a global top-of-page strip' {
         Add-DhSummary -Report $report -Items @(@{ Label='Global';  Value=1 })   # legacy
-        Add-DhSummary -Report $report -NavGroup 'Identity' -Items @(@{ Label='Per-group'; Value=2 })
+        Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Items @(@{ Label='Per-group'; Value=2 })
         @($report['Summary']).Count                                          | Should -Be 1
         @($report['Blocks'] | Where-Object { $_.BlockType -eq 'summarystrip' }).Count | Should -Be 1
     }
 
-    It 'HTML emits summarystrip block with items + NavGroup' {
+    It 'HTML emits summarystrip block with items + its menu path' {
         $tmpDir2 = Join-Path ([IO.Path]::GetTempPath()) ('DH_SummaryNav_' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $tmpDir2 | Out-Null
         try {
-            Add-DhSummary -Report $report -NavGroup 'Identity' -Title 'Identity KPIs' -Items @(
+            Add-DhSummary -Report $report -NavPath 'Identity' -NavScope Subtree -Title 'Identity KPIs' -Items @(
                 @{ Style='bignumber'; Label='Active users';  Value=231;   Caption='Last 24h'; Class='cell-ok' }
                 @{                    Label='Failed logins'; Value=842;   Previous=920; TrendIsGood=$true }
                 @{ Style='gauge';     Label='Auth latency';  Value=42;    Max=120; Unit='ms'
                    Rag=@{ Green=@{Max=50}; Amber=@{Min=50;Max=80}; Red=@{Min=80} } }
             )
             $data = @([PSCustomObject]@{ X = 1 })
-            Add-DhTable -Report $report -TableId 'tbl' -Title 'T' -Data $data -NavGroup 'Identity'
+            Add-DhTable -Report $report -TableId 'tbl' -Title 'T' -Data $data -NavPath 'Identity/tbl'
             $htmlPath = Join-Path $tmpDir2 'test-summarystrip.html'
             Export-DhDashboard -Report $report -OutputPath $htmlPath -Force
             $content = Get-Content $htmlPath -Raw
@@ -1471,8 +1472,9 @@ Describe 'Add-DhSummary' {
             $content | Should -Match '"style":"gauge"'
             $content | Should -Match '"unit":"ms"'
             $content | Should -Match 'function renderSummaryStrip'
-            # Block-section emitted with data-navgroup so nav routing hides/shows it
-            $content | Should -Match 'id="bsection-summary-identity"[^>]*data-navgroup="Identity"'
+            # Block-section carries its menu path so nav routing hides/shows it
+            $content | Should -Match 'id="bsection-summary-identity"[^>]*data-navpath='
+            $content | Should -Not -Match 'data-navgroup'
         } finally {
             Remove-Item $tmpDir2 -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -2035,48 +2037,45 @@ Describe 'Add-DhAlertBanner' {
         }
     }
 
-    # ---- v1.4.2 — NavGroup binding on banners --------------------------------
-    It 'Banner without NavGroup stores empty NavGroup (page-global)' {
+    # ---- Menu binding on banners (-NavPath; -NavGroup removed in 3.0.0) -------
+    It 'Banner without -NavPath is page-global' {
         Add-DhAlertBanner -Report $report -Id 'b' -Message 'X' -Severity 'info'
-        $report['AlertBanners'][0].NavGroup    | Should -BeNullOrEmpty
-        $report['AlertBanners'][0].NavSubGroup | Should -BeNullOrEmpty
+        @($report['AlertBanners'][0].NavSegments).Count | Should -Be 0
+        $report['AlertBanners'][0].Contains('NavGroup')   | Should -BeFalse
     }
 
-    It 'Banner with -NavGroup stores the group' {
-        Add-DhAlertBanner -Report $report -Id 'b' -Message 'X' -Severity 'info' -NavGroup 'Identity'
-        $report['AlertBanners'][0].NavGroup | Should -Be 'Identity'
+    It 'Banner with -NavPath stores the path' {
+        Add-DhAlertBanner -Report $report -Id 'b' -Message 'X' -Severity 'info' -NavPath 'Identity/Production' -NavScope Subtree
+        @($report['AlertBanners'][0].NavSegments) -join '/' | Should -Be 'Identity/Production'
+        $report['AlertBanners'][0].NavScope                 | Should -Be 'Subtree'
     }
 
-    It 'Banner with -NavSubGroup stores both' {
-        Add-DhAlertBanner -Report $report -Id 'b' -Message 'X' -Severity 'info' `
-            -NavGroup 'Identity' -NavSubGroup 'Production'
-        $report['AlertBanners'][0].NavGroup    | Should -Be 'Identity'
-        $report['AlertBanners'][0].NavSubGroup | Should -Be 'Production'
+    It 'rejects the removed -NavGroup parameter' {
+        { Add-DhAlertBanner -Report $report -Id 'b' -Message 'X' -Severity 'info' -NavGroup 'Identity' } |
+            Should -Throw -ExpectedMessage '*NavGroup*'
     }
 
-    It 'HTML emits navGroup attr when set' {
+    It 'HTML emits the banner path and no legacy navGroup keys' {
         $tmpDir2 = Join-Path ([IO.Path]::GetTempPath()) ('DH_AlertNav_' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $tmpDir2 | Out-Null
         try {
             Add-DhAlertBanner -Report $report -Id 'b-id' -Severity 'warning' `
-                -Message 'identity-scoped' -NavGroup 'Identity'
+                -Message 'identity-scoped' -NavPath 'Identity' -NavScope Subtree
             $data = @([PSCustomObject]@{ X = 1 })
-            Add-DhTable -Report $report -TableId 't' -Title 'T' -Data $data -NavGroup 'Identity'
+            Add-DhTable -Report $report -TableId 't' -Title 'T' -Data $data -NavPath 'Identity/t'
             $htmlPath = Join-Path $tmpDir2 'test-alert-nav.html'
             Export-DhDashboard -Report $report -OutputPath $htmlPath -Force
             $content = Get-Content $htmlPath -Raw
-            $content | Should -Match '"navGroup":"Identity"'
+            $content | Should -Match '"navPath":\["Identity"\],"navScope":"subtree"'
+            $content | Should -Not -Match '"navGroup"'
+            $content | Should -Not -Match '"navSubGroup"'
             # CSS hide-by-default rule emitted
-            $content | Should -Match '\.alert-banner\[data-navgroup\]:not\(\.panel-active\)'
+            $content | Should -Match '\.alert-banner\[data-navpath\]:not\(\.panel-active\)'
         } finally {
             Remove-Item $tmpDir2 -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }
-
-# ---------------------------------------------------------------------------
-# Add-DhPieChart  (v1.4)
-# ---------------------------------------------------------------------------
 Describe 'Add-DhPieChart' {
 
     BeforeEach {
@@ -2313,8 +2312,8 @@ Describe 'Add-DhBullet' {
         $bi.Thresholds[2].Class     | Should -Be 'cell-danger'
     }
 
-    It 'Bands is accepted as alias for Thresholds' {
-        Add-DhBullet -Report $report -Id 'b1' -Title 'X' -Items @(
+    It 'rejects the 1.x Bands key (removed in 3.0.0), naming Thresholds' {
+        { Add-DhBullet -Report $report -Id 'b1' -Title 'X' -Items @(
             @{ Label='X'; Value=42
                Bands=@(
                    @{ Max=50;  Class='cell-ok'     }
@@ -2322,9 +2321,7 @@ Describe 'Add-DhBullet' {
                    @{ Min=80;             Class='cell-danger' }
                )
             }
-        )
-        @($report['Blocks'][0].Items[0].Thresholds).Count | Should -Be 3
-        $report['Blocks'][0].Items[0].Contains('Bands')   | Should -Be $false
+        ) } | Should -Throw -ExpectedMessage '*Thresholds*'
     }
 
     It 'Rag wins over a legacy Thresholds= array' {
@@ -3326,10 +3323,10 @@ Describe 'Security: -AllowHtml policy on raw-HTML sinks' {
             Add-DhHtmlBlock -Report $script:report -Id 'h1' -Content '<b>x</b>' -WarningAction SilentlyContinue
             $script:report.Blocks[0].Content | Should -BeExactly '&lt;b&gt;x&lt;/b&gt;'
         }
-        It 'warns when markup is encoded by the default, so the change is not silent' {
+        It 'does not warn when markup is encoded by the default (3.0.0)' {
             $w = $null
             Add-DhHtmlBlock -Report $script:report -Id 'h1w' -Content '<b>x</b>' -WarningVariable w -WarningAction SilentlyContinue
-            @($w).Count | Should -BeGreaterThan 0
+            @($w).Count | Should -Be 0
         }
         It 'does not warn when the caller chose explicitly' {
             $w = $null
@@ -3344,10 +3341,10 @@ Describe 'Security: -AllowHtml policy on raw-HTML sinks' {
             Add-DhHtmlBlock -Report $script:report -Id 'h3' -Content '<i>y</i>' -AllowHtml:$true
             $script:report.Blocks[0].Content | Should -BeExactly '<i>y</i>'
         }
-        It 'warns when content looks like HTML and -AllowHtml not passed' {
+        It 'encodes markup by default without a warning (3.0.0 removed the 2.0 notice)' {
             Add-DhHtmlBlock -Report $script:report -Id 'h4' -Content '<div>z</div>' -WarningVariable w -WarningAction SilentlyContinue
-            @($w).Count | Should -BeGreaterThan 0
-            [string]$w | Should -Match '2\.0\.0'
+            @($w).Count | Should -Be 0
+            $script:report.Blocks[0].Content | Should -BeExactly '&lt;div&gt;z&lt;/div&gt;'
         }
         It 'does NOT warn for plain-text content' {
             Add-DhHtmlBlock -Report $script:report -Id 'h5' -Content 'plain text only' -WarningVariable w -WarningAction SilentlyContinue
@@ -3854,6 +3851,7 @@ Describe 'Duplicate-Id guard on all block cmdlets (M2)' {
         @{ Name = 'Add-DhFindings';    Call = { param($r) Add-DhFindings -Report $r -Id 'd' -Findings @(@{ Severity = 'ok'; Title = 't' }) } }
         @{ Name = 'Add-DhKeyValue';    Call = { param($r) Add-DhKeyValue -Report $r -Id 'd' -Items @(@{ Label = 'a'; Value = 'b' }) } }
         @{ Name = 'Add-DhRecordList';  Call = { param($r) Add-DhRecordList -Report $r -Id 'd' -Items @(@{ Title = 't' }) } }
+        @{ Name = 'Add-DhGantt';       Call = { param($r) Add-DhGantt -Report $r -Id 'd' -Title 'X' -Items @(@{ Label = 'a'; Start = 0 }) } }
     ) {
         & $Call $script:report
         { & $Call $script:report } | Should -Throw -ExpectedMessage '*already*'
@@ -3926,7 +3924,7 @@ Describe 'Excel sheet-name sanitisation (L3)' {
 #  v1.5.4 — Examples smoke test
 # ============================================================================
 
-Describe 'Examples: every shipped example script renders valid HTML' {
+Describe 'Examples: every shipped example script renders valid HTML' -Tag Slow {
     # Each example is executed in its OWN pwsh subprocess rather than dot-sourced
     # into the test session. Three reasons:
     #   1. Every example does `Import-Module ...\DashHtml.psd1 -Force`, which
@@ -4496,7 +4494,7 @@ Describe 'v2.1.4 fixes' {
         It 'warns for an unknown BlockType' {
             $r = New-DhDashboard -Title 'lint'
             Add-DhHtmlBlock -Report $r -Id 'h' -Content 'x'
-            $r.Blocks.Add(@{ BlockType = 'nosuchblock'; Id = 'zz'; NavGroup = ''; NavSubGroup = ''; NavPath = ''; NavSegments = @(); NavScope = 'Global'; NavLabel = ''; NavOrder = 0; NavSeqNo = 99 })
+            $r.Blocks.Add(@{ BlockType = 'nosuchblock'; Id = 'zz'; NavPath = ''; NavSegments = @(); NavScope = 'Global'; NavLabel = ''; NavOrder = 0; NavSeqNo = 99 })
             $res = Export-DhTestHtml -Report $r -WithWarnings
             ($res.Warnings -join "`n") | Should -Match "unknown BlockType 'nosuchblock'"
         }
@@ -4535,9 +4533,9 @@ Describe 'v2.1.4 fixes' {
     }
 
     Context 'Tooling drift - Add-DhRangeBar' {
-        It 'is a block cmdlet in Update-DhScript, Test-DhV2Upgrade and Build-DhReference' {
+        It 'is a block cmdlet in Update-DhScript and Build-DhReference' {
             $root = Join-Path $PSScriptRoot '..'
-            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1') {
                 $src  = Get-Content (Join-Path $root $f) -Raw
                 $list = [regex]::Match($src, '(?s)\$blockCmds = @\((.*?)\r?\n\s*\)').Groups[1].Value
                 $list | Should -Match "'Add-DhRangeBar'" -Because $f
@@ -4911,7 +4909,7 @@ Describe 'v2.2.0 features' {
             $root = Join-Path $PSScriptRoot '..'
             Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw | Should -Match "findings\s+= 'Add-DhFindings'"
             Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw | Should -Match "'add-dhfindings'='findings'"
-            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1') {
                 [regex]::Match((Get-Content (Join-Path $root $f) -Raw), '(?s)\$blockCmds = @\((.*?)\r?\n\s*\)').Groups[1].Value | Should -Match "'Add-DhFindings'" -Because $f
             }
             Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw | Should -Match "'Add-DhFindings'\s+= @\{"
@@ -5361,7 +5359,7 @@ Describe 'v2.3.0 features' {
             $rev = Get-Content (Join-Path $root 'DashHtml.Design/Public/ConvertFrom-DhScript.ps1') -Raw
             $rev | Should -Match "'add-dhkeyvalue'='keyvalue'"
             $rev | Should -Match "'add-dhrecordlist'='recordlist'"
-            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1') {
                 $list = [regex]::Match((Get-Content (Join-Path $root $f) -Raw), '(?s)\$blockCmds = @\((.*?)\r?\n\s*\)').Groups[1].Value
                 $list | Should -Match "'Add-DhKeyValue'" -Because $f
                 $list | Should -Match "'Add-DhRecordList'" -Because $f
@@ -5524,7 +5522,7 @@ console.log(bad.length ? 'FAIL ' + bad.join(',') : 'OK');
             $root = $script:root
             (Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw) | Should -Match "treefilter\s+= 'Add-DhTreeFilter'"
             (Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw) | Should -Match "'add-dhtreefilter'='treefilter'"
-            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1') {
                 (Get-Content (Join-Path $root $f) -Raw) | Should -Match "'Add-DhTreeFilter'" -Because $f
             }
             (Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw) | Should -Match "'Add-DhTreeFilter'\s+= @\{"
@@ -5703,7 +5701,7 @@ console.log([p.nodes.join('>'), p.edges.join('+'), back.nodes.join('>'), none ==
             $root = $script:root
             (Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw) | Should -Match "networkmap\s+= 'Add-DhNetworkMap'"
             (Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw) | Should -Match "'add-dhnetworkmap'='networkmap'"
-            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1') {
                 (Get-Content (Join-Path $root $f) -Raw) | Should -Match "'Add-DhNetworkMap'" -Because $f
             }
             (Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw) | Should -Match "'Add-DhNetworkMap'\s+= @\{"
@@ -5887,7 +5885,7 @@ Describe 'Alert banners follow the menu' {
         Add-DhAlertBanner -Report $r -Id 'glob'   -Message 'g' -Severity info
         Add-DhAlertBanner -Report $r -Id 'exactA' -Message 'a' -Severity warning -NavPath 'A'
         Add-DhAlertBanner -Report $r -Id 'subB'   -Message 'b' -Severity critical -NavPath 'B' -NavScope Subtree
-        Add-DhAlertBanner -Report $r -Id 'legB'   -Message 'l' -Severity ok -NavGroup 'B'
+        Add-DhAlertBanner -Report $r -Id 'legB'   -Message 'l' -Severity ok -NavPath 'B' -NavScope Subtree
         $script:html = Export-DhTestHtml -Report $r
     }
 
@@ -6082,7 +6080,7 @@ console.log(dhTtNested(l.membersOf, t, 'g0', 2).map(x => x.id).join(',') + ';' +
             $root = $script:root
             (Get-Content (Join-Path $root 'DashHtml.Design\Private\DhSchema.ps1') -Raw) | Should -Match "treetable\s+= 'Add-DhTreeTable'"
             (Get-Content (Join-Path $root 'DashHtml.Design\Public\ConvertFrom-DhScript.ps1') -Raw) | Should -Match "'add-dhtreetable'='treetable'"
-            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1', 'Tools/Test-DhV2Upgrade.ps1') {
+            foreach ($f in 'DashHtml.Design/Public/Update-DhScript.ps1') {
                 (Get-Content (Join-Path $root $f) -Raw) | Should -Match "'Add-DhTreeTable'" -Because $f
             }
             (Get-Content (Join-Path $root 'Build-DhReference.ps1') -Raw) | Should -Match "'Add-DhTreeTable'\s+= @\{"
@@ -6418,7 +6416,7 @@ Describe 'v2.4.2 print and theme checks' {
 }
 Describe 'v2.5.1 hardening' {
     BeforeAll { . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1') }
-    It 'runs the node runtime tests (node --test Tests/js/*.test.js)' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    It 'runs the node runtime tests (node --test Tests/js/*.test.js)' -Tag Slow -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
         Push-Location (Split-Path $PSScriptRoot)
         try { $out = & node --test 'Tests/js/*.test.js' 2>&1 | Out-String; $LASTEXITCODE | Should -Be 0 -Because $out }
         finally { Pop-Location }
@@ -6468,7 +6466,7 @@ Describe 'v2.5.2 release hygiene and contrast tool' {
         $cfg = Get-Content (Join-Path $PSScriptRoot '../Tools/contrast-selectors.json') -Raw | ConvertFrom-Json
         @($cfg.selectors).Count | Should -BeGreaterThan 15
     }
-    It 'finds no text below the minimum contrast in the Default theme, light and dark (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+    It 'finds no text below the minimum contrast in the Default theme, light and dark (needs Edge or Chrome)' -Tag Browser, Slow -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
         $r = @(& (Join-Path $PSScriptRoot '../Tools/Test-DhContrast.ps1') -Theme Default -PassThru 6>$null)
         ($r | ForEach-Object { "$($_.Ratio) $($_.Selector) $($_.Text)" }) | Should -BeNullOrEmpty
     }
@@ -6499,13 +6497,13 @@ Describe 'v2.5.2 accessibility' {
         $script:html | Should -Match 'function dhBindCollapsible\(toggle, body, chevron\)'
         ([regex]::Matches($script:html, 'dhBindCollapsible\(toggle, body, chev(ron)?\)')).Count | Should -BeGreaterOrEqual 3
     }
-    It 'passes the audit with no errors or warnings (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+    It 'passes the audit with no errors or warnings (needs Edge or Chrome)' -Tag Browser, Slow -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
         $file = Join-Path $script:tmp 'ok.html'
         Set-Content -LiteralPath $file -Value $script:html -Encoding utf8
         $f = @(& $script:probe -Path $file -Strict -PassThru 6>$null)
         ($f | ForEach-Object { "$($_.Severity) $($_.Rule) $($_.Sample)" }) | Should -BeNullOrEmpty
     }
-    It 'finds the defects it is meant to find (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+    It 'finds the defects it is meant to find (needs Edge or Chrome)' -Tag Browser, Slow -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
         $file = Join-Path $script:tmp 'bad.html'
         Set-Content -LiteralPath $file -Encoding utf8 -Value '<!doctype html><html><head><title>x</title></head><body><button></button><div class="collapsible-toggle">T</div><table class="data-table"><tr><th class="sortable">A</th></tr></table><div id="a"></div><div id="a"></div></body></html>'
         $rules = @(& $script:probe -Path $file -PassThru 6>$null | ForEach-Object Rule)
@@ -6640,7 +6638,7 @@ Describe 'v2.5.2 review fixes' {
         ([regex]::Matches($h, 'dhCsvSafe\(FMT\.forExport')).Count | Should -Be 2
         $h | Should -Match 'var text = dhCellText\(td\);'
     }
-    It 'the accessibility tool exits with 1 when it finds an error (needs Edge or Chrome)' -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
+    It 'the accessibility tool exits with 1 when it finds an error (needs Edge or Chrome)' -Tag Browser, Slow -Skip:(-not (& (Join-Path $PSScriptRoot '../Tools/Find-DhBrowser.ps1'))) {
         $f = Join-Path ([IO.Path]::GetTempPath()) ('dh_a11y_exit_' + [guid]::NewGuid().ToString('N') + '.html')
         try {
             Set-Content -LiteralPath $f -Encoding utf8 -Value '<!doctype html><html><head><title>x</title></head><body><button></button></body></html>'
@@ -6829,9 +6827,9 @@ Describe 'v2.6.0 features' {
         }
     }
 
-    Context 'O5 -CompressData and -SizeBudgetMB' {
+    Context 'O5 -CompressData and -SizeBudgetMB' -Tag Slow {
         BeforeAll {
-            $script:big = 1..3000 | ForEach-Object { [pscustomobject]@{ Name = "server-$_"; Os = 'Windows Server 2022'; Site = "Site $($_ % 12)"; Note = 'the same long note repeated on every row' } }
+            $script:big = 1..5000 | ForEach-Object { [pscustomobject]@{ Name = "server-$_"; Os = 'Windows Server 2022'; Site = "Site $($_ % 12)"; Note = 'the same long note repeated on every row' } }
         }
         It 'stores the table and block data gzip + base64 and the plain path stays the default' {
             $r = New-DhDashboard -Title 'x'
@@ -6853,7 +6851,7 @@ Describe 'v2.6.0 features' {
             $json = [IO.StreamReader]::new($gz).ReadToEnd()
             $tables = $json | ConvertFrom-Json
             $tables[0].id | Should -Be 't'
-            @($tables[0].data).Count | Should -Be 3000
+            @($tables[0].data).Count | Should -Be 5000
         }
         It 'warns above the size budget, naming the biggest table, and never with 0' {
             $r = New-DhDashboard -Title 'x'
@@ -6887,6 +6885,457 @@ Describe 'v2.6.0 features' {
             $fn | Should -Match 'dhTtPrintHooks\.push'
             (Get-DhTestJsFunction -Html $h -Name 'dhBeforePrint') | Should -Match 'dhTtPrintHooks\.forEach\(function \(h\) \{ h\.before\(\); \}\)'
             $h | Should -Match '\.tt-tree\.tt-win \.dh-tree-row \{ height: var\(--tt-row-h\)'
+        }
+    }
+}
+
+Describe 'v3.0.0 features' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:repo = Join-Path $PSScriptRoot '..'
+        $script:tmp = Join-Path ([IO.Path]::GetTempPath()) ('DH_300_' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmp | Out-Null
+        $script:rows = @([pscustomobject]@{ Name = 'a'; Cpu = 5 }, [pscustomobject]@{ Name = 'b'; Cpu = 9 })
+    }
+    AfterAll { Remove-Item -LiteralPath $script:tmp -Recurse -Force -ErrorAction SilentlyContinue }
+
+    Context 'Removed pre-2.0 support' {
+        It 'no cmdlet has -NavGroup or -NavSubGroup any more' {
+            $left = @(Get-Command -Module DashHtml | Where-Object { $_.Parameters.Keys -contains 'NavGroup' -or $_.Parameters.Keys -contains 'NavSubGroup' } | ForEach-Object Name)
+            $left | Should -BeNullOrEmpty
+        }
+        It 'a removed parameter fails with a binding error naming it' {
+            $r = New-DhDashboard -Title 'x'
+            { Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -NavGroup 'G' } | Should -Throw -ExpectedMessage '*NavGroup*'
+        }
+        It 'emits no legacy navgroup markup or banner keys' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows -NavPath 'A/t'
+            Add-DhAlertBanner -Report $r -Id 'b' -Message 'm' -Severity info -NavPath 'A' -NavScope Subtree
+            Add-DhHtmlBlock -Report $r -Id 'h' -Content 'x' -NavPath 'A' -NavScope Subtree
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Not -Match 'data-navgroup|data-navsubgroup|"navGroup"|"navSubGroup"'
+        }
+        It 'the V2 upgrade tool is gone; Update-DhScript and Test-DhReport replace it' {
+            Test-Path (Join-Path $script:repo 'Tools/Test-DhV2Upgrade.ps1') | Should -BeFalse
+        }
+        It 'both modules require PowerShell 7.4' {
+            (Import-PowerShellDataFile (Join-Path $script:repo 'DashHtml/DashHtml.psd1')).PowerShellVersion | Should -Be '7.4'
+            (Import-PowerShellDataFile (Join-Path $script:repo 'DashHtml.Design/DashHtml.Design.psd1')).PowerShellVersion | Should -Be '7.4'
+        }
+    }
+
+    Context 'V1 structural CSS embedded once' {
+        It 'puts the base CSS in its own tag, after both theme tags, exactly once' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows
+            $h = Export-DhTestHtml -Report $r
+            ([regex]::Matches($h, 'body\.density-comfortable \{')).Count | Should -Be 1
+            $p = $h.IndexOf('id="theme-primary"'); $a = $h.IndexOf('id="theme-alternate"'); $b = $h.IndexOf('id="dh-base"')
+            $p | Should -BeGreaterThan 0
+            $a | Should -BeGreaterThan $p
+            $b | Should -BeGreaterThan $a
+            $primary = [regex]::Match($h, '<style id="theme-primary"[^>]*>([\s\S]*?)</style>').Groups[1].Value
+            $primary | Should -Match '--accent-primary'
+            $primary | Should -Not -Match '\.data-table'
+        }
+        It 'Get-DhTheme still returns the full CSS of each variant' {
+            (Get-DhTheme -Name Default).LightCss | Should -Match '\.data-table'
+        }
+    }
+
+    Context 'V2 brand colours and font' {
+        It 'a plain report has no Brand and no brand block' {
+            $r = New-DhDashboard -Title 'x'
+            $r.Contains('Brand') | Should -BeFalse
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows
+            (Export-DhTestHtml -Report $r) | Should -Not -Match 'DashHtml 3\.0\.0 brand'
+        }
+        It 'brands both variants: the colour as given in light, a lighter shade in dark' {
+            $r = New-DhDashboard -Title 'x' -PrimaryColor '#0055A4' -AccentColor '#C86E00' -FontFamily 'Inter' -WarningAction SilentlyContinue
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows
+            $h = Export-DhTestHtml -Report $r
+            $light = [regex]::Match($h, '<style id="theme-primary"[^>]*>([\s\S]*?)</style>').Groups[1].Value
+            $dark  = [regex]::Match($h, '<style id="theme-alternate"[^>]*>([\s\S]*?)</style>').Groups[1].Value
+            $light | Should -Match '--accent-primary:\s+#0055A4;'
+            $light | Should -Match "--font-ui: 'Inter', "
+            $light | Should -Match '--chart-2:\s+#C86E00;'
+            $light | Should -Match '--bg-header:\s+#'
+            $dark  | Should -Match 'brand \(dark\)'
+            $dark  | Should -Not -Match '--accent-primary:\s+#0055A4;'
+        }
+        It 'derived accent text reaches 4.5:1 on every background of the theme' {
+            InModuleScope DashHtml {
+                foreach ($t in 'DefaultLight', 'DefaultDark', 'GreyDark', 'CompanyLight') {
+                    $css = (ConvertTo-DhBrandCss -Brand @{ PrimaryColor = '#F28C00' } -Theme $t).Css
+                    $txt = ConvertFrom-DhCssColor ([regex]::Match($css, '--text-accent:\s+(#[0-9A-F]{6})').Groups[1].Value)
+                    $bg  = ConvertFrom-DhCssColor (Get-DhThemeTokens (Get-DhThemeCss -Theme $t -RootOnly))['bg-surface']
+                    Get-DhContrastRatio $txt $bg | Should -BeGreaterOrEqual 4.5 -Because $t
+                }
+            }
+        }
+        It 'every status text clears 4.5:1 on a badge inside a tinted cell, on plain and striped rows, in all 12 themes' {
+            InModuleScope DashHtml {
+                $bad = foreach ($t in 'DefaultLight', 'DefaultDark', 'AzureLight', 'AzureDark', 'VMwareLight', 'VMwareDark', 'GreyLight', 'GreyDark', 'CompanyLight', 'CompanyDark', 'RagLight', 'RagDark') {
+                    $tok = Get-DhThemeTokens (Get-DhThemeCss -Theme $t -RootOnly)
+                    foreach ($rowBg in 'bg-table', 'bg-row-alt') {
+                        $bg = ConvertFrom-DhCssColor $tok[$rowBg]
+                        foreach ($s in 'ok', 'warn', 'danger', 'nodata') {
+                            $fg = ConvertFrom-DhCssColor $tok["cell-$s-fg"]; $o = ConvertFrom-DhCssColor $tok["cell-$s-bg"]
+                            $u = if ($o[3] -lt 1) { Merge-DhColor $o (Merge-DhColor $o $bg $o[3]) $o[3] } else { $o }   # the td and the badge both carry the tint
+                            $r = Get-DhContrastRatio $fg $u
+                            if ($r -lt 4.5) { '{0} {1} cell-{2}-fg {3:n2}' -f $t, $rowBg, $s, $r }
+                        }
+                    }
+                }
+                @($bad) | Should -BeNullOrEmpty
+            }
+        }
+        It 'contrast maths: white on black is 21:1, a colour on itself 1:1' {
+            InModuleScope DashHtml {
+                [math]::Round((Get-DhContrastRatio (ConvertFrom-DhCssColor '#fff') (ConvertFrom-DhCssColor '#000000')), 2) | Should -Be 21
+                Get-DhContrastRatio (ConvertFrom-DhCssColor '#0055A4') (ConvertFrom-DhCssColor '#0055A4') | Should -Be 1
+                ConvertTo-DhHexColor (ConvertFrom-DhHsl 240 1 0.5) | Should -Be '#0000FF'
+                ConvertTo-DhHexColor (ConvertFrom-DhHsl 120 1 0.25) | Should -Be '#008000'
+            }
+        }
+        It 'a colour below the minimum warns and never throws' {
+            { New-DhDashboard -Title 'x' -PrimaryColor '#FFE600' -WarningAction SilentlyContinue } | Should -Not -Throw
+            $null = New-DhDashboard -Title 'x' -PrimaryColor '#FFE600' -WarningVariable w2 -WarningAction SilentlyContinue
+            ($w2 -join ' ') | Should -Match '4\.5:1'
+        }
+        It 'rejects anything but hex colours and a plain font name (<Param> = <Value>)' -ForEach @(
+            @{ Param = 'PrimaryColor'; Value = 'red' }, @{ Param = 'PrimaryColor'; Value = '#12345' }
+            @{ Param = 'SecondaryColor'; Value = '#000;}body{x:y' }, @{ Param = 'FontFamily'; Value = "Inter';}" }) {
+            $splat = @{ Title = 'x'; $Param = $Value }
+            { New-DhDashboard @splat } | Should -Throw
+        }
+        It 'embeds -FontFile as an @font-face, needs -FontFamily, warns above 1 MB' {
+            $f = Join-Path $script:tmp 'brand.woff2'; [IO.File]::WriteAllBytes($f, [byte[]](1..200))
+            { New-DhDashboard -Title 'x' -FontFile $f } | Should -Throw -ExpectedMessage '*FontFamily*'
+            $r = New-DhDashboard -Title 'x' -FontFamily 'Brand Sans' -FontFile $f
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match "<style id=`"dh-brand-font`">@font-face \{ font-family: 'Brand Sans'; src: url\(data:font/woff2;base64,"
+            $big = Join-Path $script:tmp 'big.ttf'; [IO.File]::WriteAllBytes($big, [byte[]]::new(1MB + 10))
+            $null = New-DhDashboard -Title 'x' -FontFamily 'Big' -FontFile $big -WarningVariable fw -WarningAction SilentlyContinue
+            ($fw -join ' ') | Should -Match 'MB'
+        }
+        It 'a brand header is a gradient: deep stop first, header text 4.5:1 on both, -AccentColor draws the line' {
+            InModuleScope DashHtml {
+                foreach ($t in 'DefaultLight', 'DefaultDark', 'VMwareLight', 'AzureDark') {
+                    foreach ($p in '#0055A4', '#F28C00') {
+                        $css = (ConvertTo-DhBrandCss -Brand @{ PrimaryColor = $p; AccentColor = '#C86E00' } -Theme $t).Css
+                        $s = ConvertFrom-DhCssColor ([regex]::Match($css, '--bg-header:\s+(#[0-9A-F]{6})').Groups[1].Value)
+                        $e = ConvertFrom-DhCssColor ([regex]::Match($css, '--bg-header-end:\s+(#[0-9A-F]{6})').Groups[1].Value)
+                        $f = ConvertFrom-DhCssColor ([regex]::Match($css, '--header-fg:\s+(#[0-9A-F]{6})').Groups[1].Value)
+                        Get-DhContrastRatio $f $s | Should -BeGreaterOrEqual 4.5 -Because "$t $p start"
+                        Get-DhContrastRatio $f $e | Should -BeGreaterOrEqual 4.5 -Because "$t $p end"
+                        (Get-DhRelativeLuminance $s) | Should -BeLessOrEqual (Get-DhRelativeLuminance $e) -Because "$t ${p}: deep colour on the left"
+                        $css | Should -Match '--header-line:\s+#C86E00;'
+                    }
+                }
+            }
+        }
+    }
+
+    Context 'Header: no empty logo box, optional timestamp' {
+        It 'a report without -LogoPath has no logo element and no placeholder box' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Not -Match 'report-logo-placeholder'
+            $h | Should -Not -Match '<img[^>]+class="report-logo"'
+        }
+        It 'shows the Generated timestamp by default, in the header font, and -HideGeneratedAt removes it' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data $script:rows
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '<div class="header-meta">\s*<span class="meta-label">Generated</span>'
+            $h | Should -Match '\.meta-value \{\s*font-family: var\(--font-ui\);\s*font-size: var\(--size-xs\);'
+            $r2 = New-DhDashboard -Title 'x' -HideGeneratedAt
+            Add-DhTable -Report $r2 -TableId 't' -Title 'T' -Data $script:rows
+            (Export-DhTestHtml -Report $r2) | Should -Not -Match 'class="header-meta"'
+        }
+    }
+
+    Context 'Theme refresh: Azure and VMware brand colours, gradient header' {
+        It 'the header is a 120deg gradient between two tokens, flat when a theme has no end token' {
+            $css = (Get-DhTheme -Name Default).LightCss
+            $css | Should -Match 'background-image: linear-gradient\(120deg, var\(--bg-header\) 0%, var\(--bg-header-end, var\(--bg-header\)\) 100%\)'
+            $css | Should -Match 'var\(--header-line, var\(--accent-primary\)\)'
+        }
+        It 'Azure uses the Microsoft roles: Azure Blue accent, Dark Blue band, Light Blue only as the header line' {
+            $a = Get-DhTheme -Name Azure
+            $a.LightCss | Should -Match '--accent-primary:\s+#0078D4;'
+            $a.LightCss | Should -Match '--bg-header:\s+#104581;'
+            $a.LightCss | Should -Match '--header-line:\s+#50E6FF;'
+            $a.LightCss | Should -Not -Match '--text-[a-z]+:\s+#50E6FF'
+        }
+        It 'VMware has no green outside the status colours, and the Broadcom red is never a status colour' {
+            foreach ($css in (Get-DhTheme -Name VMware).LightCss, (Get-DhTheme -Name VMware).DarkCss) {
+                $root = [regex]::Match($css, ':root \{[\s\S]*?\n\}').Value
+                $root | Should -Not -Match '--(accent-primary|accent-secondary|text-accent|nav-active-fg|chart-1|bg-header):\s+#00(B388|C49A|7D63)'
+                $root | Should -Not -Match '--(accent-danger|cell-danger-fg):\s+#CC092F'
+            }
+        }
+        It 'every theme meets the token contract: header text on both gradient stops, the band, text, menu and rows (<_>)' -ForEach @(
+            'DefaultLight', 'DefaultDark', 'AzureLight', 'AzureDark', 'VMwareLight', 'VMwareDark',
+            'GreyLight', 'GreyDark', 'CompanyLight', 'CompanyDark', 'RagLight', 'RagDark') {
+            $theme = $_
+            InModuleScope DashHtml -Parameters @{ Theme = $theme } {
+                param($Theme)
+                $tok  = Get-DhThemeTokens (Get-DhThemeCss -Theme $Theme -RootOnly)
+                $col  = { param($n) ConvertFrom-DhCssColor $tok[$n] }
+                $page = & $col 'bg-page'
+                $bad  = [System.Collections.Generic.List[string]]::new()
+                $need = {
+                    param($fgName, $bg, $bgName)
+                    $fg = & $col $fgName
+                    if ($fg[3] -lt 1) { $fg = Merge-DhColor $fg $bg $fg[3] }
+                    $r = Get-DhContrastRatio $fg $bg
+                    if ($r -lt 4.5) { $bad.Add(('{0} on {1} {2:n2}' -f $fgName, $bgName, $r)) }
+                }
+                foreach ($stop in 'bg-header', 'bg-header-end') {
+                    $tok.Contains($stop) | Should -BeTrue -Because "$Theme defines $stop"
+                    $s = & $col $stop
+                    foreach ($f in 'header-fg', 'header-fg-muted') { & $need $f $s $stop }
+                    if ((Get-DhContrastRatio $s $page) -lt 1.30) { $bad.Add("$stop against the page (band rule 1.30)") }
+                }
+                foreach ($bgName in 'bg-surface', 'bg-page', 'bg-row-alt', 'bg-thead', 'chart-container-bg', 'bg-table') {
+                    $b = & $col $bgName; if ($b[3] -lt 1) { $b = Merge-DhColor $b $page $b[3] }
+                    foreach ($f in 'text-primary', 'text-secondary', 'text-muted', 'text-accent') { & $need $f $b $bgName }
+                }
+                $nav = & $col 'nav-bg'
+                foreach ($f in 'nav-title-fg', 'nav-link-fg') { & $need $f $nav 'nav-bg' }
+                foreach ($tint in 'nav-active-bg', 'nav-link-hover-bg') {
+                    $tb = & $col $tint; $u = Merge-DhColor $tb $nav $tb[3]
+                    foreach ($f in 'nav-active-fg', 'nav-link-hover-fg') { & $need $f $u $tint }
+                }
+                foreach ($row in 'bg-row-hover', 'bg-row-sel') { & $need 'text-primary' (& $col $row) $row }
+                & $need 'accent-primary-fg' (& $col 'accent-primary') 'accent-primary'
+                @($bad) | Should -BeNullOrEmpty -Because $Theme
+            }
+        }
+    }
+
+    Context 'V6 saved views' {
+        It 'emits views (and no column memory) only with -RememberViews, and the Views button with it' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 'plain' -Title 'P' -Data $script:rows
+            Add-DhTable -Report $r -TableId 'v' -Title 'V' -Data $script:rows -RememberViews
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"id":"v"[^\n]*"views":"[0-9a-f]{16}"'
+            $h | Should -Not -Match '"id":"v"[^\n]*"remember":'
+            $h | Should -Match 'id="btn-views-v"'
+            $h | Should -Not -Match 'id="btn-views-plain"'
+        }
+        It 'uses the same key as -RememberColumns' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhTable -Report $r -TableId 'v' -Title 'V' -Data $script:rows -RememberViews -RememberColumns
+            $h = Export-DhTestHtml -Report $r
+            $m = [regex]::Match($h, '"remember":"([0-9a-f]{16})","views":"([0-9a-f]{16})"')
+            $m.Success | Should -BeTrue
+            $m.Groups[1].Value | Should -Be $m.Groups[2].Value
+        }
+    }
+
+    Context 'V7 print review and print fixes' {
+        It 'the vendored pdf.js matches the hashes Test-DhPrint pins' {
+            $tool = Get-Content (Join-Path $script:repo 'Tools/Test-DhPrint.ps1') -Raw
+            foreach ($n in 'pdf.min.mjs', 'pdf.worker.min.mjs') {
+                $pin = [regex]::Match($tool, "'$([regex]::Escape($n))'\s*=\s*'([^']+)'").Groups[1].Value
+                $got = [Convert]::ToBase64String([Security.Cryptography.SHA384]::HashData([IO.File]::ReadAllBytes((Join-Path $script:repo "Tools/vendor/pdfjs-4.9.124/$n"))))
+                $got | Should -Be $pin -Because $n
+            }
+            Test-Path (Join-Path $script:repo 'Tools/vendor/pdfjs-4.9.124/LICENSE') | Should -BeTrue
+        }
+        It 'a network map prints at its own proportions; a line chart sizes its y-axis margin to its labels' {
+            $r = New-DhDashboard -Title 'x'
+            Add-DhNetworkMap -Report $r -Id 'nm' -Title 'N' -Nodes @(@{ Id = 'a'; Label = 'A' }, @{ Id = 'b'; Label = 'B' }) -Edges @(@{ From = 'a'; To = 'b' })
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match "innerDiv\.style\.aspectRatio = L\.width \+ ' / ' \+ L\.height"
+            $h | Should -Match 'padL = Math\.max\(padL, Math\.ceil\(longest \* 6\.2\) \+ 12\)'
+        }
+    }
+
+    Context 'V8 tree-table JSON' {
+        It 'the fast writer gives the same bytes as the escaper, including odd text and props named Count or Keys' {
+            InModuleScope DashHtml {
+                $rows = @(
+                    [ordered]@{ Id = 'a'; ParentId = ''; Type = 'ou'; Label = 'plain'; Status = 'ok'; Flags = [string[]]@('X', 'Y'); Properties = [ordered]@{ Count = '3'; Keys = 'k' }; Detail = $null }
+                    [ordered]@{ Id = 'b"q'; ParentId = 'a'; Type = 'user'; Label = "line`nbreak </script> `u{2028} tab`t"; Status = ''; Flags = [string[]]@('a\b'); Properties = [ordered]@{ 'x<' = "v`r`nw" }; Detail = $null }
+                    [ordered]@{ Id = 'c'; ParentId = 'a'; Type = 'user'; Label = 'é ü'; Status = 'warn'; Flags = [string[]]@(); Properties = [ordered]@{}; Detail = $null })
+                $ref = (@($rows) | ForEach-Object {
+                    $tr = $_; $tx = ''
+                    if (@($tr.Flags).Count) { $tx += ',"flags":[' + ((@($tr.Flags) | ForEach-Object { ConvertTo-DhJsonString $_ }) -join ',') + ']' }
+                    if ($tr.Properties.PSBase.Count) { $tx += ',"props":[' + ((@($tr.Properties.PSBase.Keys) | ForEach-Object { "{`"label`":$(ConvertTo-DhJsonString $_),`"value`":$(ConvertTo-DhJsonString $tr.Properties[$_])}" }) -join ',') + ']' }
+                    "{`"id`":$(ConvertTo-DhJsonString $tr.Id),`"parent`":$(ConvertTo-DhJsonString $tr.ParentId),`"type`":$(ConvertTo-DhJsonString $tr.Type),`"label`":$(ConvertTo-DhJsonString $tr.Label),`"status`":$(ConvertTo-DhJsonString $tr.Status)$tx}"
+                }) -join ','
+                ConvertTo-DhTreeTableRowsJson -Rows $rows | Should -BeExactly $ref
+                $links = @(@{ GroupId = 'g'; MemberId = 'm' }, @{ GroupId = 'g"2'; MemberId = '</x>' })
+                ConvertTo-DhTreeTableLinksJson -Links $links | Should -BeExactly ((@($links) | ForEach-Object { "[$(ConvertTo-DhJsonString $_.GroupId),$(ConvertTo-DhJsonString $_.MemberId)]" }) -join ',')
+            }
+        }
+        It 'still rejects a ParentId loop' {
+            $r = New-DhDashboard -Title 'x'
+            { Add-DhTreeTable -Report $r -Id 'tt' -Title 'T' -Rows @(@{ Id = 'a'; ParentId = 'b'; Type = 'ou'; Label = 'A' }, @{ Id = 'b'; ParentId = 'a'; Type = 'ou'; Label = 'B' }) } |
+                Should -Throw -ExpectedMessage '*loops*'
+        }
+    }
+}
+
+Describe 'v3.1.0 Add-DhGantt' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'DhTestHelpers.ps1')
+        $script:gj = {
+            param([object[]] $Items, [hashtable] $Extra = @{})
+            $r = New-DhDashboard -Title 'g'
+            Add-DhGantt -Report $r -Id 'g' -Title 'G' -Items $Items @Extra
+            $r.Blocks[0].GanttJson
+        }
+    }
+
+    Context 'Validation' {
+        It 'throws on <Case>' -ForEach @(
+            @{ Case = 'a missing Label';           Items = @(@{ Start = 0; End = 1 });                         Msg = '*no Label*' }
+            @{ Case = 'a missing Start';           Items = @(@{ Label = 'a'; End = 1 });                       Msg = '*no Start*' }
+            @{ Case = 'an end before the start';   Items = @(@{ Label = 'a'; Start = 5; End = 1 });            Msg = '*ends before it starts*' }
+            @{ Case = 'dates mixed with numbers';  Items = @(@{ Label = 'a'; Start = 0; End = '2026-01-01' }); Msg = '*mixes dates and numbers*' }
+            @{ Case = 'an unreadable start';       Items = @(@{ Label = 'a'; Start = 'soon' });                Msg = '*neither a date nor a number*' }
+            @{ Case = 'a duplicate Id';            Items = @(@{ Label = 'a'; Start = 0; Id = 'x' }, @{ Label = 'b'; Start = 1; Id = 'x' }); Msg = '*duplicate item Id*' }
+            @{ Case = 'an unknown DependsOn';      Items = @(@{ Label = 'a'; Start = 0; DependsOn = 'nope' }); Msg = "*unknown Id 'nope'*" }
+            @{ Case = 'an item that is not a hashtable'; Items = @('text');                                   Msg = '*must be a hashtable*' }
+        ) {
+            { & $script:gj $Items } | Should -Throw -ExpectedMessage $Msg
+        }
+        It 'throws on a bad -Origin, a clock axis without dates, and markers or bands of the wrong kind' {
+            $i = @(@{ Label = 'a'; Start = 0; End = 10 })
+            { & $script:gj $i @{ Origin = 'later' } }   | Should -Throw -ExpectedMessage "*-Origin must be 'first' or a date*"
+            { & $script:gj $i @{ AxisFormat = 'Clock' } } | Should -Throw -ExpectedMessage '*needs dates*'
+            { & $script:gj $i @{ Markers = @(@{ At = [datetime]'2026-01-01'; Label = 'm' }) } } | Should -Throw -ExpectedMessage '*marker*'
+            { & $script:gj $i @{ Bands = @(@{ From = 5; To = 1; Label = 'b' }) } } | Should -Throw -ExpectedMessage '*ends before it starts*'
+        }
+        It '-Items and -TableId cannot be used together' {
+            $r = New-DhDashboard -Title 'g'
+            { Add-DhGantt -Report $r -Id 'g' -Title 'G' -Items @(@{ Label = 'a'; Start = 0 }) -TableId 't' -LabelField 'a' -StartField 's' } |
+                Should -Throw -ErrorId 'AmbiguousParameterSet,Add-DhGantt'
+        }
+        It 'an unknown status is kept (the page shows it as no data), as in the other blocks' {
+            & $script:gj @(@{ Label = 'a'; Start = 0; End = 1; Status = 'Cell-Weird' }) | Should -Match '"status":"weird"'
+        }
+        It 'warns above -MaxItems' {
+            $r = New-DhDashboard -Title 'g'
+            Add-DhGantt -Report $r -Id 'g' -Title 'G' -MaxItems 2 -Items @(1..3 | ForEach-Object { @{ Label = "t$_"; Start = $_ } }) -WarningVariable w -WarningAction SilentlyContinue
+            "$w" | Should -Match 'over -MaxItems \(2\)'
+        }
+    }
+
+    Context 'Time: seconds from the origin, the browser parses nothing' {
+        It 'dates of every form become seconds from the earliest start, offsets and Z kept as written' {
+            $j = & $script:gj @(
+                @{ Label = 'a'; Start = [datetime]'2026-11-03 07:19:02'; End = '2026-11-03 07:23:31' }
+                @{ Label = 'b'; Start = [DateTimeOffset]'2026-11-03T07:23:32+01:00'; End = '2026-11-03T08:15:06Z' })
+            $j | Should -Match '"label":"a","s":0,"e":269\b'
+            $j | Should -Match '"label":"b","s":270,"e":3364\b'
+            $j | Should -Match '"axis":"clock"'
+            $origin = ([datetime]'2026-11-03 07:19:02' - [datetime]'1970-01-01').TotalSeconds
+            $j | Should -Match ('"origin":' + $origin + ',')
+        }
+        It 'a [datetime] shows its wall clock whatever its Kind, so the reader zone cannot move it' {
+            $w = [datetime]'2026-07-01 10:00:00'
+            $kinds = foreach ($k in 'Local', 'Utc', 'Unspecified') {
+                & $script:gj @(@{ Label = 'a'; Start = [datetime]::SpecifyKind($w, $k); End = [datetime]::SpecifyKind($w.AddMinutes(5), $k) })
+            }
+            @($kinds | Select-Object -Unique).Count | Should -Be 1
+        }
+        It 'a bar across a daylight-saving change is placed by wall clock' {
+            & $script:gj @(@{ Label = 'a'; Start = '2026-03-29 01:30'; End = '2026-03-29 03:30' }) | Should -Match '"s":0,"e":7200\b'
+        }
+        It 'numbers are elapsed -Unit; a date -Origin lends them a clock' {
+            & $script:gj @(@{ Label = 'a'; Start = 0; End = 1.5 }) @{ Unit = 'min' } | Should -Match '"origin":null.*"s":0,"e":90\b'
+            $j = & $script:gj @(@{ Label = 'a'; Start = 0; End = '446' }) @{ Origin = [datetime]'2026-01-01 08:00' }
+            $j | Should -Match '"axis":"clock"'
+            $j | Should -Match '"s":0,"e":446\b'
+        }
+        It 'an explicit date -Origin shifts every value, markers and bands included' {
+            $j = & $script:gj @(@{ Label = 'a'; Start = '2026-01-01 08:10'; End = '2026-01-01 08:20' }) @{
+                Origin = [datetime]'2026-01-01 08:00'; Markers = @(@{ At = '2026-01-01 08:30'; Label = 'm'; Status = 'Warning' })
+                Bands = @(@{ From = '2026-01-01 08:00'; To = '2026-01-01 09:00'; Label = 'w' }) }
+            $j | Should -Match '"s":600,"e":1200\b'
+            $j | Should -Match '"markers":\[\{"at":1800,"label":"m","status":"warning"\}\]'
+            $j | Should -Match '"bands":\[\{"from":0,"to":3600,"label":"w"\}\]'
+        }
+        It 'the JSON is the same in it-IT and en-US (no decimal commas, no culture dates)' {
+            $items = @(@{ Label = 'a'; Start = '2026-01-02 03:04:05'; End = '2026-01-02 03:04:07.5' }, @{ Label = 'b'; Start = '2026-01-02 03:05' })
+            $old = [cultureinfo]::CurrentCulture
+            try {
+                [cultureinfo]::CurrentCulture = 'it-IT'; $it = & $script:gj $items
+                [cultureinfo]::CurrentCulture = 'en-US'; $en = & $script:gj $items
+            } finally { [cultureinfo]::CurrentCulture = $old }
+            $it | Should -BeExactly $en
+            $it | Should -Match '"e":2\.5\b'
+        }
+        It 'span picks the axis: under two days a clock, above a date' {
+            & $script:gj @(@{ Label = 'a'; Start = '2026-01-01'; End = '2026-01-04' }) | Should -Match '"axis":"date"'
+            & $script:gj @(@{ Label = 'a'; Start = '2026-01-01'; End = '2026-01-02' }) | Should -Match '"axis":"clock"'
+        }
+    }
+
+    Context 'JSON and export' {
+        It 'emits only the keys that are set' {
+            & $script:gj @(@{ Label = 'a'; Start = 0; End = 1 }) | Should -Match '"items":\[\{"label":"a","s":0,"e":1\}\]'
+            $j = & $script:gj @(
+                @{ Id = 'x'; Label = 'a'; Start = 0; End = 1; Group = 'G'; Row = 'R'; Status = 'ok'; Critical = $true; Text = 't'; Tooltip = 'tt'; LinkTableId = 'L'; LinkFilter = 'f'; Detail = 'd' }
+                @{ Label = 'b'; Start = 1; Category = 'C'; DependsOn = 'x' })
+            $j | Should -Match '"label":"a","s":0,"e":1,"id":"x","group":"G","row":"R","status":"ok","critical":true,"text":"t","tooltip":"tt","detail":\{'
+            $j | Should -Match '"label":"b","s":1,"category":"C","after":\["a"\]\}'
+        }
+        It 'a table-fed chart sends each row''s times by position, null for a row it cannot read' {
+            $r = New-DhDashboard -Title 'g'
+            $rows = @(
+                [ordered]@{ Job = 'a'; S = [datetime]'2026-06-12 22:00'; E = [datetime]'2026-06-12 23:00'; R = 'OK' }
+                [ordered]@{ Job = 'b'; S = 'later'; E = $null; R = 'OK' }
+                [ordered]@{ Job = 'c'; S = [datetime]'2026-06-12 22:30'; E = $null; R = 'Failed' })
+            Add-DhTable -Report $r -TableId 'jobs' -Title 'J' -Data $rows
+            Add-DhGantt -Report $r -Id 'g' -Title 'G' -TableId 'jobs' -LabelField 'Job' -StartField 'S' -EndField 'E' -StatusField 'R' -WarningVariable w -WarningAction SilentlyContinue
+            "$w" | Should -Match '1 of 3 rows'
+            $j = $r.Blocks[0].GanttJson
+            $j | Should -Match '"mode":"fromtable"'
+            $j | Should -Match '"times":\[\[0,3600\],null,\[1800\]\]'
+            $j | Should -Match '"statusField":"R"'
+            $j | Should -Not -Match 'groupField'
+        }
+        It 'a table-fed chart checks the table and its fields' {
+            $r = New-DhDashboard -Title 'g'
+            { Add-DhGantt -Report $r -Id 'g' -Title 'G' -TableId 'nope' -LabelField 'a' -StartField 's' } | Should -Throw -ExpectedMessage "*'nope' not found*"
+            Add-DhTable -Report $r -TableId 't' -Title 'T' -Data @([ordered]@{ A = 'x'; S = 0 })
+            { Add-DhGantt -Report $r -Id 'g' -Title 'G' -TableId 't' -LabelField 'A' -StartField 's' } | Should -Throw -ExpectedMessage "*'s' is not a field*"
+            { Add-DhGantt -Report $r -Id 'g2' -Title 'G' -TableId 't' -LabelField 'A' -StartField 'A' } | Should -Throw -ExpectedMessage '*no row*'
+        }
+        It 'exports the block with nav and grid span, and the runtime renders, boots and refreshes it' {
+            $r = New-DhDashboard -Title 'g'
+            Add-DhGantt -Report $r -Id 'g1' -Title 'Steps' -NavPath 'Plan' -GridSpan 6 -Items @(@{ Label = 'a'; Start = 0; End = 1 })
+            $h = Export-DhTestHtml -Report $r
+            $h | Should -Match '"blockType":"gantt","id":"g1","title":"Steps","mode":"items"'
+            $h | Should -Match 'id="bsection-g1" data-navpath="\[&quot;Plan&quot;\]"[^>]*style="grid-column:span 6"'
+            $h | Should -Match "case 'gantt':\s+renderGantt\(container, b\)"
+            (Get-DhTestJsFunction -Html $h -Name 'renderGantt') | Should -Not -BeNullOrEmpty
+            $h | Should -Match "block\.blockType === 'gantt' && block\.mode === 'fromtable' && block\.tableId === id"
+            $h | Should -Match "block\.blockType === 'gantt' && block\.mode === 'fromtable'\) \{"
+            $h | Should -Match '\.gantt-section \{'
+        }
+        It 'warns at export about an item link to a missing table' {
+            $r = New-DhDashboard -Title 'g'
+            Add-DhGantt -Report $r -Id 'g1' -Title 'S' -Items @(@{ Label = 'a'; Start = 0; LinkTableId = 'ghost' })
+            (Export-DhTestHtml -Report $r -WithWarnings).Warnings -join "`n" | Should -Match "gantt 'g1' item 'a': LinkTableId 'ghost'"
+        }
+        It 'the runtime never emits an inline handler or parses a date' {
+            $r = New-DhDashboard -Title 'g'
+            Add-DhGantt -Report $r -Id 'g1' -Title 'S' -Items @(@{ Label = 'a'; Start = 0 })
+            $h = Export-DhTestHtml -Report $r
+            $src = (Get-DhTestJsFunction -Html $h -Name 'renderGantt') + (Get-DhTestJsFunction -Html $h -Name 'dhGanttTicks') + (Get-DhTestJsFunction -Html $h -Name 'dhGanttItems')
+            $src | Should -Not -Match '\son[a-z]+='
+            $src | Should -Not -Match 'Date\.parse|new Date\([^)]*["'']'
         }
     }
 }

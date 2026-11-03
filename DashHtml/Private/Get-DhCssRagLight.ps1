@@ -20,7 +20,8 @@ function Get-DhCssRagLight {
 :root {
   /* RagLight — Spec-exact Office/Excel RAG palette (KPI spec §7.2) */
   --bg-page:          #FFFFFF;
-  --bg-header:        #404040;
+  --bg-header:        #262626;
+  --bg-header-end:    #595959;   /* 3.0.0 - the header is a 120deg gradient between the two */
   --bg-surface:       #FFFFFF;
   --bg-table:         #FFFFFF;
   --bg-row-alt:       #F7F7F7;
